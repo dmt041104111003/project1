@@ -1,0 +1,341 @@
+Đặc tả UC1	
+	
+Tên Use Case	Đăng ký & Xác minh DID
+Mô tả	Người dùng mới tham gia nền tảng cần xác minh danh tính (DID). Việc xác minh sử dụng 3 công nghệ chính: Anti-Spoofing (Deep Learning MiniFASNet ensemble), Face Recognition (dlib 128-d encoding), OCR (Tesseract) và kết hợp với chữ ký private-key để chứng minh quyền sở hữu. Đây là nền tảng để đảm bảo mọi tài khoản là duy nhất, thật, và minh bạch.
+Tác nhân	Freelancer
+Tiền điều kiện	"- Có ví
+- Có giấy tờ tùy thân (CCCD/Hộ chiếu).
+- Có camera để selfie real-time."
+Hậu điều kiện	"- DID Verified lưu trong DB.
+- Hash DID ghi nhận on-chain.
+- Freelancer có quyền tham gia các Use Case khác (Poster, DAO member)."
+Luồng sự kiện chính	Freelancer chọn “Xác minh danh tính”.
+	Hệ thống yêu cầu: selfie real-time, ảnh ID (trước/sau), ký challenge bằng ví.
+	"API xử lý:
+1. Anti-spoofing: kiểm tra liveness.
+2. Face recognition: so khớp mặt với ID.
+3. OCR: trích xuất số ID, tên, ngày sinh."
+	Kết quả các mô-đun → ensemble score.
+	Nếu đạt ngưỡng → DID = Verified, ghi hash DID lên on-chain.
+	DB cập nhật DID Verified, trạng thái active.
+Luồng sự kiện ngoại lệ	Chữ ký ví sai → huỷ.
+	Anti-spoofing fail → từ chối.
+	OCR lỗi → yêu cầu chụp lại.
+
+Đặc tả UC2	
+	
+Tên Use Case	Tạo hồ sơ (Register Profile)
+Mô tả	Freelancer tạo hồ sơ cá nhân, chứa CV, kỹ năng, kinh nghiệm. Dữ liệu PII lưu trong DB (mã hoá). On-chain chỉ lưu hash/CID hồ sơ để đảm bảo tính duy nhất.
+Tác nhân	Freelancer
+Tiền điều kiện	"- DID Verified.
+- Chưa có profile on-chain."
+Hậu điều kiện	"- Hồ sơ lưu DB (encrypted).
+- Hash/CID commit on-chain.
+- Profile trạng thái Active."
+Luồng sự kiện chính	Freelancer nhập dữ liệu hồ sơ, upload CV.
+	Backend mã hoá, lưu DB.
+	Sinh hash/CID → gọi contract register_profile(cid_hash).
+	Contract ghi CID vào on-chain → emit ProfileRegistered.
+	DB sync trạng thái profile.
+Luồng sự kiện ngoại lệ	DID chưa verified → reject.
+	Profile tồn tại rồi → reject.
+	Nội dung CV vi phạm → reject bởi moderation.
+
+Đặc tả UC3	
+	
+Tên Use Case	Cập nhật hồ sơ (Update Profile)
+Mô tả	Freelancer cập nhật thông tin nghề nghiệp.
+Tác nhân	Freelancer
+Tiền điều kiện	"- DID Verified.
+- Profile on-chain đã tồn tại."
+Hậu điều kiện	"- Hồ sơ mới lưu DB (encrypted).
+- Hash mới commit lên on-chain."
+Luồng sự kiện chính	Freelancer chỉnh sửa hồ sơ.
+	DB lưu version mới, sinh CID/hash.
+	Gọi contract update_profile(cid_hash_new).
+	Contract cập nhật hash, emit ProfileUpdated.
+	DB sync.
+Luồng sự kiện ngoại lệ	Không có profile cũ → reject.
+	Nội dung vi phạm → moderation reject.
+
+Đặc tả UC4	
+	
+Tên Use Case	Đăng Job (Post Job + Vault Escrow)
+Mô tả	Poster đăng công việc, ký quỹ escrow để tạo Job Vault.
+Tác nhân	Poster
+Tiền điều kiện	"- DID Verified.
+- Có ≥5 token trong ví."
+Hậu điều kiện	"- Job Vault on-chain chứa escrow.
+- Job hiển thị trong DB."
+Luồng sự kiện chính	Poster nhập job form.
+	Moderation kiểm tra nội dung.
+	Nếu pass → gọi contract post_job(cid, milestones, escrow_amount).
+	Contract tạo Job Vault, lưu escrow. Emit JobPosted.
+	DB sync.
+Luồng sự kiện ngoại lệ	Escrow không đủ → reject.
+	Nội dung cấm → reject.
+
+Đặc tả UC5	
+	
+Tên Use Case	Ứng tuyển Job (Apply + Stake)
+Mô tả	Freelancer ứng tuyển job kèm stake chống spam.
+Tác nhân	Freelancer
+Tiền điều kiện	"- DID Verified + profile on-chain.
+- Có ≥1 token stake."
+Hậu điều kiện	"- Stake lock vào Job Vault.
+- Ứng viên ghi nhận trong DB."
+Luồng sự kiện chính	Freelancer apply job.
+	Gọi contract apply_job(job_id, stake_amt).
+	Contract lock stake. Emit WorkerApplied.
+	DB sync.
+Luồng sự kiện ngoại lệ	Đã apply rồi → reject.
+	Không đủ token stake → reject.
+
+Đặc tả UC6	
+	
+Tên Use Case	Duyệt Freelancer (Approve Worker)
+Mô tả	Poster chọn một ứng viên để giao việc.
+Tác nhân	Poster
+Tiền điều kiện	"- Job active.
+- Có ứng viên apply."
+Hậu điều kiện	"- Job gán cho worker.
+- State chuyển sang In Progress."
+Luồng sự kiện chính	Poster chọn ứng viên.
+	Gọi contract approve_worker(job_id, worker_addr).
+	Contract cập nhật. Emit WorkerApproved.
+	DB sync.
+Luồng sự kiện ngoại lệ	Job đã closed → reject.
+
+Đặc tả UC7	
+	
+Tên Use Case	Nộp Milestone (Submit Deliverable)
+Mô tả	Freelancer nộp kết quả milestone.
+Tác nhân	Freelancer
+Tiền điều kiện	"- Job in_progress.
+- Milestone chưa nộp."
+Hậu điều kiện	"- Milestone state = Submitted.
+- CID lưu on-chain."
+Luồng sự kiện chính	Freelancer upload kết quả → sinh CID.
+	Gọi contract submit_milestone(job_id, idx, cid).
+	Contract cập nhật state. Emit MilestoneSubmitted.
+	DB sync.
+Luồng sự kiện ngoại lệ	Nộp trùng → reject.
+	Milestone quá hạn → reject.
+
+Đặc tả UC8	
+	
+Tên Use Case	Duyệt Milestone (Accept/Reject)
+Mô tả	Poster duyệt hoặc từ chối deliverable.
+Tác nhân	Poster
+Tiền điều kiện	Milestone Submitted.
+Hậu điều kiện	"- Nếu Accept → tiền trả từ Escrow → Worker.
+- Nếu Reject → milestone = Rejected."
+Luồng sự kiện chính	Poster kiểm tra deliverable.
+	Accept → gọi accept_milestone(job_id, idx). Contract trả tiền. Emit MilestoneAccepted.
+	Reject → gọi reject_milestone(job_id, idx). Emit MilestoneRejected.
+Luồng sự kiện ngoại lệ	Dispute đang mở → chặn.
+	Transfer fail → revert.
+
+Đặc tả UC9	
+	
+Tên Use Case	Rút Stake (Withdraw Stake)
+Mô tả	Freelancer rút stake sau khi job xong.
+Tác nhân	Freelancer
+Tiền điều kiện	Job closed.
+Hậu điều kiện	Stake trả về ví.
+Luồng sự kiện chính	Freelancer gọi withdraw_stake(job_id).
+	Contract trả stake. Emit StakeWithdrawn.
+Luồng sự kiện ngoại lệ	Stake đã bị slash → chỉ hoàn phần còn lại.
+
+Đặc tả UC10	
+	
+Tên Use Case	Hủy Job (Cancel Job)
+Mô tả	Poster huỷ job.
+Tác nhân	Poster 
+Tiền điều kiện	Job active.
+Hậu điều kiện	"- Escrow refund theo chính sách.
+- Job = Canceled."
+Luồng sự kiện chính	Client gọi cancel_job(job_id).
+	Contract refund escrow. Emit JobCanceled.
+Luồng sự kiện ngoại lệ	Đang có Dispute → reject.
+
+Đặc tả UC11	
+	
+Tên Use Case	Freelancer bỏ việc (Abandon / Replace)
+Mô tả	Freelancer không nộp, job bị thay thế.
+Tác nhân	Poster
+Tiền điều kiện	Freelancer approved.
+Hậu điều kiện	"- Freelancer bị slash stake.
+- Job có thể gán freelancer mới."
+Luồng sự kiện chính	Poster báo worker_abandon.
+	Contract slash stake, mở lại job. Emit WorkerAbandoned.
+Luồng sự kiện ngoại lệ	Freelancer phản đối → mở dispute.
+
+Đặc tả UC12	
+	
+Tên Use Case	Bổ sung Escrow (Top-up)
+Mô tả	Poster nạp thêm escrow.
+Tác nhân	Poster 
+Tiền điều kiện	Job active.
+Hậu điều kiện	Vault escrow tăng.
+Luồng sự kiện chính	Poster gọi top_up_escrow(job_id, amount).
+	Contract thêm coin. Emit EscrowToppedUp.
+Luồng sự kiện ngoại lệ	Không đủ số dư → reject.
+
+Đặc tả UC13	
+	
+Tên Use Case	Mở Tranh chấp (Open Dispute)
+Mô tả	Một bên mở tranh chấp kèm bằng chứng CID.
+Tác nhân	Freelancer, Poster.
+Tiền điều kiện	"- DID Verified.
+- Có milestone contested."
+Hậu điều kiện	"- Dispute record tạo on-chain.
+- DAO vote được mở."
+Luồng sự kiện chính	Actor gọi open_dispute(job_id, milestone_idx, evidence_cid).
+	Contract lock vault. Emit DisputeOpened.
+Luồng sự kiện ngoại lệ	Đã có dispute → reject.
+
+Đặc tả UC14	
+	
+Tên Use Case	DAO Vote Tranh chấp
+Mô tả	DAO member bỏ phiếu tranh chấp.
+Tác nhân	DAO Member
+Tiền điều kiện	"- DAO member Verified, trust score ≥80.
+- Không phải bên tranh chấp."
+Hậu điều kiện	"- Phiếu ghi nhận.
+- Sau deadline → kết quả quyết định."
+Luồng sự kiện chính	Voter gọi vote_dispute(dispute_id, option).
+	Contract ghi vote. Emit VoteCast.
+	Deadline → tally vote → emit DisputeResolved.
+Luồng sự kiện ngoại lệ	Voter liên quan → reject.
+	Double vote → reject.
+
+Đặc tả UC15	
+	
+Tên Use Case	Admin Resolve Dispute (Multisig)
+Mô tả	Nếu DAO không đủ quorum → admin giải quyết bằng multisig.
+Tác nhân	Admin
+Tiền điều kiện	DAO vote fail/quorum thấp.
+Hậu điều kiện	"- Dispute resolved.
+- Vault release."
+Luồng sự kiện chính	Admin propose resolution.
+	Các admin ký multisig.
+	Contract thực hiện khi đủ chữ ký. Emit AdminResolved.
+Luồng sự kiện ngoại lệ	Không đủ chữ ký → pending.
+
+Tên Use Case	Finalize Dispute & Distribute Reward
+Mô tả	Khi thời gian bỏ phiếu của dispute kết thúc và không có appeal, một actor hợp lệ gọi hàm để chốt kết quả dispute, thực hiện phân phối tiền cho bên thắng và phân phối reward/slash cho voter.
+Tác nhân	"- Admin multisig (luôn được phép).
+- Poster, Freelancer trong vụ việc.
+- DAO member"
+Tiền điều kiện	"- Dispute state = Voting.
+- Thời gian bỏ phiếu đã hết.
+- Không có appeal đang mở.
+- Chưa finalize trước đó (idempotent)."
+Hậu điều kiện	"- Dispute state = Resolved (PosterWin / WorkerWin / Partial).
+- Chuyển tiền escrow về bên thắng (hoặc chia tỷ lệ nếu partial).
+- Reward: Voter đúng (vote bên thắng) được thưởng từ pool (slashed stake + % nhỏ vault).
+- Reward: Voter sai bị slash stake và giảm trust score.
+- Event: DisputeFinalized, RewardDistributed."
+Luồng sự kiện chính	Caller gọi finalize_dispute(dispute_id).
+	Hệ thống kiểm tra điều kiện: a. Deadline vote đã qua / b. Dispute chưa finalize.
+	Tính kết quả dựa trên snapshot vote: Xác định bên thắng hoặc partial.
+	Chuyển escrow cho bên thắng.
+	Tính reward pool: a. Stake bị slash từ voter sai. b. % nhỏ từ vault của job. (Slash = cơ chế phạt)
+	Phân phối reward cho voter đúng theo tỷ lệ stake.
+	Emit sự kiện: DisputeFinalized, RewardDistributed.
+Luồng sự kiện ngoại lệ	"- Không đạt quorum hoặc tie → dispute chuyển sang Escalated → gọi UC15 (Admin Resolve Dispute).
+- Có appeal được mở trong appeal window → UC15 xử lý (không chạy UC16).
+- Có appeal đang mở → reject finalize."
+
+Đặc tả UC17	
+	
+Tên Use Case	Escalate Deadline Expired → Admin Forced Resolution
+Mô tả	Khi deadline milestone hết hạn mà poster không phản hồi, bất kỳ ai cũng có thể escalat trạng thái cho admin xử lý. Admin multisig sau đó quyết định Accept hoặc Refund theo policy.
+Tác nhân	Admin, Freelancer (escalate)
+Tiền điều kiện	"- Milestone state = Submitted.
+- Deadline đã hết.
+- Không có dispute pending."
+Hậu điều kiện	"- State milestone = Escalated.
+- Event MilestoneEscalated.
+- Admin multisig thực hiện force_resolve (Accept hoặc Refund)."
+Luồng sự kiện chính	Freelancer gọi escalate_milestone(job_id, idx).
+	Contract kiểm tra điều kiện và đổi state → Escalated.
+	Emit event.
+	Admin multisig vote/approve và gọi execute_force_resolve.
+Luồng sự kiện ngoại lệ	"- Milestone không hợp lệ → reject.
+- Escalation đã thực hiện trước đó → idempotent. (thao tác escalation lần nữa cũng không gây ra thay đổi hay tác động trùng lặp)"
+	
+	
+	Escalate = đưa một issue/tranh chấp lên cấp cao hơn để xử lý
+
+Đặc tả UC18	
+	
+Tên Use Case	Emergency Pause/Unpause
+Mô tả	Admin multisig tạm dừng module khẩn cấp.
+Tác nhân	Admin
+Tiền điều kiện	Multisig quorum đạt.
+Hậu điều kiện	Module paused/unpaused.
+Luồng sự kiện chính	Admin gọi pause_module(module_id).
+	Contract pause → emit Paused.
+Luồng sự kiện ngoại lệ	Không đủ chữ ký → reject.
+
+Đặc tả UC19	
+	
+Tên Use Case	Quản lý người dùng (RBAC Off-chain)
+Mô tả	Admin quản trị user (All), chống spam.
+Tác nhân	Admin
+Tiền điều kiện	User tồn tại.
+Hậu điều kiện	User có thể bị hạn chế (ban, block).
+Luồng sự kiện chính	Admin cập nhật role trong DB (RBAC).
+	Nếu ban → user bị cấm apply/post.
+Luồng sự kiện ngoại lệ	Sai phạm admin → audit log kiểm tra.
+
+Đặc tả UC20	
+	
+Tên Use Case	Đăng ký/ Hủy DAO Member
+Mô tả	Freelancer/Poster không thuộc bên tranh chấp muốn tham gia DAO để vote.
+Tác nhân	Freelancer/Poster
+Tiền điều kiện	"- DID Verified.
+- Trust score ≥80, stake đủ."
+Hậu điều kiện	Trở thành voter.
+Luồng sự kiện chính	Freelancer/Poster không thuộc bên tranh châp gọi register_voter(stake_amt).
+	Contract lock stake. Emit VoterRegistered.
+	Unregister → stake unlock sau cooldown.
+Luồng sự kiện ngoại lệ	Đang có vote active → không được unregister.
+
+Đặc tả UC21	
+	
+Tên Use Case	Manage Admin (Add/Remove via Multisig)
+Mô tả	Cho phép thêm hoặc xóa admin trong danh sách quản trị thông qua multisig proposal, đảm bảo không cần redeploy contract khi thay đổi admin.
+Tác nhân	Admin
+Tiền điều kiện	"- Caller là admin hiện tại.
+- Đủ số chữ ký multisig theo quorum.
+- Không có proposal trùng nội dung đang pending.
+- Hợp đồng ở trạng thái unpaused."
+Hậu điều kiện	"- Danh sách admin được cập nhật on-chain.
+- Event AdminAdded hoặc AdminRemoved được emit.
+- Proposal đánh dấu là executed (không lặp lại)."
+Luồng sự kiện chính	Một admin gọi propose_admin_change(action, address): a. action = ADD hoặc REMOVE. / b. address = địa chỉ ví admin cần thêm hoặc xóa.
+	Proposal được lưu vào contract với trạng thái Pending.
+	Các admin khác gọi approve_proposal(proposal_id).
+	Khi đạt quorum: a. Contract thực hiện action (ADD hoặc REMOVE). / b. Emit sự kiện AdminAdded hoặc AdminRemoved. / c. Đánh dấu proposal = Executed.
+Luồng sự kiện ngoại lệ	"- Không đủ chữ ký trong thời hạn → proposal expired.
+- Địa chỉ đã tồn tại khi ADD hoặc không tồn tại khi REMOVE → reject.
+- Admin cố gắng xóa chính mình nếu số admin còn lại < quorum → reject.
+- Nếu số lượng admin hiện tại đã đạt giới hạn tối đa (ví dụ 15 admin) → reject. (vì tốn phí nếu sl admin quá lớn)"
+
+Đặc tả UC22	
+	
+Tên Use Case	Realtime Chat Poster ↔ Freelancer
+Mô tả	Cho phép Poster và Freelancer trao đổi trong quá trình thực hiện job thông qua DID/địa chỉ ví, sử dụng kênh chat bảo mật và đồng bộ.
+Tác nhân	Poster, Freelancer
+Tiền điều kiện	"- Cả hai có DID Verified.
+- Có job đang active giữa Poster và Freelancer.
+- Cả hai được hệ thống xác thực là thuộc cùng job đó."
+Hậu điều kiện	"- Tin nhắn gửi đi hiển thị realtime cho cả hai.
+- Tin nhắn được lưu off-chain"
+Luồng sự kiện chính	Người dùng mở chat trong dashboard job.
+	Client kết nối WebSocket đến chat server.
+	Server lưu tin nhắn vào DB
+Luồng sự kiện ngoại lệ	Lỗi kết nối WebSocket → fallback sang polling.
