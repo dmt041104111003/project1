@@ -34,7 +34,7 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (showWalletMenu) {
         setShowWalletMenu(false);
       }
@@ -62,7 +62,8 @@ export function Header() {
       await navigator.clipboard.writeText(account);
       setCopiedAddress(true);
       toast.success('Đã copy địa chỉ ví vào clipboard!');
-    } catch (error) {
+    } catch (err) {
+      console.error('Copy address error:', err);
       toast.error('Không thể copy địa chỉ ví');
     }
   };

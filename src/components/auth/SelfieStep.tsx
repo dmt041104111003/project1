@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Camera, CheckCircle } from 'lucide-react';
 import { SelfieStepProps } from '@/constants/did-verification';
 
-
 export default function SelfieStep({ onNext, onError }: SelfieStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,7 +15,8 @@ export default function SelfieStep({ onNext, onError }: SelfieStepProps) {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('Camera access error:', err);
       onError('Không thể truy cập camera');
     }
   };

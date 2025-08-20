@@ -12,6 +12,12 @@ type WalletContextType = {
   aptosNetwork: string | null;
 };
 
+type WalletEventListener = (network: string) => void;
+type WalletEventTarget = {
+  addEventListener?: (event: string, callback: WalletEventListener) => void;
+  removeEventListener?: (event: string, callback: WalletEventListener) => void;
+};
+
 const WalletContext = createContext<WalletContextType>({
   account: null,
   isConnecting: false,
@@ -50,26 +56,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setAptosNetwork(network);
         localStorage.setItem('aptosNetwork', network);
       };
+      
       if (window.aptos.on) {
         window.aptos.on('networkChange', handleNetworkChange);
         window.aptos.on('networkChanged', handleNetworkChange);
       }
-      if ((window.aptos as any).addEventListener) {
-        (window.aptos as any).addEventListener('networkChange', handleNetworkChange);
-        (window.aptos as any).addEventListener('networkChanged', handleNetworkChange);
+      
+      const aptosWallet = window.aptos as WalletEventTarget;
+      if (aptosWallet.addEventListener) {
+        aptosWallet.addEventListener('networkChange', handleNetworkChange);
+        aptosWallet.addEventListener('networkChanged', handleNetworkChange);
       }
-      window.aptos.network && window.aptos.network().then((network: string) => {
-        setAptosNetwork(network);
-        localStorage.setItem('aptosNetwork', network);
-      });
+      
+      if (window.aptos.network) {
+        window.aptos.network().then((network: string) => {
+          setAptosNetwork(network);
+          localStorage.setItem('aptosNetwork', network);
+        });
+      }
+      
       return () => {
         if (window.aptos?.removeListener) {
           window.aptos.removeListener('networkChange', handleNetworkChange);
           window.aptos.removeListener('networkChanged', handleNetworkChange);
         }
-        if ((window.aptos as any)?.removeEventListener) {
-          (window.aptos as any).removeEventListener('networkChange', handleNetworkChange);
-          (window.aptos as any).removeEventListener('networkChanged', handleNetworkChange);
+        
+        const aptosWallet = window.aptos as WalletEventTarget;
+        if (aptosWallet.removeEventListener) {
+          aptosWallet.removeEventListener('networkChange', handleNetworkChange);
+          aptosWallet.removeEventListener('networkChanged', handleNetworkChange);
         }
       };
     }
@@ -79,7 +94,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsConnecting(true);
     if ('aptos' in window) {
       try {
-        const wallet = (window as any).aptos;
+        const wallet = window.aptos!;
         await wallet.connect();
         const acc = await wallet.account();
         const network = await wallet.network();
@@ -90,7 +105,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('walletType', 'aptos');
         localStorage.setItem('aptosNetwork', network);
         toast.success(`Kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
-      } catch (error: any) {
+      } catch (err) {
+        console.error('Wallet connection error:', err);
         toast.error('Kết nối ví Petra thất bại. Vui lòng thử lại.');
       } finally {
         setIsConnecting(false);
@@ -104,10 +120,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const disconnectWallet = async () => {
     if (accountType === 'aptos' && 'aptos' in window) {
       try {
-        const wallet = (window as any).aptos;
+        const wallet = window.aptos!;
         await wallet.disconnect();
         toast.success('Đã ngắt kết nối ví Petra thành công');
-      } catch (error) {
+      } catch (err) {
+        console.error('Wallet disconnection error:', err);
         toast.error('Lỗi khi ngắt kết nối ví');
       }
     }
@@ -138,7 +155,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 declare global {
   interface Window {
     aptos?: {
-      connect: () => Promise<any>;
+      connect: () => Promise<{ address: string; publicKey: string }>;
       disconnect: () => Promise<void>;
       account: () => Promise<{ address: string; publicKey: string }>;
       network: () => Promise<string>;
@@ -149,8 +166,8 @@ declare global {
       signAndSubmitTransaction: (transaction: {
         type: string;
         function: string;
-        type_arguments: any[];
-        arguments: any[];
+        type_arguments: string[];
+        arguments: unknown[];
       }) => Promise<{ hash: string }>;
     };
   }
