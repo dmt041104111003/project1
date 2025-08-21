@@ -1,44 +1,172 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IDUploadStepProps } from '@/constants/did-verification';
+import { Upload, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 
+export default function IDUploadStep({ 
+  onNext, 
+  onUploadIdCard, 
+  isApiLoading = false, 
+  idCardData 
+}: IDUploadStepProps) {
+  const [frontImage, setFrontImage] = useState<File | null>(null);
+  const [backImage, setBackImage] = useState<File | null>(null);
+  const [uploadedFront, setUploadedFront] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [inputKey, setInputKey] = useState(0); // Key để reset input
 
-export default function IDUploadStep({ onNext }: IDUploadStepProps) {
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (idCardData) {
+      setUploadError(null);
+    }
+  }, [idCardData]);
+
+  const resetUpload = () => {
+    setFrontImage(null);
+    setBackImage(null);
+    setUploadedFront(false);
+    setUploadError(null);
+    setInputKey(prev => prev + 1); 
+  };
+
+  const handleFrontImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
+      const file = files[0];
+      setFrontImage(file);
+      setUploadError(null); 
+      
+      if (onUploadIdCard) {
+        try {
+          await onUploadIdCard(file);
+          setUploadedFront(true);
+        } catch (error) {
+          console.error('Upload front image error:', error);
+          setUploadError('Upload thất bại. Vui lòng thử lại với ảnh khác.');
+          setUploadedFront(false);
+          setTimeout(() => {
+            resetUpload();
+          }, 2000); 
+        }
+      }
+    }
+  };
+
+  const handleBackImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setBackImage(files[0]);
+    }
+  };
+
+  const handleContinue = () => {
+    if (uploadedFront && backImage) {
       onNext();
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Ảnh mặt trước CCCD/Hộ chiếu</label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            className="cursor-pointer"
-          />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-3">
+          <label className="block text-sm font-medium">Ảnh mặt trước CCCD/Hộ chiếu</label>
+          <div className="relative">
+            <Input
+              key={inputKey}
+              type="file"
+              accept="image/*"
+              onChange={handleFrontImageUpload}
+              className="cursor-pointer"
+              disabled={isApiLoading}
+            />
+            {isApiLoading && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+              </div>
+            )}
+            {uploadedFront && !isApiLoading && !uploadError && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              </div>
+            )}
+          </div>
+          
+          {uploadError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <div>
+                  <p className="text-sm text-red-800 font-medium">Upload thất bại</p>
+                  <p className="text-xs text-red-600">{uploadError}</p>
+                </div>
+              </div>
+              <Button 
+                onClick={resetUpload} 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Thử lại
+              </Button>
+            </div>
+          )}
+          
+          {idCardData && !uploadError && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Thông tin đọc được:</h4>
+              <div className="space-y-1 text-xs text-blue-800">
+                <p><span className="font-medium">CCCD:</span> {idCardData.cccd || 'Không đọc được'}</p>
+                <p><span className="font-medium">Họ tên:</span> {idCardData.name || 'Không đọc được'}</p>
+              </div>
+            </div>
+          )}
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Ảnh mặt sau CCCD/Hộ chiếu</label>
+        
+        <div className="space-y-3">
+          <label className="block text-sm font-medium">Ảnh mặt sau CCCD/Hộ chiếu</label>
           <Input
             type="file"
             accept="image/*"
-            onChange={handleFileUpload}
+            onChange={handleBackImageUpload}
             className="cursor-pointer"
+            disabled={uploadError !== null} 
           />
+          {backImage && !uploadError && (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <p className="text-sm text-gray-600">✓ Đã chọn ảnh mặt sau</p>
+            </div>
+          )}
         </div>
       </div>
+      
       <div className="flex justify-center">
-        <Button onClick={onNext}>
-          Tiếp tục
+        <Button 
+          onClick={handleContinue}
+          disabled={!uploadedFront || !backImage || isApiLoading || uploadError !== null}
+          className="min-w-[120px]"
+        >
+          {isApiLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Đang xử lý...
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              Tiếp tục
+            </>
+          )}
         </Button>
+      </div>
+      
+      <div className="text-xs text-gray-500 text-center">
+        <p>• Ảnh phải rõ ràng, không bị mờ hoặc che khuất</p>
+        <p>• Hệ thống sẽ tự động đọc thông tin từ ảnh căn cước</p>
+        <p>• Nếu upload thất bại, hệ thống sẽ tự động reset để bạn thử lại</p>
       </div>
     </div>
   );

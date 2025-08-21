@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
 import { NAVIGATION } from '@/constants/landing';
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet, LogOut, ChevronDown, Copy, Check } from 'lucide-react';
+import { Wallet, LogOut, ChevronDown, Copy, Check, Shield, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 // const dancingScript = {
@@ -170,17 +170,28 @@ export function Header() {
                            }`} />
                          </div>
                        </div>
-                      <div className="pt-2 border-t border-border">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={disconnectWallet}
-                          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Ngắt kết nối
-                        </Button>
-                      </div>
+                                             <div className="pt-2 border-t border-border space-y-1">
+                         <Link href="/auth/did-verification" onClick={() => setShowWalletMenu(false)}>
+                           <Button 
+                             variant="ghost" 
+                             size="sm" 
+                             className="w-full justify-start text-primary hover:text-primary/80 hover:bg-primary/10"
+                           >
+                             <Shield className="w-4 h-4 mr-2" />
+                             Xác minh DID
+                             <ExternalLink className="w-3 h-3 ml-auto" />
+                           </Button>
+                         </Link>
+                         <Button 
+                           variant="ghost" 
+                           size="sm" 
+                           onClick={disconnectWallet}
+                           className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                         >
+                           <LogOut className="w-4 h-4 mr-2" />
+                           Ngắt kết nối
+                         </Button>
+                       </div>
                     </div>
                   </div>
                 )}
@@ -257,15 +268,26 @@ export function Header() {
                          {account}
                        </div>
                      </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={disconnectWallet}
-                      className="w-full justify-start text-red-600"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Ngắt kết nối
-                    </Button>
+                                         <Link href="/auth/did-verification" onClick={() => setIsMobileMenuOpen(false)}>
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         className="w-full justify-start text-primary"
+                       >
+                         <Shield className="w-4 h-4 mr-2" />
+                         Xác minh DID
+                         <ExternalLink className="w-3 h-3 ml-auto" />
+                       </Button>
+                     </Link>
+                     <Button 
+                       variant="ghost" 
+                       size="sm" 
+                       onClick={disconnectWallet}
+                       className="w-full justify-start text-red-600"
+                     >
+                       <LogOut className="w-4 h-4 mr-2" />
+                       Ngắt kết nối
+                     </Button>
                   </div>
                 )}
               </div>

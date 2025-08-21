@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
+import Link from 'next/link';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,8 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import ProjectCard from '@/components/dashboard/ProjectCard';
 import ActivityItem from '@/components/dashboard/ActivityItem';
 import { MOCK_STATS, MOCK_PROJECTS, MOCK_RECENT_ACTIVITIES } from '@/constants/dashboard';
+import { useWallet } from '@/contexts/WalletContext';
+import { Wallet, ArrowRight } from 'lucide-react';
 
 
 const robotoCondensed = {
@@ -19,6 +22,7 @@ const robotoCondensed = {
 };
 
 export default function DashboardPage() {
+  const { account, connectWallet, isConnecting } = useWallet();
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -46,6 +50,54 @@ export default function DashboardPage() {
   };
 
 
+
+  // Show login prompt if wallet not connected
+  if (!account) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        
+        <main className="flex-1 pt-20">
+          <Container>
+            <div className="max-w-2xl mx-auto text-center py-20">
+              <div className="mb-8">
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Wallet className="w-12 h-12 text-primary" />
+                </div>
+                <h1 style={robotoCondensed} className="text-4xl lg:text-5xl font-bold text-text-primary mb-4">
+                  Kết nối ví để truy cập Dashboard
+                </h1>
+                <p style={robotoCondensed} className="text-xl text-text-secondary mb-8">
+                  Bạn cần kết nối ví Petra để xem thông tin dashboard và quản lý dự án
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <Button 
+                  size="lg" 
+                  onClick={connectWallet}
+                  disabled={isConnecting}
+                  className="flex items-center gap-2 mx-auto"
+                >
+                  <Wallet className="w-5 h-5" />
+                  {isConnecting ? 'Đang kết nối...' : 'Kết nối ví Petra'}
+                </Button>
+                
+                <div className="text-sm text-muted-foreground">
+                  Hoặc{' '}
+                  <Link href="/" className="text-primary hover:underline">
+                    quay về trang chủ
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Container>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

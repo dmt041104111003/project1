@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python virtual environments
+/Face/face_env/
+/Face/**/__pycache__/
+/Face/**/*.pyc
+/Face/**/*.pyo
+/Face/**/*.pyd
