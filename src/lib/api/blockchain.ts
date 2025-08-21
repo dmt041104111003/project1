@@ -76,8 +76,6 @@ export async function getProfileData(userAddress: string) {
     const data = await response.json() as unknown[];
     const raw = data[0] as Record<string, unknown>;
     if (!raw) return null;
-    
-    // CIDs are now stored as strings, no need to decode
     const verificationCid = (raw.verification_cid as string) || '';
     const profileCid = (raw.profile_cid as string) || '';
     const cvCid = (raw.cv_cid as string) || '';
@@ -131,7 +129,7 @@ export async function getProfileCidsByAddress(userAddress: string): Promise<stri
     });
     if (!response.ok) return [];
     const data = await response.json() as unknown[];
-    return data[0] as string[]; // Already string array
+    return data[0] as string[]; 
   } catch (error) {
     console.error('Error getting profile CIDs:', error);
     return [];

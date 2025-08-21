@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import DIDVerificationLayout from '@/components/auth/DIDVerificationLayout';
 import DIDVerificationSteps from '@/components/auth/DIDVerificationSteps';
 import { useDIDVerification } from '@/hooks/useDIDVerification';
+import DIDVerifiedStatus from '@/components/auth/DIDVerifiedStatus';
+import { getDidDetails } from '@/utils/blockchainService';
 
 export default function DIDVerificationPage() {
   const { account } = useWallet();
+  const [checked, setChecked] = useState(false);
+  const [hasVerified, setHasVerified] = useState(false);
   const {
     step,
     verificationStatus,
@@ -38,9 +42,23 @@ export default function DIDVerificationPage() {
     document.head.appendChild(link);
   }, []);
 
+  useEffect(() => {
+    const run = async () => {
+      if (!account) { setChecked(true); setHasVerified(false); return; }
+      try {
+        const res = await getDidDetails(account);
+        setHasVerified(res.hasVerified);
+      } finally { setChecked(true); }
+    };
+    run();
+  }, [account]);
+
   return (
     <DIDVerificationLayout>
-      <DIDVerificationSteps
+      {checked && hasVerified ? (
+        <DIDVerifiedStatus />
+      ) : (
+        <DIDVerificationSteps
         step={step}
         verificationStatus={verificationStatus}
         progress={progress}
@@ -62,6 +80,7 @@ export default function DIDVerificationPage() {
         onBackToEncryption={handleBackToEncryption}
         onViewProfile={handleViewProfile}
       />
+      )}
     </DIDVerificationLayout>
   );
 }
