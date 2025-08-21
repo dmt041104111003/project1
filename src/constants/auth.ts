@@ -61,3 +61,15 @@ export interface BlockchainResultProps {
   blockchainData: BlockchainData;
   onViewProfile: () => void;
 }
+
+// Profile related interfaces
+export interface ProfileFormData {
+  headline: string;
+  summary: string;
+  skills: string[];
+  experience: string;
+  education: string;
+  links: string[];
+  avatar?: File;
+  cv?: File;
+}

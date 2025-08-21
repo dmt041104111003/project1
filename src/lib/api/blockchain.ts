@@ -84,7 +84,7 @@ export async function checkProfileExists(userAddress: string): Promise<boolean> 
       })
     });
     if (!response.ok) return false;
-    const data = await response.json();
+    const data = await response.json() as unknown[];
     return data[0] as boolean;
   } catch (error) {
     console.error('Error checking profile existence:', error);
@@ -104,8 +104,8 @@ export async function getProfileData(userAddress: string) {
       })
     });
     if (!response.ok) return null;
-    const data = await response.json();
-    const raw = data[0];
+    const data = await response.json() as unknown[];
+    const raw = data[0] as Record<string, unknown>;
     if (!raw) return null;
     
     let verificationCid = '';
@@ -123,8 +123,8 @@ export async function getProfileData(userAddress: string) {
       did_hash: raw.did_hash as string,
       verification_cid: verificationCid,
       profile_cids: profileCids,
-      profile_cid: profileCids[0] || '', // Keep backward compatibility
-      cid: verificationCid, // Keep backward compatibility
+      profile_cid: profileCids[0] || '',
+      cid: verificationCid,
       trust_score: Number(raw.trust_score),
       created_at: Number(raw.created_at)
     };
@@ -146,7 +146,7 @@ export async function getVerificationCidByAddress(userAddress: string): Promise<
       })
     });
     if (!response.ok) return '';
-    const data = await response.json();
+    const data = await response.json() as unknown[];
     const rawCid = data[0] as string;
     return hexToUtf8(rawCid);
   } catch (error) {
@@ -167,7 +167,7 @@ export async function getProfileCidsByAddress(userAddress: string): Promise<stri
       })
     });
     if (!response.ok) return [];
-    const data = await response.json();
+    const data = await response.json() as unknown[];
     const rawCids = data[0] as string[];
     return rawCids.map(cid => hexToUtf8(cid));
   } catch (error) {
@@ -188,7 +188,7 @@ export async function getLatestProfileCidByAddress(userAddress: string): Promise
       })
     });
     if (!response.ok) return '';
-    const data = await response.json();
+    const data = await response.json() as unknown[];
     const rawCid = data[0] as string;
     return hexToUtf8(rawCid);
   } catch (error) {
@@ -209,8 +209,8 @@ export async function getDidDetails(userAddress: string) {
       })
     });
     if (!profileRes.ok) return { hasVerified: false, didHash: '0x', controller: '' };
-    const profileJson = await profileRes.json();
-    const didHash = profileJson?.[0]?.did_hash as string | undefined;
+    const profileJson = await profileRes.json() as unknown[];
+    const didHash = (profileJson?.[0] as Record<string, unknown>)?.did_hash as string | undefined;
     if (!didHash) return { hasVerified: false, didHash: '0x', controller: '' };
 
     const ctrlRes = await fetch(`${APTOS_REST_URL}/v1/view`, {
@@ -222,7 +222,7 @@ export async function getDidDetails(userAddress: string) {
         arguments: [didHash]
       })
     });
-    const controller = ctrlRes.ok ? (await ctrlRes.json())[0] as string : '';
+    const controller = ctrlRes.ok ? ((await ctrlRes.json() as unknown[])[0] as string) : '';
     const hasVerified = !!controller && controller.toLowerCase() === userAddress.toLowerCase();
     return { hasVerified, didHash, controller };
   } catch (e) {
@@ -236,13 +236,17 @@ export async function getProfileRegisteredEventsForUser(userAddress: string, lim
     const tag = `${CONTRACT_ADDRESS}::${PROFILE_MODULE}::Events`;
     const url = `${APTOS_REST_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodeURIComponent(tag)}/registered?limit=${limit}`;
     const res = await fetch(url);
-    if (!res.ok) return [] as any[];
-    const events = await res.json();
-    return (events as any[]).filter((e) => e.data?.user?.toLowerCase() === userAddress.toLowerCase());
-  } catch (e) {
-    console.error('Error fetching profile registered events:', e);
-    return [] as any[];
-  }
+    if (!res.ok) return [] as unknown[];
+    const events = await res.json() as unknown[];
+    return (events as unknown[]).filter((e) => {
+      const event = e as Record<string, unknown>;
+      const data = event?.data as Record<string, unknown>;
+      return data?.user?.toString().toLowerCase() === userAddress.toLowerCase();
+    });
+      } catch (e) {
+      console.error('Error fetching profile registered events:', e);
+      return [] as unknown[];
+    }
 }
 
 

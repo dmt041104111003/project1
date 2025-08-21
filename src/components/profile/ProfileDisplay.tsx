@@ -14,7 +14,7 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
   const [error, setError] = useState<string | null>(null);
   const [didDetails, setDidDetails] = useState<{ hasVerified: boolean; didHash: string; controller: string } | null>(null);
   const [latestEventTime, setLatestEventTime] = useState<number | null>(null);
-  const [offchain, setOffchain] = useState<any | null>(null);
+  const [offchain, setOffchain] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -27,11 +27,13 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
         ]);
         if (data) {
           setProfileData(data);
-          const json = await fetchJsonFromCid<any>(data.cid);
+          const json = await fetchJsonFromCid<Record<string, unknown>>(data.cid);
           if (json) setOffchain(json);
           setDidDetails(did);
           if (Array.isArray(events) && events.length > 0) {
-            const t = Number(events[0]?.data?.time || 0);
+            const event = events[0] as Record<string, unknown>;
+            const data = event?.data as Record<string, unknown>;
+            const t = Number(data?.time || 0);
             setLatestEventTime(isNaN(t) ? null : t);
           }
         } else {
@@ -120,19 +122,19 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
               {'selfie_url' in offchain && (
                 <div>
                   <label className="text-muted-foreground">Selfie</label>
-                  <img src={offchain.selfie_url} alt="selfie" className="rounded border border-border max-h-40 object-cover" />
+                  <img src={offchain.selfie_url as string} alt="selfie" className="rounded border border-border max-h-40 object-cover" />
                 </div>
               )}
               {'id_card_front_url' in offchain && (
                 <div>
                   <label className="text-muted-foreground">ID Card (Front)</label>
-                  <img src={offchain.id_card_front_url} alt="id-front" className="rounded border border-border max-h-40 object-cover" />
+                  <img src={offchain.id_card_front_url as string} alt="id-front" className="rounded border border-border max-h-40 object-cover" />
                 </div>
               )}
               {'id_card_back_url' in offchain && (
                 <div>
                   <label className="text-muted-foreground">ID Card (Back)</label>
-                  <img src={offchain.id_card_back_url} alt="id-back" className="rounded border border-border max-h-40 object-cover" />
+                  <img src={offchain.id_card_back_url as string} alt="id-back" className="rounded border border-border max-h-40 object-cover" />
                 </div>
               )}
             </div>

@@ -4,7 +4,7 @@ export function cidToUrl(cid: string): string {
   return `${gatewayBase.replace(/\/$/, '')}/${clean}`;
 }
 
-export async function fetchJsonFromCid<T = any>(cid: string): Promise<T | null> {
+export async function fetchJsonFromCid<T = unknown>(cid: string): Promise<T | null> {
   try {
     const res = await fetch(cidToUrl(cid), { cache: 'no-store' });
     if (!res.ok) return null;

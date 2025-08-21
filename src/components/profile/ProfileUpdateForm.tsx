@@ -13,17 +13,7 @@ import { pinFileToIPFS } from '@/lib/api/pinata';
 import { fetchJsonFromCid } from '@/lib/api/ipfs';
 import { X, Plus } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
-
-interface ProfileFormData {
-  headline: string;
-  summary: string;
-  skills: string[];
-  experience: string;
-  education: string;
-  links: string[];
-  avatar?: File;
-  cv?: File;
-}
+import { ProfileFormData } from '@/constants/auth';
 
 export default function ProfileUpdateForm() {
   const { account } = useWallet();
@@ -68,42 +58,42 @@ export default function ProfileUpdateForm() {
              console.log('Using old CID format:', profileCid);
            }
            
-           let allData: any = {};
-           if (profileCid) {
-             try {
-               console.log('Trying to fetch profile data from CID:', profileCid);
-               const data = await fetchJsonFromCid<any>(profileCid);
-               if (data) {
-                 console.log('Profile data from CID:', data);
-                 allData = { ...allData, ...data };
-               }
-             } catch (error) {
-               console.log('Failed to fetch profile data from CID:', profileCid, error);
-             }
-           }
-           
-                      console.log('Combined data from all CIDs:', allData);
-           
-           if (Object.keys(allData).length > 0) {
-             console.log('Raw data from IPFS:', allData);
-             
-             if (allData.type === 'freelancer_profile' || allData.headline || allData.skills) {
-               console.log('Setting form data with:', allData);
-               setFormData({
-                 headline: allData.headline || '',
-                 summary: allData.summary || '',
-                 skills: allData.skills || [],
-                 experience: allData.experience || '',
-                 education: allData.education || '',
-                 links: allData.links || []
-               });
-               
-               if (allData.avatar_url) {
-                 setUploadedFiles(prev => ({ ...prev, avatar: allData.avatar_url }));
-               }
-               if (allData.cv_url) {
-                 setUploadedFiles(prev => ({ ...prev, cv: allData.cv_url }));
-               }
+                                   let allData: Record<string, unknown> = {};
+            if (profileCid) {
+              try {
+                console.log('Trying to fetch profile data from CID:', profileCid);
+                const data = await fetchJsonFromCid<Record<string, unknown>>(profileCid);
+                if (data) {
+                  console.log('Profile data from CID:', data);
+                  allData = { ...allData, ...data };
+                }
+              } catch (error) {
+                console.log('Failed to fetch profile data from CID:', profileCid, error);
+              }
+            }
+            
+            console.log('Combined data from all CIDs:', allData);
+            
+            if (Object.keys(allData).length > 0) {
+              console.log('Raw data from IPFS:', allData);
+              
+              if (allData.type === 'freelancer_profile' || allData.headline || allData.skills) {
+                console.log('Setting form data with:', allData);
+                setFormData({
+                  headline: (allData.headline as string) || '',
+                  summary: (allData.summary as string) || '',
+                  skills: (allData.skills as string[]) || [],
+                  experience: (allData.experience as string) || '',
+                  education: (allData.education as string) || '',
+                  links: (allData.links as string[]) || []
+                });
+                
+                if (allData.avatar_url) {
+                  setUploadedFiles(prev => ({ ...prev, avatar: allData.avatar_url as string }));
+                }
+                if (allData.cv_url) {
+                  setUploadedFiles(prev => ({ ...prev, cv: allData.cv_url as string }));
+                }
                
                toast.success('Đã tải thông tin hồ sơ hiện tại');
              } else {
