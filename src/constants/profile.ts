@@ -1,8 +1,11 @@
 export interface ProfileData {
-  did_hash: string; 
-  cid: string; 
+  did_hash: string;
+  verification_cid: string;
+  profile_cid: string;
+  cv_cid: string;
+  avatar_cid: string;
   trust_score: number;
-  created_at: number; 
+  created_at: number;
 }
 
 export interface ProfileDisplayProps {

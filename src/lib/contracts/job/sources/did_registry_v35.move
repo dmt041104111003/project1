@@ -1,4 +1,4 @@
-module did_addr_profile::did_registry_v1 {
+module did_addr_profile::did_registry_v35 {
 	use std::signer;
 	use aptos_std::table;
 	use aptos_std::bcs;

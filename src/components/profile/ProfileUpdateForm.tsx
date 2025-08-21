@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { updateProfileCids, addProfileCid, getProfileData } from '@/utils/blockchainService';
+import { updateProfileAssets, getProfileData } from '@/utils/blockchainService';
 import { pinVerificationJson } from '@/lib/api/ipfs/pinJson';
 import { pinFileToIPFS } from '@/lib/api/pinata';
 import { fetchJsonFromCid } from '@/lib/api/ipfs';
@@ -31,6 +31,8 @@ export default function ProfileUpdateForm() {
   const [loading, setLoading] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [existingCids, setExistingCids] = useState<{ profile?: string; avatar?: string; cv?: string }>({});
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const loadExistingProfile = async () => {
@@ -46,17 +48,19 @@ export default function ProfileUpdateForm() {
         const profileData = await getProfileData(account);
         console.log('Profile data from blockchain:', profileData);
         
-            if (profileData && (profileData.profile_cid || profileData.verification_cid || profileData.cid)) {
+            if (profileData && (profileData.profile_cid || profileData.verification_cid)) {
            console.log('Found profile data:', profileData);
 
            let profileCid = '';
            if (profileData.profile_cid) {
              profileCid = profileData.profile_cid.replace('ipfs://', '');
              console.log('Using new profile CID format:', profileCid);
-           } else if (profileData.cid) {
-             profileCid = profileData.cid.replace('ipfs://', '');
-             console.log('Using old CID format:', profileCid);
            }
+           setExistingCids({
+             profile: (profileData.profile_cid || '').replace('ipfs://', ''),
+             avatar: (profileData.avatar_cid || '').replace('ipfs://', ''),
+             cv: (profileData.cv_cid || '').replace('ipfs://', ''),
+           });
            
                                    let allData: Record<string, unknown> = {};
             if (profileCid) {
@@ -120,6 +124,7 @@ export default function ProfileUpdateForm() {
 
   const handleFileUpload = async (file: File, type: 'avatar' | 'cv') => {
     try {
+      setIsUploading(true);
       const { cid } = await pinFileToIPFS(file, file.name);
       const fileUrl = `ipfs://${cid}`;
       setUploadedFiles(prev => ({ ...prev, [type]: fileUrl }));
@@ -127,11 +132,14 @@ export default function ProfileUpdateForm() {
     } catch (err) {
       console.error(err);
       toast.error(`Upload ${type === 'avatar' ? 'ảnh' : 'CV'} thất bại`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) { toast.info('Đang upload, vui lòng đợi...'); return; }
     if (!formData.headline.trim()) { toast.error('Vui lòng nhập Headline'); return; }
     
     try {
@@ -145,9 +153,11 @@ export default function ProfileUpdateForm() {
          type: 'freelancer_profile'
        };
       
-             const { cid } = await pinVerificationJson(profileJson);
-       const profileCidUri = `ipfs://${cid}`;
-       const hash = await addProfileCid(profileCidUri);
+      const { cid } = await pinVerificationJson(profileJson);
+      const profileBare = (cid || existingCids.profile || '').replace('ipfs://', '');
+      const cvBare = ((uploadedFiles.cv || existingCids.cv) || '').replace('ipfs://', '');
+      const avatarBare = ((uploadedFiles.avatar || existingCids.avatar) || '').replace('ipfs://', '');
+      const hash = await updateProfileAssets(profileBare, cvBare, avatarBare);
       setTxHash(hash);
       toast.success('Cập nhật hồ sơ thành công!');
       
@@ -341,8 +351,8 @@ export default function ProfileUpdateForm() {
          </div>
 
         <div className="flex gap-3 pt-4">
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}
+          <Button type="submit" disabled={loading || isUploading}>
+            {loading || isUploading ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}
           </Button>
           {txHash && (
             <Button type="button" variant="outline" onClick={openExplorer}>

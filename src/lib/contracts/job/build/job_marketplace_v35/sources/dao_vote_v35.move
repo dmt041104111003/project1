@@ -1,4 +1,4 @@
-module job_work_board::dao_vote {
+module job_work_board::dao_vote_v35 {
     use std::signer;
     use std::vector;
     use std::string;
@@ -8,8 +8,8 @@ module job_work_board::dao_vote {
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::account::{Self};
-    use job_work_board::job_marketplace_v30;
-    use did_addr_profile::web3_profiles_v31;
+    use job_work_board::job_marketplace_v35;
+    use did_addr_profile::web3_profiles_v35;
 
     const E_ALREADY_VOTED: u64 = 1;
     const E_INVALID_CANDIDATE: u64 = 2;
@@ -239,10 +239,10 @@ module job_work_board::dao_vote {
         let all_disputes = borrow_global_mut<AllDisputes>(DAO_STORAGE);
         assert!(simple_map::contains_key(&all_disputes.sessions, &dispute_id), E_DISPUTE_NOT_FOUND);
 
-        let trust_score = web3_profiles_v31::get_trust_score_by_address(voter_addr);
+        let trust_score = web3_profiles_v35::get_trust_score_by_address(voter_addr);
         assert!(trust_score >= 80, E_NOT_ENOUGH_TRUST_SCORE);
 
-        let count_job = job_marketplace_v30::count_completed_jobs(voter_addr);
+        let count_job = job_marketplace_v35::count_completed_jobs(voter_addr);
         assert!(count_job > 0, E_NOT_ENOUGH_COMPLETED_JOBS);
 
         let session = simple_map::borrow_mut(&mut all_disputes.sessions, &dispute_id);
@@ -291,8 +291,8 @@ module job_work_board::dao_vote {
         let i = 0;
         while (i < len) {
             let addr = *vector::borrow(&all_wallets, i);
-            if(web3_profiles_v31::has_profile(addr)){
-                web3_profiles_v31::increase_trust_score_from_vote(addr);
+            if(web3_profiles_v35::has_profile(addr)){
+                web3_profiles_v35::increase_trust_score_from_vote(addr);
             };
             i = i + 1;
         };
@@ -304,18 +304,17 @@ module job_work_board::dao_vote {
         );
 
         if (winner == session.candidates.freelancer_address) {
-            let milestones = job_marketplace_v30::get_job_milestones(
+            let milestones = job_marketplace_v35::get_job_milestones(
                 session.candidates.job_index
             );
             assert!(session.candidates.milestone_index < vector::length(&milestones), 999);
             let amount = *vector::borrow(&milestones, session.candidates.milestone_index);
 
-            job_marketplace_v30::transfer_from_escrow(winner, amount);
+            job_marketplace_v35::transfer_from_escrow(winner, amount);
 
-            web3_profiles_v31::update_trust_score_from_vote(
+            web3_profiles_v35::update_trust_score_from_vote(
                 session.candidates.freelancer_address,
-                session.candidates.client_address,
-                false
+                5
             );
         };
 

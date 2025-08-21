@@ -27,8 +27,11 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
         ]);
         if (data) {
           setProfileData(data);
-          const json = await fetchJsonFromCid<Record<string, unknown>>(data.cid);
-          if (json) setOffchain(json);
+          const cidSource = data.profile_cid || data.verification_cid;
+          if (cidSource) {
+            const json = await fetchJsonFromCid<Record<string, unknown>>(cidSource);
+            if (json) setOffchain(json);
+          }
           setDidDetails(did);
           if (Array.isArray(events) && events.length > 0) {
             const event = events[0] as Record<string, unknown>;
@@ -185,16 +188,55 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
               </p>
             </div>
             <div>
-              <label className="text-muted-foreground">IPFS CID</label>
+              <label className="text-muted-foreground">Verification CID</label>
               <p 
                 className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
                 onClick={() => {
-                  navigator.clipboard.writeText(profileData.cid);
-                  toast.success('IPFS CID đã được copy!');
+                  navigator.clipboard.writeText(profileData.verification_cid);
+                  toast.success('Verification CID đã được copy!');
                 }}
                 title="Click để copy IPFS CID"
               >
-                {profileData.cid}
+                {profileData.verification_cid}
+              </p>
+            </div>
+            <div>
+              <label className="text-muted-foreground">Profile CID</label>
+              <p 
+                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(profileData.profile_cid);
+                  toast.success('Profile CID đã được copy!');
+                }}
+                title="Click để copy Profile CID"
+              >
+                {profileData.profile_cid || '—'}
+              </p>
+            </div>
+            <div>
+              <label className="text-muted-foreground">Avatar CID</label>
+              <p 
+                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(profileData.avatar_cid);
+                  toast.success('Avatar CID đã được copy!');
+                }}
+                title="Click để copy Avatar CID"
+              >
+                {profileData.avatar_cid || '—'}
+              </p>
+            </div>
+            <div>
+              <label className="text-muted-foreground">CV CID</label>
+              <p 
+                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(profileData.cv_cid);
+                  toast.success('CV CID đã được copy!');
+                }}
+                title="Click để copy CV CID"
+              >
+                {profileData.cv_cid || '—'}
               </p>
             </div>
             {latestEventTime && (

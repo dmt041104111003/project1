@@ -64,7 +64,7 @@ export default function EncryptionPreview({ verificationData, onConfirm, onBack 
               <Block label="DID" value={verificationData.did} />
               <Block label="Tên" value={verificationData.name} />
               <Block label="CCCD" value={verificationData.cccd} />
-              <Block label="CID" value={verificationData.cid} />
+              <Block label="CID" value={verificationData.cid || 'Sẽ được tạo sau khi pin lên IPFS'} />
             </div>
           </div>
         </Card>

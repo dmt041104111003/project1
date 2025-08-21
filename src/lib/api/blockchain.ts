@@ -3,26 +3,6 @@ const PROFILE_MODULE = process.env.NEXT_PUBLIC_PROFILE_MODULE as string;
 const DID_MODULE = process.env.NEXT_PUBLIC_DID_MODULE as string;
 const APTOS_REST_URL = process.env.NEXT_PUBLIC_APTOS_REST_URL as string;
 
-function toHexBytes(input: string): string {
-  if (input.startsWith('0x')) return input;
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(input);
-  const hex = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `0x${hex}`;
-}
-
-function hexToUtf8(inputHex: string): string {
-  const hex = inputHex.startsWith('0x') ? inputHex.slice(2) : inputHex;
-  try {
-    const bytes = new Uint8Array((hex.match(/.{1,2}/g) || []).map((h) => parseInt(h, 16)));
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return inputHex;
-  }
-}
-
 export async function registerDidOnChain(): Promise<string> {
   if (!window.aptos) throw new Error('Petra wallet not connected');
   const payload = {
@@ -35,42 +15,31 @@ export async function registerDidOnChain(): Promise<string> {
   return tx.hash;
 }
 
-export async function registerProfileOnBlockchain(verificationCid: string, initialProfileCid: string): Promise<string> {
+export async function registerProfileOnBlockchain(verificationCid: string, profileCid: string, cvCid: string, avatarCid: string): Promise<string> {
   if (!window.aptos) throw new Error('Petra wallet not connected');
   const payload = {
     type: 'entry_function_payload',
     function: `${CONTRACT_ADDRESS}::${PROFILE_MODULE}::register_profile`,
     type_arguments: [],
-    arguments: [toHexBytes(verificationCid), toHexBytes(initialProfileCid)]
+    arguments: [verificationCid, profileCid, cvCid, avatarCid]
   };
   const tx = await window.aptos.signAndSubmitTransaction(payload);
   return tx.hash;
 }
 
-export async function updateProfileCids(profileCids: string[]): Promise<string> {
+export async function updateProfileAssets(profileCid: string, cvCid: string, avatarCid: string): Promise<string> {
   if (!window.aptos) throw new Error('Petra wallet not connected');
-  const cidBytes = profileCids.map(cid => toHexBytes(cid));
   const payload = {
     type: 'entry_function_payload',
-    function: `${CONTRACT_ADDRESS}::${PROFILE_MODULE}::update_profile_cids`,
+    function: `${CONTRACT_ADDRESS}::${PROFILE_MODULE}::update_profile_assets`,
     type_arguments: [],
-    arguments: [cidBytes]
+    arguments: [profileCid, cvCid, avatarCid]
   };
   const tx = await window.aptos.signAndSubmitTransaction(payload);
   return tx.hash;
 }
 
-export async function addProfileCid(newCid: string): Promise<string> {
-  if (!window.aptos) throw new Error('Petra wallet not connected');
-  const payload = {
-    type: 'entry_function_payload',
-    function: `${CONTRACT_ADDRESS}::${PROFILE_MODULE}::add_profile_cid`,
-    type_arguments: [],
-    arguments: [toHexBytes(newCid)]
-  };
-  const tx = await window.aptos.signAndSubmitTransaction(payload);
-  return tx.hash;
-}
+// addProfileCid deprecated in v32
 
 export async function checkProfileExists(userAddress: string): Promise<boolean> {
   try {
@@ -108,23 +77,18 @@ export async function getProfileData(userAddress: string) {
     const raw = data[0] as Record<string, unknown>;
     if (!raw) return null;
     
-    let verificationCid = '';
-    let profileCids: string[] = [];
-    
-    if (raw.verification_cid && raw.profile_cids) {
-      verificationCid = hexToUtf8(raw.verification_cid as string);
-      profileCids = (raw.profile_cids as string[]).map(cid => hexToUtf8(cid));
-    } else if (raw.cid) {
-      verificationCid = hexToUtf8(raw.cid as string);
-      profileCids = [hexToUtf8(raw.cid as string)];
-    }
+    // CIDs are now stored as strings, no need to decode
+    const verificationCid = (raw.verification_cid as string) || '';
+    const profileCid = (raw.profile_cid as string) || '';
+    const cvCid = (raw.cv_cid as string) || '';
+    const avatarCid = (raw.avatar_cid as string) || '';
     
     return {
       did_hash: raw.did_hash as string,
       verification_cid: verificationCid,
-      profile_cids: profileCids,
-      profile_cid: profileCids[0] || '',
-      cid: verificationCid,
+      profile_cid: profileCid,
+      cv_cid: cvCid,
+      avatar_cid: avatarCid,
       trust_score: Number(raw.trust_score),
       created_at: Number(raw.created_at)
     };
@@ -147,8 +111,7 @@ export async function getVerificationCidByAddress(userAddress: string): Promise<
     });
     if (!response.ok) return '';
     const data = await response.json() as unknown[];
-    const rawCid = data[0] as string;
-    return hexToUtf8(rawCid);
+    return data[0] as string; // Already a string
   } catch (error) {
     console.error('Error getting verification CID:', error);
     return '';
@@ -168,8 +131,7 @@ export async function getProfileCidsByAddress(userAddress: string): Promise<stri
     });
     if (!response.ok) return [];
     const data = await response.json() as unknown[];
-    const rawCids = data[0] as string[];
-    return rawCids.map(cid => hexToUtf8(cid));
+    return data[0] as string[]; // Already string array
   } catch (error) {
     console.error('Error getting profile CIDs:', error);
     return [];
@@ -189,8 +151,7 @@ export async function getLatestProfileCidByAddress(userAddress: string): Promise
     });
     if (!response.ok) return '';
     const data = await response.json() as unknown[];
-    const rawCid = data[0] as string;
-    return hexToUtf8(rawCid);
+    return data[0] as string; // Already a string
   } catch (error) {
     console.error('Error getting latest profile CID:', error);
     return '';
@@ -243,10 +204,10 @@ export async function getProfileRegisteredEventsForUser(userAddress: string, lim
       const data = event?.data as Record<string, unknown>;
       return data?.user?.toString().toLowerCase() === userAddress.toLowerCase();
     });
-      } catch (e) {
-      console.error('Error fetching profile registered events:', e);
-      return [] as unknown[];
-    }
+  } catch (e) {
+    console.error('Error fetching profile registered events:', e);
+    return [] as unknown[];
+  }
 }
 
 

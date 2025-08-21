@@ -44,6 +44,25 @@ export function useDIDVerification(account: string | null) {
     try {
       const exists = await checkProfileExists(account);
       if (exists) { toast.error('Profile đã tồn tại trên blockchain!'); return; }
+      try {
+        const { cid: realCid } = await pinVerificationJson({
+          name: idCardData.name,
+          verification_message: faceVerificationResult.message,
+          did: `did:aptos:${account}`,
+          face: {
+            success: faceVerificationResult.success,
+            distance: faceVerificationResult.distance,
+            is_real: faceVerificationResult.is_real,
+            processing_time: faceVerificationResult.processing_time,
+          },
+          id_card: {
+            cccd: idCardData.cccd,
+          },
+          timestamp: Date.now(),
+        });
+        setIdCardData({ ...idCardData, cid: realCid });
+      } catch (_) {
+      }
       setShowEncryptionPreview(true);
     } catch (error) {
       console.error('Error checking profile:', error);
@@ -62,7 +81,7 @@ export function useDIDVerification(account: string | null) {
         did: `did:aptos:${account}`,
         cccd: idCardData.cccd,
         name: idCardData.name,
-        cid: idCardData.cid || 'ipfs://QmExampleCID',
+        cid: '', 
         face_verified: faceVerificationResult.success,
         distance: faceVerificationResult.distance,
         is_real: faceVerificationResult.is_real,
@@ -78,8 +97,9 @@ export function useDIDVerification(account: string | null) {
 
       try { await registerDidOnChain(); } catch { }
 
-      let cid = verificationData.cid;
-      if (!cid || cid.includes('QmExampleCID')) {
+      // Use pre-pinned CID if available; otherwise pin now
+      let cid = idCardData.cid || '';
+      if (!cid) {
         const { cid: realCid } = await pinVerificationJson({
           name: verificationData.name,
           verification_message: verificationData.verify_message,
@@ -95,10 +115,14 @@ export function useDIDVerification(account: string | null) {
           },
           timestamp: Date.now(),
         });
-        cid = `ipfs://${realCid}`;
+        // Use bare CID
+        cid = realCid;
+        setIdCardData({ ...idCardData, cid });
       }
+      
+      verificationData.cid = cid;
 
-      const txHash = await registerProfileOnBlockchain(cid, cid); 
+      const txHash = await registerProfileOnBlockchain(cid, '', '', ''); 
 
       toast.dismiss(loadingToast);
       setTransactionHash(txHash);

@@ -77,7 +77,7 @@ export default function DIDVerificationSteps({
                 did: `did:aptos:${account}`,
                 cccd: idCardData?.cccd || '',
                 name: idCardData?.name || '',
-                cid: 'ipfs://QmExampleCID',
+                cid: '', 
                 face_verified: faceVerificationResult?.success || false,
                 distance: faceVerificationResult?.distance || 0,
                 is_real: faceVerificationResult?.is_real || true,
@@ -96,12 +96,12 @@ export default function DIDVerificationSteps({
                 did: `did:aptos:${account}`,
                 cccd: idCardData?.cccd || '',
                 name: idCardData?.name || '',
-                cid: 'ipfs://QmExampleCID',
+                cid: idCardData?.cid || '',
                 face_verified: faceVerificationResult?.success || false,
                 distance: faceVerificationResult?.distance || 0,
                 is_real: faceVerificationResult?.is_real || true,
                 processing_time: faceVerificationResult?.processing_time || 0,
-                verify_message: faceVerificationResult?.message || 'Face verification completed'
+                verify_message: faceVerificationResult?.message || ''
               }}
               blockchainData={blockchainData}
               onViewProfile={onViewProfile}

@@ -1,4 +1,4 @@
-module job_work_board::job_marketplace_v30 {
+module job_work_board::job_marketplace_v35 {
     use std::option::{Self, Option};
    
     use std::signer;
@@ -9,7 +9,7 @@ module job_work_board::job_marketplace_v30 {
     use aptos_framework::account::{Self, SignerCapability};
     use std::vector;
     use aptos_framework::timestamp;
-    use did_addr_profile::web3_profiles_v31;
+    use did_addr_profile::web3_profiles_v35;
 
     const EJOB_NOT_FOUND: u64 = 0;
     const EALREADY_HAS_WORKER: u64 = 1;
@@ -361,7 +361,7 @@ module job_work_board::job_marketplace_v30 {
     ) acquires Jobs, Events, MarketplaceCapability {
         let sender = signer::address_of(account);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
-        assert!(web3_profiles_v31::has_profile(sender), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_profile(sender), ENO_PROFILE);
 
         let jobs_res = borrow_global_mut<Jobs>(@job_work_board);
 
@@ -456,7 +456,7 @@ module job_work_board::job_marketplace_v30 {
     ) acquires Jobs, Events {
         let poster_addr = signer::address_of(poster);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
-        assert!(web3_profiles_v31::has_profile(worker), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_profile(worker), ENO_PROFILE);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
         assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
         let job = table::borrow_mut(&mut jobs.jobs, job_id);
@@ -841,7 +841,7 @@ module job_work_board::job_marketplace_v30 {
     ) acquires Jobs, Events, MarketplaceCapability {
         let worker_addr = signer::address_of(worker);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
-        assert!(web3_profiles_v31::has_profile(worker_addr), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_profile(worker_addr), ENO_PROFILE);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
         assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
         let job = table::borrow_mut(&mut jobs.jobs, job_id);
