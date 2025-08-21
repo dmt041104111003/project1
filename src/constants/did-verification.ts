@@ -24,8 +24,8 @@ export interface DIDVerificationStepsProps {
   onNext: () => void;
   onBack: () => void;
   onError: (message: string) => void;
-  onUploadIdCard: (file: File) => Promise<any>;
-  onVerifyWebcam: (file: File) => Promise<any>;
+  onUploadIdCard: (file: File) => Promise<IDCardData>;
+  onVerifyWebcam: (file: File) => Promise<FaceVerificationResult>;
   onRegisterProfile: () => void;
   onConfirmBlockchain: () => void;
   onBackToEncryption: () => void;

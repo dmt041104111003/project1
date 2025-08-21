@@ -1,8 +1,15 @@
 import { IDCardData, FaceVerificationResult } from './profile';
 import { VerificationStatus } from './did-verification';
 
+export interface VerificationStep {
+  id: number;
+  title: string;
+  description: string;
+  status?: 'pending' | 'current' | 'completed' | 'error';
+}
+
 export interface VerificationProgressProps {
-  steps: any[];
+  steps: VerificationStep[];
   currentStep: number;
 }
 
@@ -10,7 +17,7 @@ export interface SelfieStepProps {
   onNext: () => void;
   onBack?: () => void;
   onError: (message: string) => void;
-  onVerifyWebcam?: (file: File) => Promise<any>;
+  onVerifyWebcam?: (file: File) => Promise<FaceVerificationResult>;
   isApiLoading?: boolean;
   verificationResult?: FaceVerificationResult | null;
   idCardData?: IDCardData | null;
@@ -18,7 +25,7 @@ export interface SelfieStepProps {
 
 export interface IDUploadStepProps {
   onNext: () => void;
-  onUploadIdCard?: (file: File) => Promise<any>;
+  onUploadIdCard?: (file: File) => Promise<IDCardData>;
   isApiLoading?: boolean;
   idCardData?: IDCardData | null;
 }
@@ -50,7 +57,7 @@ export interface EncryptionPreviewProps {
 
 export interface BlockchainResultProps {
   transactionHash: string;
-  verificationData: any;
-  blockchainData: any;
+  verificationData: VerificationData;
+  blockchainData: Record<string, unknown>;
   onViewProfile: () => void;
 }
