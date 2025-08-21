@@ -1,4 +1,4 @@
-import { IDCardData, FaceVerificationResult } from './profile';
+import { IDCardData, FaceVerificationResult, BlockchainData } from './profile';
 import { VerificationStatus } from './did-verification';
 
 export interface VerificationStep {
@@ -58,6 +58,6 @@ export interface EncryptionPreviewProps {
 export interface BlockchainResultProps {
   transactionHash: string;
   verificationData: VerificationData;
-  blockchainData: Record<string, unknown>;
+  blockchainData: BlockchainData;
   onViewProfile: () => void;
 }
