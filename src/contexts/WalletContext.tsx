@@ -169,6 +169,7 @@ declare global {
         type_arguments: string[];
         arguments: unknown[];
       }) => Promise<{ hash: string }>;
+      signMessage?: (message: { message: string; nonce: string }) => Promise<string>;
     };
   }
 }

@@ -1,5 +1,5 @@
 import { CheckCircle } from 'lucide-react';
-import { VerificationProgressProps } from '@/constants/did-verification';
+import { VerificationProgressProps } from '@/constants/auth';
 
 export default function VerificationProgress({ steps, currentStep }: VerificationProgressProps) {
   return (

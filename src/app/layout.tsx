@@ -75,17 +75,20 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <WalletProvider>
-            {/* Background watermark logo */}
+          <div className="fixed inset-0 z-0 pointer-events-none">
             <div 
-              className="fixed inset-0 z-0 opacity-20 pointer-events-none"
+              className="w-full h-full"
               style={{
                 backgroundImage: `url('/images/landing/logo_full.png')`,
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'left center',
                 backgroundSize: '80vh',
-                backgroundAttachment: 'fixed'
+                backgroundAttachment: 'fixed',
+                opacity: 0.05
               }}
             />
+          </div>
+
             
             {/* Main content */}
             <div className="relative z-10 min-h-screen">

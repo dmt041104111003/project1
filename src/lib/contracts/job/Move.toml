@@ -1,0 +1,17 @@
+[package]
+name = "job_marketplace_v30"
+version = "1.0.0"
+authors = []
+license = "MIT"
+
+[addresses]
+job_work_board = "0x032bc68d73c62873426dda1438945676c71f2f1dd0cfcdc621e50ce6f70ad3ba" 
+did_addr_profile = "0x032bc68d73c62873426dda1438945676c71f2f1dd0cfcdc621e50ce6f70ad3ba"
+dao_addr = "0x032bc68d73c62873426dda1438945676c71f2f1dd0cfcdc621e50ce6f70ad3ba"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "mainnet" }
+AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", rev = "mainnet", subdir = "aptos-move/framework/aptos-stdlib" }
+MoveStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", rev = "mainnet", subdir = "aptos-move/framework/move-stdlib" }
+
+[dev-addresses]

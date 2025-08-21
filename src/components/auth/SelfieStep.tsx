@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, CheckCircle, RotateCcw, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
-import { SelfieStepProps } from '@/constants/did-verification';
+import { SelfieStepProps } from '@/constants/auth';
 
 export default function SelfieStep({ 
   onNext, 
@@ -211,12 +211,6 @@ export default function SelfieStep({
         )}
       </div>
 
-      <div className="text-xs text-gray-500 space-y-1">
-        <p>• Đảm bảo khuôn mặt rõ ràng và đủ ánh sáng</p>
-        <p>• Nhìn thẳng vào camera và giữ nguyên tư thế</p>
-        <p>• Nhấn "Chụp Ảnh" khi sẵn sàng</p>
-        <p>• Sau khi xác minh thành công, nhấn "Tiếp tục" để chuyển bước</p>
-      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { IDUploadStepProps } from '@/constants/did-verification';
+import { IDUploadStepProps } from '@/constants/auth';
 import { Upload, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 
 export default function IDUploadStep({ 
@@ -16,7 +16,7 @@ export default function IDUploadStep({
   const [backImage, setBackImage] = useState<File | null>(null);
   const [uploadedFront, setUploadedFront] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [inputKey, setInputKey] = useState(0); // Key để reset input
+  const [inputKey, setInputKey] = useState(0); 
 
   useEffect(() => {
     if (idCardData) {
@@ -162,12 +162,7 @@ export default function IDUploadStep({
           )}
         </Button>
       </div>
-      
-      <div className="text-xs text-gray-500 text-center">
-        <p>• Ảnh phải rõ ràng, không bị mờ hoặc che khuất</p>
-        <p>• Hệ thống sẽ tự động đọc thông tin từ ảnh căn cước</p>
-        <p>• Nếu upload thất bại, hệ thống sẽ tự động reset để bạn thử lại</p>
-      </div>
     </div>
+
   );
 }

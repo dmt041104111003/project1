@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
 import StatsCard from '@/components/dashboard/StatsCard';
@@ -12,7 +13,8 @@ import ProjectCard from '@/components/dashboard/ProjectCard';
 import ActivityItem from '@/components/dashboard/ActivityItem';
 import { MOCK_STATS, MOCK_PROJECTS, MOCK_RECENT_ACTIVITIES } from '@/constants/dashboard';
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet, ArrowRight } from 'lucide-react';
+import { Wallet, ArrowRight, Shield, BarChart3, Briefcase, Activity, User } from 'lucide-react';
+import ProfileDisplay from '@/components/profile/ProfileDisplay';
 
 
 const robotoCondensed = {
@@ -51,7 +53,6 @@ export default function DashboardPage() {
 
 
 
-  // Show login prompt if wallet not connected
   if (!account) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -122,81 +123,110 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatsCard 
-              title="Tổng thu nhập" 
-              value={`$${MOCK_STATS.totalEarnings.toLocaleString()}`} 
-            />
-            <StatsCard 
-              title="Dự án đang thực hiện" 
-              value={MOCK_STATS.activeProjects} 
-            />
-            <StatsCard 
-              title="Tỷ lệ hoàn thành" 
-              value={`${MOCK_STATS.completionRate}%`} 
-            />
-            <StatsCard 
-              title="Thanh toán chờ" 
-              value={`$${MOCK_STATS.pendingPayments.toLocaleString()}`} 
-            />
-          </div>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="flex w-full mb-6">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Tổng quan
+              </TabsTrigger>
+              <TabsTrigger value="projects" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Dự án
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Hoạt động
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                DID Profile
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="grid lg:grid-cols-2 gap-8">
-            <Card variant="outlined" className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-text-primary">Dự án đang thực hiện</h2>
-                <Button variant="outline" size="sm">
-                  Xem tất cả
-                </Button>
+            <TabsContent value="overview" className="space-y-6">
+              {/* Stats Cards */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatsCard 
+                  title="Tổng thu nhập" 
+                  value={`$${MOCK_STATS.totalEarnings.toLocaleString()}`} 
+                />
+                <StatsCard 
+                  title="Dự án đang thực hiện" 
+                  value={MOCK_STATS.activeProjects} 
+                />
+                <StatsCard 
+                  title="Tỷ lệ hoàn thành" 
+                  value={`${MOCK_STATS.completionRate}%`} 
+                />
+                <StatsCard 
+                  title="Thanh toán chờ" 
+                  value={`$${MOCK_STATS.pendingPayments.toLocaleString()}`} 
+                />
               </div>
-              
-              <div className="space-y-4">
-                {MOCK_PROJECTS.map((project) => (
-                  <ProjectCard 
-                    key={project.id} 
-                    project={project}
-                    getStatusColor={getStatusColor}
-                    getStatusText={getStatusText}
-                  />
-                ))}
-              </div>
-            </Card>
 
-            <Card variant="outlined" className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-text-primary">Hoạt động gần đây</h2>
-                <Button variant="outline" size="sm">
-                  Xem tất cả
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                {MOCK_RECENT_ACTIVITIES.map((activity) => (
-                  <ActivityItem key={activity.id} activity={activity} />
-                ))}
-              </div>
-            </Card>
-          </div>
+              {/* Quick Actions */}
+              <Card variant="outlined" className="p-6">
+                <h2 className="text-xl font-semibold text-text-primary mb-4">Thao tác nhanh</h2>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <Button variant="outline" className="h-16 flex flex-col gap-2">
+                    <span className="text-sm">Tạo dự án mới</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col gap-2">
+                    <span className="text-sm">Rút tiền</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col gap-2">
+                    <span className="text-sm">Xem báo cáo</span>
+                  </Button>
+                  <Button variant="outline" className="h-16 flex flex-col gap-2">
+                    <span className="text-sm">Cài đặt</span>
+                  </Button>
+                </div>
+              </Card>
+            </TabsContent>
 
-          <div className="mt-8">
-            <Card variant="outlined" className="p-6">
-              <h2 className="text-xl font-semibold text-text-primary mb-4">Thao tác nhanh</h2>
-              <div className="grid md:grid-cols-4 gap-4">
-                <Button variant="outline" className="h-16 flex flex-col gap-2">
-                  <span className="text-sm">Tạo dự án mới</span>
-                </Button>
-                <Button variant="outline" className="h-16 flex flex-col gap-2">
-                  <span className="text-sm">Rút tiền</span>
-                </Button>
-                <Button variant="outline" className="h-16 flex flex-col gap-2">
-                  <span className="text-sm">Xem báo cáo</span>
-                </Button>
-                <Button variant="outline" className="h-16 flex flex-col gap-2">
-                  <span className="text-sm">Cài đặt</span>
-                </Button>
-              </div>
-            </Card>
-          </div>
+            <TabsContent value="projects" className="space-y-6">
+              <Card variant="outlined" className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-text-primary">Dự án đang thực hiện</h2>
+                  <Button variant="outline" size="sm">
+                    Xem tất cả
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {MOCK_PROJECTS.map((project) => (
+                    <ProjectCard 
+                      key={project.id} 
+                      project={project}
+                      getStatusColor={getStatusColor}
+                      getStatusText={getStatusText}
+                    />
+                  ))}
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="activity" className="space-y-6">
+              <Card variant="outlined" className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-text-primary">Hoạt động gần đây</h2>
+                  <Button variant="outline" size="sm">
+                    Xem tất cả
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {MOCK_RECENT_ACTIVITIES.map((activity) => (
+                    <ActivityItem key={activity.id} activity={activity} />
+                  ))}
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="profile" className="space-y-6">
+              <ProfileDisplay userAddress={account} />
+            </TabsContent>
+          </Tabs>
         </Container>
       </main>
 

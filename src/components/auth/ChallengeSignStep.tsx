@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert } from '@/components/ui/alert';
 import { Upload, AlertCircle } from 'lucide-react';
-import { ChallengeSignStepProps } from '@/constants/did-verification';
+import { ChallengeSignStepProps } from '@/constants/auth';
 import { VERIFICATION_MESSAGES } from '@/constants/did-verification';
 
 
