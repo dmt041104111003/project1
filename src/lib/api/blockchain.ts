@@ -87,7 +87,6 @@ export async function getProfileData(userAddress: string) {
       profile_cid: profileCid,
       cv_cid: cvCid,
       avatar_cid: avatarCid,
-      trust_score: Number(raw.trust_score),
       created_at: Number(raw.created_at)
     };
   } catch (error) {

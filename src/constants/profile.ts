@@ -4,7 +4,6 @@ export interface ProfileData {
   profile_cid: string;
   cv_cid: string;
   avatar_cid: string;
-  trust_score: number;
   created_at: number;
 }
 

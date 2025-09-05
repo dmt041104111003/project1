@@ -1,21 +1,18 @@
 module did_addr_profile::web3_profiles_v35 {
 	use std::signer;
 	use std::vector;
-	use std::string::{Self, String};
+	use std::string::String;
 	use aptos_std::table;
 	use aptos_framework::event::{EventHandle, emit_event};
 	use aptos_framework::account;
 	use aptos_framework::timestamp;
 	use did_addr_profile::did_registry_v35;
 
-	friend job_work_board::dao_vote_v35;
-
 	const EMODULE_NOT_INITIALIZED: u64 = 1;
 	const EPROFILE_EXISTS: u64 = 2;
 	const EPROFILE_NOT_FOUND: u64 = 3;
 	const ENOT_OWNER: u64 = 4;
 	const ENOT_VERIFIED_DID: u64 = 5;
-	const MAX_TRUST_SCORE: u64 = 100;
 
 	struct Profile has store, copy, drop {
 		did_hash: vector<u8>,
@@ -23,7 +20,6 @@ module did_addr_profile::web3_profiles_v35 {
 		profile_cid: String,
 		cv_cid: String,
 		avatar_cid: String,
-		trust_score: u64,
 		created_at: u64,
 	}
 
@@ -82,7 +78,6 @@ module did_addr_profile::web3_profiles_v35 {
 			profile_cid,
 			cv_cid,
 			avatar_cid,
-			trust_score: 0,
 			created_at: now 
 		});
 
@@ -164,41 +159,6 @@ module did_addr_profile::web3_profiles_v35 {
 		assert!(table::contains(&store.profiles, user), EPROFILE_NOT_FOUND);
 		let profile = table::borrow(&store.profiles, user);
 		profile.profile_cid
-	}
-
-	#[view]
-	public fun get_trust_score_by_address(user: address): u64 acquires Profiles {
-		assert!(exists<Profiles>(@did_addr_profile), EMODULE_NOT_INITIALIZED);
-		let store = borrow_global<Profiles>(@did_addr_profile);
-		assert!(table::contains(&store.profiles, user), EPROFILE_NOT_FOUND);
-		let profile = table::borrow(&store.profiles, user);
-		profile.trust_score
-	}
-
-	public(friend) fun increase_trust_score_from_vote(user: address) acquires Profiles {
-		let store = borrow_global_mut<Profiles>(@did_addr_profile);
-		let profile = table::borrow_mut(&mut store.profiles, user);
-		let new_score = profile.trust_score + 1;
-		profile.trust_score = if (new_score > MAX_TRUST_SCORE) { MAX_TRUST_SCORE } else { new_score };
-	}
-
-	public(friend) fun update_trust_score_from_vote(user: address, vote_score: u64) acquires Profiles {
-		assert!(exists<Profiles>(@did_addr_profile), EMODULE_NOT_INITIALIZED);
-		let store = borrow_global_mut<Profiles>(@did_addr_profile);
-		assert!(table::contains(&store.profiles, user), EPROFILE_NOT_FOUND);
-		
-		let profile = table::borrow_mut(&mut store.profiles, user);
-		let new_score = if (vote_score > profile.trust_score) {
-			profile.trust_score + vote_score
-		} else {
-			profile.trust_score - vote_score
-		};
-		
-		if (new_score > MAX_TRUST_SCORE) {
-			profile.trust_score = MAX_TRUST_SCORE;
-		} else {
-			profile.trust_score = new_score;
-		};
 	}
 }
 

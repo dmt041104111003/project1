@@ -1,0 +1,48 @@
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  did           String   @unique
+  name          String?
+  email         String?  @unique
+  image         String?
+  status        String? 
+  role          String? 
+  sessionToken  String?  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  verifications Verification[]
+}
+
+
+model Verification {
+  id               String   @id @default(cuid())
+  userId           String
+  hoTen            String 
+  cccdHash         String 
+  ketQua           String 
+  thoiGianXacMinh  DateTime @default(now())
+  evidenceCid      String?
+  providerRef      String? 
+  txHash           String? 
+  explorerUrl      String?  
+
+  user             User     @relation(fields: [userId], references: [id])
+  @@index([cccdHash])
+  @@index([userId])
+}
+
+
+

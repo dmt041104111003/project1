@@ -97,13 +97,7 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
               {profileData.did_hash}
             </p>
           </div>
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Trust Score</label>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{profileData.trust_score}</Badge>
-              <span className="text-xs text-muted-foreground">/ 100</span>
-            </div>
-          </div>
+          
         </div>
 
         {offchain && (
