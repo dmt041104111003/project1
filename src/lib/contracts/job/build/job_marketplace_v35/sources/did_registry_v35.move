@@ -4,7 +4,6 @@ module did_addr_profile::did_registry_v35 {
 	use aptos_std::bcs;
 	use aptos_framework::event::{EventHandle, emit_event};
 	use aptos_framework::account;
-	use std::vector;
 	use aptos_std::hash;
 
 	const EMODULE_NOT_INITIALIZED: u64 = 1;
@@ -22,11 +21,28 @@ module did_addr_profile::did_registry_v35 {
 
 	struct Events has key {
 		did_registered_event: EventHandle<DidRegistered>,
+		did_proof_attested_event: EventHandle<DIDProofAttested>,
 	}
 
 	struct DidRegistered has drop, store {
 		controller: address,
 		did_hash: vector<u8>,
+	}
+
+	struct DIDProofInfo has store, drop, copy {
+		did_proof_hash: vector<u8>,
+		hash_algo: vector<u8>,
+		expires_at: u64,
+	}
+
+	struct DIDProofAttested has drop, store {
+		controller: address,
+		did_proof_hash: vector<u8>,
+		expires_at: u64,
+	}
+
+	struct DIDProofRegistry has key {
+		map: table::Table<address, DIDProofInfo>,
 	}
 
 	public entry fun initialize(account: &signer) {
@@ -41,7 +57,11 @@ module did_addr_profile::did_registry_v35 {
 		if (!exists<Events>(owner)) {
 			move_to(account, Events {
 				did_registered_event: account::new_event_handle<DidRegistered>(account),
+				did_proof_attested_event: account::new_event_handle<DIDProofAttested>(account),
 			});
+		};
+		if (!exists<DIDProofRegistry>(owner)) {
+			move_to(account, DIDProofRegistry { map: table::new<address, DIDProofInfo>() });
 		};
 	}
 
@@ -68,10 +88,27 @@ module did_addr_profile::did_registry_v35 {
 		emit_event(&mut events.did_registered_event, DidRegistered { controller, did_hash });
 	}
 
+	public entry fun attest_did_proof(account: &signer, did_proof_hash: vector<u8>, hash_algo: vector<u8>, expires_at: u64) acquires DIDProofRegistry, Events {
+		let controller = signer::address_of(account);
+		assert!(exists<DIDProofRegistry>(@did_addr_profile), EMODULE_NOT_INITIALIZED);
+		let store = borrow_global_mut<DIDProofRegistry>(@did_addr_profile);
+		let info = DIDProofInfo { did_proof_hash, hash_algo, expires_at };
+		table::upsert(&mut store.map, controller, info);
+		let events = borrow_global_mut<Events>(@did_addr_profile);
+		emit_event(&mut events.did_proof_attested_event, DIDProofAttested { controller, did_proof_hash: info.did_proof_hash, expires_at: info.expires_at });
+	}
+
 	public fun has_verified_did(addr: address): bool acquires DidRegistry {
 		assert!(exists<DidRegistry>(@did_addr_profile), EMODULE_NOT_INITIALIZED);
 		let registry = borrow_global<DidRegistry>(@did_addr_profile);
 		table::contains(&registry.map, addr)
+	}
+
+	#[view]
+	public fun get_did_proof_info(addr: address): DIDProofInfo acquires DIDProofRegistry {
+		assert!(exists<DIDProofRegistry>(@did_addr_profile), EMODULE_NOT_INITIALIZED);
+		let reg = borrow_global<DIDProofRegistry>(@did_addr_profile);
+		*table::borrow(&reg.map, addr)
 	}
 
 	public fun get_did_hash(addr: address): vector<u8> acquires DidRegistry {
@@ -89,5 +126,6 @@ module did_addr_profile::did_registry_v35 {
 		*table::borrow(&index.index, did_hash)
 	}
 }
+
 
 
