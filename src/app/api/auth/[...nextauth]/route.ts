@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
 
 const authHandler = NextAuth(authOptions);
 
-export async function GET(request: Request) {
+export async function GET(request: Request, context: { params: { nextauth: string[] } }) {
   try {
     const url = new URL(request.url);
     const wantNonce = url.searchParams.get("nonce");
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       return res;
     }
   } catch {}
-  return (authHandler as any)(request);
+  return (authHandler as any)(request, context);
 }
 
 export const POST = authHandler;

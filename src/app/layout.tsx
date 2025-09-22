@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { Toaster } from "@/components/ui/toaster";
+import AuthSessionProvider from "@/components/providers/SessionProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
   title: "Marketplace2vn | Nền tảng freelancer phi tập trung",
   description: "Nền tảng freelancer phi tập trung với xác minh danh tính DID và escrow tự động trên Aptos blockchain",
   keywords: "freelancer, blockchain, DID, escrow, Aptos, Web3, phi tập trung",
@@ -73,8 +75,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased relative`}
       >
-        <ThemeProvider>
-          <WalletProvider>
+        <AuthSessionProvider>
+          <ThemeProvider>
+            <WalletProvider>
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div 
               className="w-full h-full"
@@ -95,9 +98,10 @@ export default function RootLayout({
               {children}
             </div>
             
-            <Toaster />
-          </WalletProvider>
-        </ThemeProvider>
+              <Toaster />
+            </WalletProvider>
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
