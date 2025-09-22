@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
-import { getDidDetails } from '@/utils/blockchainService';
+// no-op import
 import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
 
@@ -35,8 +35,10 @@ export default function DIDVerifiedStatus() {
       }
       try {
         setState((s) => ({ ...s, loading: true, error: null }));
-        const res = await getDidDetails(account);
-        setState({ loading: false, error: null, hasVerified: res.hasVerified, didHash: res.didHash, controller: res.controller });
+        const res = await fetch(`/api/did/${account}`);
+        if (!res.ok) throw new Error('Failed');
+        const data = await res.json();
+        setState({ loading: false, error: null, hasVerified: data.hasVerified, didHash: data.didHash, controller: data.controller });
       } catch (e) {
         setState((s) => ({ ...s, loading: false, error: 'Không thể kiểm tra trạng thái DID' }));
       }

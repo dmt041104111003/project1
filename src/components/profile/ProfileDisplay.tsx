@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getProfileData, getDidDetails, getProfileRegisteredEventsForUser } from '@/utils/blockchainService';
-import { fetchJsonFromCid } from '@/lib/api/ipfs';
+import { fetchJsonFromCid } from '@/lib/client';
 import { toast } from 'sonner';
 import { ProfileDisplayProps, ProfileData } from '@/constants/profile';
 
@@ -20,11 +19,14 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const [data, did, events] = await Promise.all([
-          getProfileData(userAddress),
-          getDidDetails(userAddress),
-          getProfileRegisteredEventsForUser(userAddress, 1)
+        const [profileRes, didRes, evRes] = await Promise.all([
+          fetch(`/api/profile/${userAddress}`),
+          fetch(`/api/did/${userAddress}`),
+          fetch(`/api/events/profile-registered?address=${encodeURIComponent(userAddress)}&limit=1`)
         ]);
+        const data = profileRes.ok ? await profileRes.json() : null;
+        const did = didRes.ok ? await didRes.json() : null;
+        const events = evRes.ok ? (await evRes.json()).events : [];
         if (data) {
           setProfileData(data);
           const cidSource = data.profile_cid || data.verification_cid;

@@ -7,10 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { updateProfileAssets, getProfileData } from '@/utils/blockchainService';
-import { pinVerificationJson } from '@/lib/api/ipfs/pinJson';
-import { pinFileToIPFS } from '@/lib/api/pinata';
-import { fetchJsonFromCid } from '@/lib/api/ipfs';
+import { updateProfileAssets } from '@/lib/client';
+import { fetchJsonFromCid } from '@/lib/client';
 import { X, Plus } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { ProfileFormData } from '@/constants/auth';
@@ -45,7 +43,8 @@ export default function ProfileUpdateForm() {
       
       try {
         setIsLoadingProfile(true);
-        const profileData = await getProfileData(account);
+        const resp = await fetch(`/api/profile/${account}`);
+        const profileData = resp.ok ? await resp.json() : null;
         console.log('Profile data from blockchain:', profileData);
         
             if (profileData && (profileData.profile_cid || profileData.verification_cid)) {
@@ -125,7 +124,12 @@ export default function ProfileUpdateForm() {
   const handleFileUpload = async (file: File, type: 'avatar' | 'cv') => {
     try {
       setIsUploading(true);
-      const { cid } = await pinFileToIPFS(file, file.name);
+      const form = new FormData();
+      form.append('file', file);
+      form.append('filename', file.name);
+      const res = await fetch('/api/ipfs/pin', { method: 'POST', body: form });
+      if (!res.ok) throw new Error(await res.text());
+      const { cid } = await res.json() as { cid: string };
       const fileUrl = `ipfs://${cid}`;
       setUploadedFiles(prev => ({ ...prev, [type]: fileUrl }));
       toast.success(`${type === 'avatar' ? 'Ảnh đại diện' : 'CV'} đã upload thành công!`);
@@ -153,7 +157,13 @@ export default function ProfileUpdateForm() {
          type: 'freelancer_profile'
        };
       
-      const { cid } = await pinVerificationJson(profileJson);
+      const res = await fetch('/api/ipfs/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileJson),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { cid } = await res.json() as { cid: string };
       const profileBare = (cid || existingCids.profile || '').replace('ipfs://', '');
       const cvBare = ((uploadedFiles.cv || existingCids.cv) || '').replace('ipfs://', '');
       const avatarBare = ((uploadedFiles.avatar || existingCids.avatar) || '').replace('ipfs://', '');

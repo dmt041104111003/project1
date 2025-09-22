@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { VerificationData } from '@/constants/auth';
-import { checkProfileExists, registerDidOnChain, registerProfileOnBlockchain } from '@/utils/blockchainService';
-import { pinVerificationJson } from '@/lib/api/ipfs/pinJson';
+import { checkProfileExists, registerDidOnChain, registerProfileOnBlockchain } from '@/lib/client';
 import { VerificationStatus } from '@/constants/did-verification';
 import { IDCardData, FaceVerificationResult, BlockchainData } from '@/constants/profile';
 import { prepareBlockchainData } from '@/utils/hashUtils';
@@ -45,24 +44,28 @@ export function useDIDVerification(account: string | null) {
       const exists = await checkProfileExists(account);
       if (exists) { toast.error('Profile đã tồn tại trên blockchain!'); return; }
       try {
-        const { cid: realCid } = await pinVerificationJson({
-          name: idCardData.name,
-          verification_message: faceVerificationResult.message,
-          did: `did:aptos:${account}`,
-          face: {
-            success: faceVerificationResult.success,
-            distance: faceVerificationResult.distance,
-            is_real: faceVerificationResult.is_real,
-            processing_time: faceVerificationResult.processing_time,
-          },
-          id_card: {
-            cccd: idCardData.cccd,
-          },
-          timestamp: Date.now(),
+        const res = await fetch('/api/ipfs/pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: idCardData.name,
+            verification_message: faceVerificationResult.message,
+            did: `did:aptos:${account}`,
+            face: {
+              success: faceVerificationResult.success,
+              distance: faceVerificationResult.distance,
+              is_real: faceVerificationResult.is_real,
+              processing_time: faceVerificationResult.processing_time,
+            },
+            id_card: { cccd: idCardData.cccd },
+            timestamp: Date.now(),
+          }),
         });
-        setIdCardData({ ...idCardData, cid: realCid });
-      } catch (_) {
-      }
+        if (res.ok) {
+          const { cid: realCid } = await res.json() as { cid: string };
+          setIdCardData({ ...idCardData, cid: realCid });
+        }
+      } catch (_) {}
       setShowEncryptionPreview(true);
     } catch (error) {
       console.error('Error checking profile:', error);
@@ -100,22 +103,25 @@ export function useDIDVerification(account: string | null) {
       // Use pre-pinned CID if available; otherwise pin now
       let cid = idCardData.cid || '';
       if (!cid) {
-        const { cid: realCid } = await pinVerificationJson({
-          name: verificationData.name,
-          verification_message: verificationData.verify_message,
-          did: verificationData.did,
-          face: {
-            success: faceVerificationResult.success,
-            distance: faceVerificationResult.distance,
-            is_real: faceVerificationResult.is_real,
-            processing_time: faceVerificationResult.processing_time,
-          },
-          id_card: {
-            cccd: idCardData.cccd,
-          },
-          timestamp: Date.now(),
+        const res = await fetch('/api/ipfs/pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: verificationData.name,
+            verification_message: verificationData.verify_message,
+            did: verificationData.did,
+            face: {
+              success: faceVerificationResult.success,
+              distance: faceVerificationResult.distance,
+              is_real: faceVerificationResult.is_real,
+              processing_time: faceVerificationResult.processing_time,
+            },
+            id_card: { cccd: idCardData.cccd },
+            timestamp: Date.now(),
+          }),
         });
-        // Use bare CID
+        if (!res.ok) { throw new Error(await res.text()); }
+        const { cid: realCid } = await res.json() as { cid: string };
         cid = realCid;
         setIdCardData({ ...idCardData, cid });
       }
