@@ -36,15 +36,7 @@ const options: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-const authHandler = NextAuth(options) as unknown as (
-  req: Request,
-  ctx: { params: { nextauth: string[] } }
-) => Promise<Response>;
-
-export async function GET(request: Request, context: { params: { nextauth: string[] } }) {
-  return authHandler(request, context);
-}
-
-export const POST = authHandler;
+const handler = NextAuth(options);
+export { handler as GET, handler as POST };
 
 
