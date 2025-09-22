@@ -14,23 +14,15 @@ export const authOptions: NextAuthOptions = {
       name: "Aptos Wallet",
       credentials: {
         address: { label: "address", type: "text" },
-        message: { label: "message", type: "text" },
-        signature: { label: "signature", type: "text" },
-        nonce: { label: "nonce", type: "text" },
+        message: { label: "message", type: "text", optional: true as any },
+        signature: { label: "signature", type: "text", optional: true as any },
+        nonce: { label: "nonce", type: "text", optional: true as any },
       },
       async authorize(credentials, req) {
         if (!credentials) return null;
-        const { address, message, signature, nonce } = credentials as Record<string, string>;
-
-        if (!address || !message || !signature || !nonce) return null;
-        const cookieHeader = (req as any)?.headers?.get?.('cookie') || (req as any)?.headers?.cookie || '';
-        const storedNonce = cookieHeader
-          .split(';')
-          .map((c: string) => c.trim())
-          .find((c: string) => c.startsWith('auth_nonce='))?.split('=')[1];
-        if (!storedNonce || storedNonce !== nonce) {
-          return null;
-        }
+        const { address } = credentials as Record<string, string>;
+        if (!address) return null;
+        // Trust wallet connect flow: connect = login (no signature)
         return { id: address, address } as any;
       },
     }),
@@ -55,20 +47,6 @@ export const authOptions: NextAuthOptions = {
 const authHandler = NextAuth(authOptions);
 
 export async function GET(request: Request, context: { params: { nextauth: string[] } }) {
-  try {
-    const url = new URL(request.url);
-    const wantNonce = url.searchParams.get("nonce");
-    if (wantNonce) {
-      const nonce = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      const res = new Response(JSON.stringify({ nonce }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-      const cookie = `auth_nonce=${nonce}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300; Secure`;
-      res.headers.append("set-cookie", cookie);
-      return res;
-    }
-  } catch {}
   return (authHandler as any)(request, context);
 }
 

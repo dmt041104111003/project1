@@ -112,16 +112,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('aptosNetwork', network);
         if (!session) {
           try {
-            const res = await fetch('/api/auth/credentials?nonce=1', { cache: 'no-store' });
-            const { nonce } = await res.json();
-            const message = `Đăng nhập Marketplace2vn\nĐịa chỉ: ${acc.address}\nNonce: ${nonce}`;
-            const signature = await wallet.signMessage?.({ message, nonce });
             const result = await signIn('credentials', {
               redirect: false,
               address: acc.address,
-              message,
-              signature: typeof signature === 'string' ? signature : JSON.stringify(signature || {}),
-              nonce,
             });
             if (!result || result.error) {
               throw new Error(result?.error || 'Đăng nhập thất bại');
