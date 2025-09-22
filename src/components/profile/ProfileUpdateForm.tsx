@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { FileUploadInput } from '@/components/ui/file-upload-input';
+import { CidDisplay } from '@/components/ui/cid-display';
+import { Section, FormField } from '@/components/ui/section';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -195,24 +198,22 @@ export default function ProfileUpdateForm() {
           )}
         </div>
         
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Headline</label>
+        <FormField label="Headline">
           <Input 
-            value={formData.headline} 
+            value={formData.headline}
             onChange={(e) => setFormData(prev => ({ ...prev, headline: e.target.value }))}
-            placeholder="e.g. Senior Full-Stack Developer" 
+            placeholder="e.g. Senior Full-Stack Developer"
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Tóm tắt</label>
+        <FormField label="Tóm tắt">
           <Textarea 
-            value={formData.summary} 
+            value={formData.summary}
             onChange={(e) => setFormData(prev => ({ ...prev, summary: e.target.value }))}
             placeholder="Mô tả ngắn gọn về bản thân và chuyên môn..."
             rows={3}
           />
-        </div>
+        </FormField>
 
                  <div className="space-y-2">
            <label className="text-sm font-medium text-muted-foreground">Kỹ năng</label>
@@ -260,25 +261,23 @@ export default function ProfileUpdateForm() {
            </div>
          </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Kinh nghiệm</label>
+        <FormField label="Kinh nghiệm">
           <Textarea 
-            value={formData.experience} 
+            value={formData.experience}
             onChange={(e) => setFormData(prev => ({ ...prev, experience: e.target.value }))}
             placeholder="Mô tả kinh nghiệm làm việc..."
             rows={4}
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Học vấn</label>
+        <FormField label="Học vấn">
           <Textarea 
-            value={formData.education} 
+            value={formData.education}
             onChange={(e) => setFormData(prev => ({ ...prev, education: e.target.value }))}
             placeholder="Thông tin học vấn..."
             rows={3}
           />
-        </div>
+        </FormField>
 
                  <div className="space-y-2">
            <label className="text-sm font-medium text-muted-foreground">Links</label>
@@ -328,37 +327,17 @@ export default function ProfileUpdateForm() {
            </div>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <div className="space-y-2">
-             <label className="text-sm font-medium text-muted-foreground">Ảnh đại diện</label>
-             <Input 
-               type="file" 
-               accept="image/*"
-               onChange={(e) => {
-                 const file = e.target.files?.[0];
-                 if (file) handleFileUpload(file, 'avatar');
-               }}
-             />
-             {uploadedFiles.avatar && (
-               <p className="text-xs text-green-600">✓ Đã upload: {uploadedFiles.avatar}</p>
-             )}
-           </div>
+        <Section title="Tài sản hồ sơ">
+          <FileUploadInput label="Ảnh đại diện" accept="image/*" onFile={(f) => handleFileUpload(f, 'avatar')} />
+          {uploadedFiles.avatar && (
+            <CidDisplay label="Avatar CID" cid={uploadedFiles.avatar} />
+          )}
 
-           <div className="space-y-2">
-             <label className="text-sm font-medium text-muted-foreground">CV (PDF)</label>
-             <Input 
-               type="file" 
-               accept=".pdf"
-               onChange={(e) => {
-                 const file = e.target.files?.[0];
-                 if (file) handleFileUpload(file, 'cv');
-               }}
-             />
-             {uploadedFiles.cv && (
-               <p className="text-xs text-green-600">✓ Đã upload: {uploadedFiles.cv}</p>
-             )}
-           </div>
-         </div>
+          <FileUploadInput label="CV (PDF)" accept=".pdf" onFile={(f) => handleFileUpload(f, 'cv')} />
+          {uploadedFiles.cv && (
+            <CidDisplay label="CV CID" cid={uploadedFiles.cv} />
+          )}
+        </Section>
 
         <div className="flex gap-3 pt-4">
           <Button type="submit" disabled={loading || isUploading}>

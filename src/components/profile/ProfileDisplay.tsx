@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, Badge, CopyableMono, CidDisplay, LoadingInline, Section } from '@/components/ui';
 import { fetchJsonFromCid } from '@/lib/client';
 import { toast } from 'sonner';
 import { ProfileDisplayProps, ProfileData } from '@/constants/profile';
@@ -60,11 +59,8 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
   if (loading) {
     return (
       <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-center text-foreground">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border"></div>
-            <span className="ml-2">Đang tải profile...</span>
-          </div>
+        <div className="p-6 flex items-center justify-center">
+          <LoadingInline text="Đang tải profile..." />
         </div>
       </Card>
     );
@@ -88,24 +84,13 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">DID Hash</label>
-            <p 
-              className="text-sm font-mono bg-card text-card-foreground border border-border p-2 rounded cursor-pointer hover:bg-accent/40 transition-colors break-all"
-              onClick={() => {
-                navigator.clipboard.writeText(profileData.did_hash);
-                toast.success('DID hash đã được copy!');
-              }}
-              title="Click để copy DID Hash"
-            >
-              {profileData.did_hash}
-            </p>
+            <CopyableMono value={profileData.did_hash} label="DID hash đã được copy!" />
           </div>
           
         </div>
 
         {offchain && (
-          <div className="border-t border-border pt-4">
-            <h4 className="font-medium mb-3 text-foreground">Chi tiết off-chain (IPFS)</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <Section title="Chi tiết off-chain (IPFS)">
               {'name' in offchain && (
                 <div>
                   <label className="text-muted-foreground">Name</label>
@@ -136,8 +121,7 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
                   <img src={offchain.id_card_back_url as string} alt="id-back" className="rounded border border-border max-h-40 object-cover" />
                 </div>
               )}
-            </div>
-          </div>
+          </Section>
         )}
         {didDetails && (
           <div className="border-t border-border pt-4">
@@ -183,58 +167,10 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
                 {new Date(Number(profileData.created_at) * 1000).toLocaleDateString('vi-VN')}
               </p>
             </div>
-            <div>
-              <label className="text-muted-foreground">Verification CID</label>
-              <p 
-                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText(profileData.verification_cid);
-                  toast.success('Verification CID đã được copy!');
-                }}
-                title="Click để copy IPFS CID"
-              >
-                {profileData.verification_cid}
-              </p>
-            </div>
-            <div>
-              <label className="text-muted-foreground">Profile CID</label>
-              <p 
-                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText(profileData.profile_cid);
-                  toast.success('Profile CID đã được copy!');
-                }}
-                title="Click để copy Profile CID"
-              >
-                {profileData.profile_cid || '—'}
-              </p>
-            </div>
-            <div>
-              <label className="text-muted-foreground">Avatar CID</label>
-              <p 
-                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText(profileData.avatar_cid);
-                  toast.success('Avatar CID đã được copy!');
-                }}
-                title="Click để copy Avatar CID"
-              >
-                {profileData.avatar_cid || '—'}
-              </p>
-            </div>
-            <div>
-              <label className="text-muted-foreground">CV CID</label>
-              <p 
-                className="font-mono bg-card text-card-foreground border border-border p-2 rounded text-sm break-all cursor-pointer hover:bg-accent/40 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText(profileData.cv_cid);
-                  toast.success('CV CID đã được copy!');
-                }}
-                title="Click để copy CV CID"
-              >
-                {profileData.cv_cid || '—'}
-              </p>
-            </div>
+            <CidDisplay label="Verification CID" cid={profileData.verification_cid} />
+            <CidDisplay label="Profile CID" cid={profileData.profile_cid} />
+            <CidDisplay label="Avatar CID" cid={profileData.avatar_cid} />
+            <CidDisplay label="CV CID" cid={profileData.cv_cid} />
             {latestEventTime && (
               <div>
                 <label className="text-muted-foreground">Thời điểm đăng ký</label>

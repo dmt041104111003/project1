@@ -8,6 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 // no-op import
 import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
+import { LoadingInline } from '@/components/ui/loading-inline';
 
 type DidState = {
   loading: boolean;
@@ -49,9 +50,8 @@ export default function DIDVerifiedStatus() {
   if (state.loading) {
     return (
       <Card>
-        <div className="p-6 flex items-center justify-center text-foreground">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border" />
-          <span className="ml-2">Đang kiểm tra trạng thái DID...</span>
+        <div className="p-6 flex items-center justify-center">
+          <LoadingInline text="Đang kiểm tra trạng thái DID..." />
         </div>
       </Card>
     );

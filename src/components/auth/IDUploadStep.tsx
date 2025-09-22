@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button, FileUploadInput } from '@/components/ui';
 import { IDUploadStepProps } from '@/constants/auth';
 import { Upload, Loader2, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 
@@ -32,10 +31,7 @@ export default function IDUploadStep({
     setInputKey(prev => prev + 1); 
   };
 
-  const handleFrontImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
+  const handleFrontImageUpload = async (file: File) => {
       setFrontImage(file);
       setUploadError(null); 
       
@@ -52,15 +48,9 @@ export default function IDUploadStep({
           }, 2000); 
         }
       }
-    }
   };
 
-  const handleBackImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      setBackImage(files[0]);
-    }
-  };
+  const handleBackImageUpload = (file: File) => { setBackImage(file); };
 
   const handleContinue = () => {
     if (uploadedFront && backImage) {
@@ -74,14 +64,7 @@ export default function IDUploadStep({
         <div className="space-y-3">
           <label className="block text-sm font-medium">Ảnh mặt trước CCCD/Hộ chiếu</label>
           <div className="relative">
-            <Input
-              key={inputKey}
-              type="file"
-              accept="image/*"
-              onChange={handleFrontImageUpload}
-              className="cursor-pointer"
-              disabled={isApiLoading}
-            />
+            <FileUploadInput label="Chọn ảnh" accept="image/*" onFile={handleFrontImageUpload} />
             {isApiLoading && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -128,13 +111,7 @@ export default function IDUploadStep({
         
         <div className="space-y-3">
           <label className="block text-sm font-medium">Ảnh mặt sau CCCD/Hộ chiếu</label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={handleBackImageUpload}
-            className="cursor-pointer"
-            disabled={uploadError !== null} 
-          />
+          <FileUploadInput label="Chọn ảnh" accept="image/*" onFile={handleBackImageUpload} />
           {backImage && !uploadError && (
             <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
               <p className="text-sm text-gray-600">✓ Đã chọn ảnh mặt sau</p>

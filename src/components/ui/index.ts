@@ -17,3 +17,8 @@ export { Badge } from './badge';
 export { Avatar } from './avatar';
 export { Card } from './card';
 export { Alert } from './alert';
+export { CopyableMono } from './copyable';
+export { CidDisplay } from './cid-display';
+export { LoadingInline } from './loading-inline';
+export { FileUploadInput } from './file-upload-input';
+export { Section, FormField } from './section';

@@ -1,9 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, Badge, Button, CopyableMono } from '@/components/ui';
 import { CheckCircle, ExternalLink, Copy, Hash, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { BlockchainResultProps } from '@/constants/auth';
@@ -49,13 +47,7 @@ export default function BlockchainResult({
           </h4>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <p 
-                className="font-mono text-sm break-all text-green-800 cursor-pointer hover:bg-green-100 transition-colors p-2 rounded"
-                onClick={() => copyToClipboard(transactionHash, 'Transaction Hash')}
-                title="Click để copy Transaction Hash"
-              >
-                {transactionHash}
-              </p>
+              <CopyableMono value={transactionHash} label="Transaction Hash đã được copy!" />
               <Button
                 variant="ghost"
                 size="sm"

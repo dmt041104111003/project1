@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui';
 import {  MessageListProps } from '@/constants/chat';
 
 export default function MessageList({ messages }: MessageListProps) {

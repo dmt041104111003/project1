@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui';
 import { ChatHeaderProps } from '@/constants/chat';
 
 export default function ChatHeader({ title, participant }: ChatHeaderProps) {

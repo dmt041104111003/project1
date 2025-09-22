@@ -1,7 +1,5 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Card, Avatar, Badge } from '@/components/ui';
 import { ConversationListProps } from '@/constants/chat';
 
 export default function ConversationList({
