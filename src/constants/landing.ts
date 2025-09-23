@@ -2,7 +2,8 @@ export const NAVIGATION = [
   { name: 'Trang chủ', href: '/' },
   { name: 'Việc làm', href: '/jobs' },
   { name: 'Chat', href: '/chat' },
-  { name: 'Dashboard', href: '/dashboard' }
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Tranh chấp', href: '/disputes' }
 ];
 
 export const HOW_IT_WORKS_STEPS = [
