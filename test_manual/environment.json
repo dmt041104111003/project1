@@ -1,0 +1,14 @@
+{
+  "name": "Environment",
+  "values": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "enabled": true },
+    { "key": "registeredAddress", "value": "0x63f7258246d645d71b7c397cfcccef84ff47930065018b18f7667ce37565cf89", "enabled": true },
+    { "key": "emptyProfileAddress", "value": "0x05b8e72a5e048371aa650c8fc2adcc6a382242e9bda2d692e823db565bb22f77", "enabled": true },
+    { "key": "address", "value": "{{registeredAddress}}", "enabled": true },
+    { "key": "invalidAddress", "value": "abc", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_using": "Postman/10"
+}
+
+

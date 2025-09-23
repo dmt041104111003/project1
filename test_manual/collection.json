@@ -1,0 +1,379 @@
+{
+  "info": {
+    "name": "Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Auth - CSRF",
+          "event": [
+            {"listen": "test", "script": {"exec": [
+              "pm.test('Status 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+              "const j = pm.response.json();",
+              "pm.test('Has csrfToken', function () { pm.expect(j).to.have.property('csrfToken'); });",
+              "pm.environment.set('csrfToken', j.csrfToken);"
+            ], "type": "text/javascript"}}
+          ],
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/auth/csrf", "host": ["{{baseUrl}}"], "path": ["api","auth","csrf"]}}
+        },
+        {
+          "name": "Auth - Sign in (credentials)",
+          "event": [
+            {"listen": "test", "script": {"exec": [
+              "pm.test('Status 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+              "pm.test('Set-Cookie present (session token likely set)', function () { pm.expect(pm.response.headers.has('Set-Cookie')).to.be.true; });"
+            ], "type": "text/javascript"}}
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "csrfToken", "value": "{{csrfToken}}"},
+                {"key": "redirect", "value": "false"},
+                {"key": "json", "value": "true"},
+                {"key": "address", "value": "{{registeredAddress}}"}
+              ]
+            },
+            "url": {"raw": "{{baseUrl}}/api/auth/callback/credentials", "host": ["{{baseUrl}}"], "path": ["api","auth","callback","credentials"]}
+          }
+        },
+        {
+          "name": "Auth - Session",
+          "event": [
+            {"listen": "test", "script": {"exec": [
+              "pm.test('Status 200', function () { pm.expect(pm.response.code).to.eql(200); });",
+              "const j = pm.response.json();",
+              "pm.test('Has expires field', function () { pm.expect(j).to.have.property('expires'); });"
+            ], "type": "text/javascript"}}
+          ],
+          "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/auth/session", "host": ["{{baseUrl}}"], "path": ["api","auth","session"]}}
+        }
+      ]
+    },
+    {
+      "name": "DID - Get by address",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  const j = pm.response.json();",
+              "  pm.test('hasVerified is boolean', function () { pm.expect(j).to.have.property('hasVerified').that.is.a('boolean'); });",
+              "  pm.test('didHash is string', function () { pm.expect(j).to.have.property('didHash').that.is.a('string'); });",
+              "  pm.test('controller is string', function () { pm.expect(j).to.have.property('controller').that.is.a('string'); });",
+              "  if (j.hasVerified === true) {",
+              "    pm.test('controller equals address (case-insensitive)', function () { pm.expect(j.controller.toLowerCase()).to.eql(pm.environment.get('address').toLowerCase()); });",
+              "  }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/did/{{address}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "did",
+            "{{address}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Profile - exists",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 400 or 500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Body has exists boolean', function () { pm.expect(pm.response.json()).to.have.property('exists').that.is.a('boolean'); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/profile/{{address}}?select=exists",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","profile","{{address}}"],
+          "query": [{"key": "select", "value": "exists"}]
+        }
+      }
+    },
+    {
+      "name": "Profile - cids",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 400 or 500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Body has cids array', function () { pm.expect(pm.response.json()).to.have.property('cids').that.is.an('array'); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/profile/{{address}}?select=cids",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","profile","{{address}}"],
+          "query": [{"key": "select", "value": "cids"}]
+        }
+      }
+    },
+    {
+      "name": "Profile - latest",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 404 or 400 or 500', function () { pm.expect([200,404,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Body has cid string', function () { const j = pm.response.json(); pm.expect(j).to.have.property('cid').that.is.a('string').and.not.empty; });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/profile/{{address}}?select=latest",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","profile","{{address}}"],
+          "query": [{"key": "select", "value": "latest"}]
+        }
+      }
+    },
+    {
+      "name": "Profile - verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 404 or 400 or 500', function () { pm.expect([200,404,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Body has cid string', function () { const j = pm.response.json(); pm.expect(j).to.have.property('cid').that.is.a('string').and.not.empty; });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/profile/{{address}}?select=verification",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","profile","{{address}}"],
+          "query": [{"key": "select", "value": "verification"}]
+        }
+      }
+    },
+    {
+      "name": "Profile - full",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 404 or 400 or 500', function () { pm.expect([200,404,400,500]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  const j = pm.response.json();",
+              "  pm.test('Has did_hash', function () { pm.expect(j).to.have.property('did_hash'); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/profile/{{address}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","profile","{{address}}"]
+        }
+      }
+    }
+    ,
+    {
+      "name": "Events - profile-registered (registeredAddress)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('Has events array', function () { pm.expect(j).to.have.property('events').that.is.an('array'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/events/profile-registered?address={{registeredAddress}}&limit=10", "host": ["{{baseUrl}}"], "path": ["api","events","profile-registered"], "query": [{"key":"address","value":"{{registeredAddress}}"},{"key":"limit","value":"10"}]}}
+    },
+    {
+      "name": "Events - profile-registered (emptyProfileAddress)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('Has events array', function () { pm.expect(j).to.have.property('events').that.is.an('array'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/events/profile-registered?address={{emptyProfileAddress}}&limit=10", "host": ["{{baseUrl}}"], "path": ["api","events","profile-registered"], "query": [{"key":"address","value":"{{emptyProfileAddress}}"},{"key":"limit","value":"10"}]}}
+    },
+    {
+      "name": "IPFS - pin JSON",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/502/500', function () { pm.expect([200,502,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('Has cid', function () { pm.expect(j).to.have.property('cid').that.is.a('string'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"hello\": \"world\"\n}"},
+        "url": {"raw": "{{baseUrl}}/api/ipfs/pin", "host": ["{{baseUrl}}"], "path": ["api","ipfs","pin"]}
+      }
+    },
+    {
+      "name": "IPFS - pin file (multipart/form-data)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/502/500', function () { pm.expect([200,502,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('Has cid', function () { pm.expect(j).to.have.property('cid').that.is.a('string'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {"key": "file", "type": "file", "src": []},
+            {"key": "filename", "type": "text", "value": "upload.txt"}
+          ]
+        },
+        "url": {"raw": "{{baseUrl}}/api/ipfs/pin", "host": ["{{baseUrl}}"], "path": ["api","ipfs","pin"]}
+      }
+    },
+    {
+      "name": "IPFS - unsupported content-type",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 415 or 500', function () { pm.expect([415,500]).to.include(pm.response.code); });"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "text/plain"}],
+        "body": {"mode": "raw", "raw": "hello"},
+        "url": {"raw": "{{baseUrl}}/api/ipfs/pin", "host": ["{{baseUrl}}"], "path": ["api","ipfs","pin"]}
+      }
+    },
+    {
+      "name": "DID - invalid address",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('has hasVerified and strings', function () { pm.expect(j).to.have.property('hasVerified'); pm.expect(j).to.have.property('didHash'); pm.expect(j).to.have.property('controller'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/did/{{invalidAddress}}", "host": ["{{baseUrl}}"], "path": ["api","did","{{invalidAddress}}"]}}
+    },
+    {
+      "name": "Profile - exists (invalid address)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('exists boolean present', function () { pm.expect(j).to.have.property('exists').that.is.a('boolean'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/profile/{{invalidAddress}}?select=exists", "host": ["{{baseUrl}}"], "path": ["api","profile","{{invalidAddress}}"], "query": [{"key":"select","value":"exists"}]}}
+    },
+    {
+      "name": "Events - profile-registered (missing address → 400)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 400 or 500', function () { pm.expect([400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 400) { const j = pm.response.json(); pm.test('Has error', function () { pm.expect(j).to.have.property('error'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/events/profile-registered", "host": ["{{baseUrl}}"], "path": ["api","events","profile-registered"]}}
+    },
+    {
+      "name": "DID - emptyProfileAddress (expected not verified)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('hasVerified field', function () { pm.expect(j).to.have.property('hasVerified'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/did/{{emptyProfileAddress}}", "host": ["{{baseUrl}}"], "path": ["api","did","{{emptyProfileAddress}}"]}}
+    },
+    {
+      "name": "Profile - cids (emptyProfileAddress)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 200/400/500', function () { pm.expect([200,400,500]).to.include(pm.response.code); });",
+          "if (pm.response.code === 200) { const j = pm.response.json(); pm.test('cids array', function () { pm.expect(j).to.have.property('cids').that.is.an('array'); }); }"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/profile/{{emptyProfileAddress}}?select=cids", "host": ["{{baseUrl}}"], "path": ["api","profile","{{emptyProfileAddress}}"], "query": [{"key":"select","value":"cids"}]}}
+    },
+    {
+      "name": "Profile - latest (emptyProfileAddress → 404)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 404/200/400/500', function () { pm.expect([404,200,400,500]).to.include(pm.response.code); });"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/profile/{{emptyProfileAddress}}?select=latest", "host": ["{{baseUrl}}"], "path": ["api","profile","{{emptyProfileAddress}}"], "query": [{"key":"select","value":"latest"}]}}
+    },
+    {
+      "name": "Profile - verification (emptyProfileAddress → 404)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 404/200/400/500', function () { pm.expect([404,200,400,500]).to.include(pm.response.code); });"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/profile/{{emptyProfileAddress}}?select=verification", "host": ["{{baseUrl}}"], "path": ["api","profile","{{emptyProfileAddress}}"], "query": [{"key":"select","value":"verification"}]}}
+    },
+    {
+      "name": "Profile - full (emptyProfileAddress → 404)",
+      "event": [
+        {"listen": "test", "script": {"exec": [
+          "pm.test('Status 404/200/400/500', function () { pm.expect([404,200,400,500]).to.include(pm.response.code); });"
+        ], "type": "text/javascript"}}
+      ],
+      "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/profile/{{emptyProfileAddress}}", "host": ["{{baseUrl}}"], "path": ["api","profile","{{emptyProfileAddress}}"]}}
+    }
+  ]
+}
+
+

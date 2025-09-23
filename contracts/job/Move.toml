@@ -5,8 +5,8 @@ authors = []
 license = "MIT"
 
 [addresses]
-job_work_board = "0x74c532162f46a4c6e3a85c43c22a2ec447e28aa2494bc445346ee91d52912859" 
-did_addr_profile = "0x74c532162f46a4c6e3a85c43c22a2ec447e28aa2494bc445346ee91d52912859"
+job_work_board = "0x32b60c287f98e076f6cee868ed7e6ee9daa4d39b5a353883f16a412e11021177" 
+did_addr_profile = "0x32b60c287f98e076f6cee868ed7e6ee9daa4d39b5a353883f16a412e11021177"
 
 [dependencies]
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "mainnet" }

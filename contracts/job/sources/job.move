@@ -9,6 +9,7 @@ module job_work_board::job_marketplace_v35 {
     use aptos_framework::account::{Self, SignerCapability};
     use std::vector;
     use aptos_framework::timestamp;
+    use aptos_std::bcs;
     use did_addr_profile::web3_profiles_v35;
 
     const EJOB_NOT_FOUND: u64 = 0;
@@ -154,6 +155,7 @@ module job_work_board::job_marketplace_v35 {
         milestone_states: table::Table<u64, MilestoneData>,
         submit_time: Option<u64>,
         escrowed_amount: u64,
+        escrow_address: address,
         approve_time: Option<u64>,
         poster_did: vector<u8>,
         poster_profile_cid: vector<u8>,
@@ -201,6 +203,8 @@ module job_work_board::job_marketplace_v35 {
         fund_flow_event: event::EventHandle<FundFlowEvent>,
         apply_event: event::EventHandle<WorkerAppliedEvent>,
         worker_stake_refunded_event: event::EventHandle<WorkerStakeRefundedEvent>,
+        stake_withdrawn_event: event::EventHandle<StakeWithdrawnEvent>,
+        escrow_topped_up_event: event::EventHandle<EscrowToppedUpEvent>,
         withdraw_requested_event: event::EventHandle<WithdrawRequestedEvent>,
         withdraw_approved_event: event::EventHandle<WithdrawApprovedEvent>,
         withdraw_denied_event: event::EventHandle<WithdrawDeniedEvent>,
@@ -275,10 +279,28 @@ module job_work_board::job_marketplace_v35 {
         time: u64
     }
 
+    struct StakeWithdrawnEvent has copy, drop, store {
+        job_id: u64,
+        worker: address,
+        amount: u64,
+        time: u64
+    }
+
+    struct EscrowToppedUpEvent has copy, drop, store {
+        job_id: u64,
+        poster: address,
+        amount: u64,
+        time: u64
+    }
+
     struct MarketplaceCapability has key {
         cap: SignerCapability,
         escrow_address: address, 
     }
+
+    struct EscrowInfo has store { cap: SignerCapability, escrow_address: address }
+
+    struct JobEscrows has key { escrows: table::Table<u64, EscrowInfo> }
 
    
     fun is_valid_cid(cid: &vector<u8>): bool {
@@ -316,6 +338,8 @@ module job_work_board::job_marketplace_v35 {
             fund_flow_event: account::new_event_handle<FundFlowEvent>(account),
             apply_event: account::new_event_handle<WorkerAppliedEvent>(account),
             worker_stake_refunded_event: account::new_event_handle<WorkerStakeRefundedEvent>(account),
+            stake_withdrawn_event: account::new_event_handle<StakeWithdrawnEvent>(account),
+            escrow_topped_up_event: account::new_event_handle<EscrowToppedUpEvent>(account),
             withdraw_requested_event: account::new_event_handle<WithdrawRequestedEvent>(account),
             withdraw_approved_event: account::new_event_handle<WithdrawApprovedEvent>(account),
             withdraw_denied_event: account::new_event_handle<WithdrawDeniedEvent>(account),
@@ -341,13 +365,16 @@ module job_work_board::job_marketplace_v35 {
         if (!exists<Events>(owner_addr)) {
             init_events(account);
         };
-     
+        
         if (!exists<MarketplaceCapability>(owner_addr)) {
             let (escrow_signer, escrow_cap) = account::create_resource_account(account, x"6d61726b6574706c6163655f657363726f77");
             let escrow_address = signer::address_of(&escrow_signer);
             move_to(account, MarketplaceCapability { cap: escrow_cap, escrow_address: escrow_address });
             coin::register<AptosCoin>(&escrow_signer);
-        }
+        };
+        if (!exists<JobEscrows>(owner_addr)) {
+            move_to(account, JobEscrows { escrows: table::new<u64, EscrowInfo>() })
+        };
     }
 
     public entry fun post_job(
@@ -355,13 +382,16 @@ module job_work_board::job_marketplace_v35 {
         _job_title: vector<u8>,
         job_details_cid: vector<u8>,
         milestones: vector<u64>,
+        escrow_amount: u64,
         application_deadline: u64,
         _skills: vector<vector<u8>>,
         duration_per_milestone: vector<u64>
-    ) acquires Jobs, Events, MarketplaceCapability {
+    ) acquires Jobs, Events, JobEscrows {
         let sender = signer::address_of(account);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         assert!(web3_profiles_v35::has_profile(sender), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_poster_role(sender), ENOT_AUTHORIZED);
+        assert!(is_valid_cid(&job_details_cid), EINVALID_CID);
 
         let jobs_res = borrow_global_mut<Jobs>(@job_work_board);
 
@@ -378,9 +408,23 @@ module job_work_board::job_marketplace_v35 {
             i = i + 1;
         };
         assert!(total_milestone_amount > 0, EINVALID_AMOUNT);
+        // Require the provided escrow equals milestones sum
+        assert!(escrow_amount == total_milestone_amount, EINVALID_AMOUNT);
 
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        coin::transfer<AptosCoin>(account, marketplace_cap.escrow_address, total_milestone_amount);
+        // Require poster has at least 5 APT in wallet and enough to cover escrow
+        let poster_balance = coin::balance<AptosCoin>(sender);
+        assert!(poster_balance >= 5 * ONE_APT, EINSUFFICIENT_FUNDS);
+        assert!(poster_balance >= escrow_amount, EINSUFFICIENT_FUNDS);
+
+        // Create a dedicated escrow resource account for this job
+        let (job_escrow_signer, job_escrow_cap) = account::create_resource_account(account, x"6a6f62" /* "job" */);
+        let job_escrow_addr = signer::address_of(&job_escrow_signer);
+        coin::register<AptosCoin>(&job_escrow_signer);
+        // Save the escrow capability for this job
+        let escrows_res = borrow_global_mut<JobEscrows>(@job_work_board);
+        table::add(&mut escrows_res.escrows, job_id, EscrowInfo { cap: job_escrow_cap, escrow_address: job_escrow_addr });
+        // Move poster funds into the per-job escrow
+        coin::transfer<AptosCoin>(account, job_escrow_addr, escrow_amount);
 
         let start_time = timestamp::now_seconds();
         let end_time = 0u64;
@@ -413,7 +457,8 @@ module job_work_board::job_marketplace_v35 {
             current_milestone: 0,
             milestone_states: milestone_states_table,
             submit_time: option::none(),
-            escrowed_amount: total_milestone_amount,
+            escrowed_amount: escrow_amount,
+            escrow_address: job_escrow_addr,
             approve_time: option::none(),
             poster_did: vector::empty<u8>(),
             poster_profile_cid: vector::empty<u8>(),
@@ -526,6 +571,10 @@ module job_work_board::job_marketplace_v35 {
         let milestone_data = table::borrow_mut(milestone_states, milestone_index);
         assert!(!milestone_data.submitted, EALREADY_SUBMITTED);
 
+        // Reject if milestone is overdue relative to its deadline
+        let deadline = *vector::borrow(&job.milestone_deadlines, milestone_index);
+        assert!(timestamp::now_seconds() <= deadline, EINVALID_TIMING);
+
         milestone_data.submitted = true;
         milestone_data.submit_time = timestamp::now_seconds();
         milestone_data.submission_cid = work_cid;
@@ -549,7 +598,7 @@ module job_work_board::job_marketplace_v35 {
         job_id: u64,
         milestone_index: u64,
         acceptance_cid: vector<u8> 
-    ) acquires Jobs, Events, MarketplaceCapability {
+    ) acquires Jobs, Events, JobEscrows {
         let poster_addr = signer::address_of(poster);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         assert!(is_valid_cid(&acceptance_cid), EINVALID_CID);
@@ -571,8 +620,9 @@ module job_work_board::job_marketplace_v35 {
         assert!(milestone_amount > 0, EINVALID_AMOUNT);
         let worker_addr = *option::borrow(&job.worker);
 
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
         coin::transfer<AptosCoin>(&module_signer, worker_addr, milestone_amount);
         job.escrowed_amount = job.escrowed_amount - milestone_amount;
         milestone_data.accepted = true;
@@ -655,7 +705,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun cancel_job(
         account: &signer,
         job_id: u64
-    ) acquires Jobs, Events, MarketplaceCapability {
+    ) acquires Jobs, Events, JobEscrows {
         let account_addr = signer::address_of(account);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -672,8 +722,9 @@ module job_work_board::job_marketplace_v35 {
 
         let remaining_funds = job.escrowed_amount;
         if (remaining_funds > 0) {
-            let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-            let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+            let escrows = borrow_global<JobEscrows>(@job_work_board);
+            let info = table::borrow(&escrows.escrows, job_id);
+            let module_signer = account::create_signer_with_capability(&info.cap);
             coin::transfer<AptosCoin>(&module_signer, account_addr, remaining_funds);
             job.escrowed_amount = 0; 
         };
@@ -696,7 +747,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun complete_job(
     account: &signer,
     job_id: u64
-) acquires Jobs, Events, MarketplaceCapability {
+) acquires Jobs, Events, JobEscrows {
     let account_addr = signer::address_of(account);
     assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED); 
     let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -715,8 +766,9 @@ module job_work_board::job_marketplace_v35 {
     let principal = job.escrowed_amount;
     let worker_addr = *option::borrow(&job.worker);
     let total = principal + job.worker_stake;
-    let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-    let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+    let escrows = borrow_global<JobEscrows>(@job_work_board);
+    let info = table::borrow(&escrows.escrows, job_id);
+    let module_signer = account::create_signer_with_capability(&info.cap);
     coin::transfer<AptosCoin>(&module_signer, worker_addr, total);
     job.escrowed_amount = 0;
     job.worker_stake = 0;
@@ -736,7 +788,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun expire_job(
         account: &signer,
         job_id: u64
-    ) acquires Jobs, Events, MarketplaceCapability {
+    ) acquires Jobs, Events, JobEscrows {
         let _account_addr = signer::address_of(account);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -749,8 +801,9 @@ module job_work_board::job_marketplace_v35 {
 
         if (option::is_some(&job.worker) && !job.approved && job.worker_stake > 0) {
             let worker_addr = *option::borrow(&job.worker);
-            let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-            let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+            let escrows = borrow_global<JobEscrows>(@job_work_board);
+            let info = table::borrow(&escrows.escrows, job_id);
+            let module_signer = account::create_signer_with_capability(&info.cap);
             coin::transfer<AptosCoin>(&module_signer, worker_addr, job.worker_stake);
             if (exists<Events>(@job_work_board)) {
                 let events = borrow_global_mut<Events>(@job_work_board);
@@ -771,9 +824,10 @@ module job_work_board::job_marketplace_v35 {
         if (option::is_none(&job.worker)) {
             let remaining_funds = job.escrowed_amount;
             if (remaining_funds > 0) {
-                let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-                let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
-                coin::transfer<AptosCoin>(&module_signer, job.poster, remaining_funds);
+                let escrows2 = borrow_global<JobEscrows>(@job_work_board);
+                let info2 = table::borrow(&escrows2.escrows, job_id);
+                let module_signer2 = account::create_signer_with_capability(&info2.cap);
+                coin::transfer<AptosCoin>(&module_signer2, job.poster, remaining_funds);
                 job.escrowed_amount = 0; 
             };
         };
@@ -796,7 +850,7 @@ module job_work_board::job_marketplace_v35 {
         poster: &signer,
         job_id: u64,
       
-    ) acquires Jobs, MarketplaceCapability, Events {
+    ) acquires Jobs, Events, JobEscrows {
         let poster_addr = signer::address_of(poster);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -811,8 +865,9 @@ module job_work_board::job_marketplace_v35 {
 
         if (job.worker_stake > 0 && option::is_some(&job.worker)) {
             let worker_addr = *option::borrow(&job.worker);
-            let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-            let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+            let escrows = borrow_global<JobEscrows>(@job_work_board);
+            let info = table::borrow(&escrows.escrows, job_id);
+            let module_signer = account::create_signer_with_capability(&info.cap);
             coin::transfer<AptosCoin>(&module_signer, worker_addr, job.worker_stake);
             if (exists<Events>(@job_work_board)) {
                 let events = borrow_global_mut<Events>(@job_work_board);
@@ -835,13 +890,17 @@ module job_work_board::job_marketplace_v35 {
         job.last_reject_time = option::none(); 
     }
 
-    public entry fun apply(
+    public entry fun apply_job(
         worker: &signer,
-        job_id: u64
-    ) acquires Jobs, Events, MarketplaceCapability {
+        job_id: u64,
+        stake_amount: u64
+    ) acquires Jobs, Events {
         let worker_addr = signer::address_of(worker);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         assert!(web3_profiles_v35::has_profile(worker_addr), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_freelancer_role(worker_addr), ENOT_AUTHORIZED);
+        assert!(web3_profiles_v35::has_profile(worker_addr), ENO_PROFILE);
+        assert!(web3_profiles_v35::has_freelancer_role(worker_addr), ENOT_AUTHORIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
         assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
         let job = table::borrow_mut(&mut jobs.jobs, job_id);
@@ -851,17 +910,18 @@ module job_work_board::job_marketplace_v35 {
         if (option::is_some(&job.worker)) {
             let current_worker = *option::borrow(&job.worker);
             if (current_worker == worker_addr) {
-                if (option::is_some(&job.last_apply_time)) {
-                    let last = *option::borrow(&job.last_apply_time);
-                    assert!(timestamp::now_seconds() >= last + 8 * 3600, EALREADY_APPLIED);
-                }
+                assert!(false, EALREADY_APPLIED);
             } else {
                 assert!(false, EALREADY_HAS_WORKER);
             }
         };
-        let stake_amount = ONE_APT; // 1 APT
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        coin::transfer<AptosCoin>(worker, marketplace_cap.escrow_address, stake_amount);
+
+        // Stake must be at least 1 APT and available in worker's balance
+        assert!(stake_amount >= ONE_APT, EINVALID_AMOUNT);
+        let worker_balance = coin::balance<AptosCoin>(worker_addr);
+        assert!(worker_balance >= stake_amount, EINSUFFICIENT_FUNDS);
+        let job_escrow_addr = job.escrow_address;
+        coin::transfer<AptosCoin>(worker, job_escrow_addr, stake_amount);
         job.worker = option::some(worker_addr);
         job.approved = false;
         job.last_apply_time = option::some(timestamp::now_seconds());
@@ -882,7 +942,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun worker_withdraw_apply(
         worker: &signer,
         job_id: u64
-    ) acquires Jobs, MarketplaceCapability, Events {
+    ) acquires Jobs, JobEscrows, Events {
         let worker_addr = signer::address_of(worker);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -895,8 +955,9 @@ module job_work_board::job_marketplace_v35 {
         let now = timestamp::now_seconds();
         let expired = now > job.application_deadline;
         if (job.worker_stake > 0) {
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
         coin::transfer<AptosCoin>(&module_signer, worker_addr, job.worker_stake);
         
         if (exists<Events>(@job_work_board)) {
@@ -938,7 +999,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun poster_reject_worker(
         poster: &signer,
         job_id: u64
-    ) acquires Jobs, MarketplaceCapability, Events {
+    ) acquires Jobs, JobEscrows, Events {
         let poster_addr = signer::address_of(poster);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -949,8 +1010,9 @@ module job_work_board::job_marketplace_v35 {
         assert!(!job.approved, EALREADY_HAS_WORKER);
         let worker_addr = *option::borrow(&job.worker);
         if (job.worker_stake > 0) {
-            let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-            let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+            let escrows = borrow_global<JobEscrows>(@job_work_board);
+            let info = table::borrow(&escrows.escrows, job_id);
+            let module_signer = account::create_signer_with_capability(&info.cap);
             coin::transfer<AptosCoin>(&module_signer, worker_addr, job.worker_stake);
             if (exists<Events>(@job_work_board)) {
                 let events = borrow_global_mut<Events>(@job_work_board);
@@ -997,7 +1059,7 @@ module job_work_board::job_marketplace_v35 {
         }
     }
 
-    public entry fun approve_withdraw_apply(poster: &signer, job_id: u64, approve: bool) acquires Jobs, MarketplaceCapability, Events {
+    public entry fun approve_withdraw_apply(poster: &signer, job_id: u64, approve: bool) acquires Jobs, JobEscrows, Events {
         let poster_addr = signer::address_of(poster);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
         assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
@@ -1030,8 +1092,9 @@ module job_work_board::job_marketplace_v35 {
         let poster_amount = total_stake * 30 / 100;
         let escrow_amount = total_stake - worker_amount - poster_amount;
 
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
 
         if (worker_amount > 0) {
             coin::transfer<AptosCoin>(&module_signer, worker_addr, worker_amount);
@@ -1039,9 +1102,7 @@ module job_work_board::job_marketplace_v35 {
         if (poster_amount > 0) {
             coin::transfer<AptosCoin>(&module_signer, poster_addr, poster_amount);
         };
-        if (escrow_amount > 0) {
-            coin::transfer<AptosCoin>(&module_signer, marketplace_cap.escrow_address, escrow_amount);
-        };
+        if (escrow_amount > 0) { /* keep inside job escrow, no transfer */ };
 
         // Reset job
         job.worker = option::none();
@@ -1114,7 +1175,7 @@ module job_work_board::job_marketplace_v35 {
         };
     }
 
-    public entry fun approve_cancel_job(worker: &signer, job_id: u64, approve: bool) acquires Jobs, MarketplaceCapability, Events {
+    public entry fun approve_cancel_job(worker: &signer, job_id: u64, approve: bool) acquires Jobs, JobEscrows, Events {
         let worker_addr = signer::address_of(worker);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
         assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
@@ -1142,8 +1203,9 @@ module job_work_board::job_marketplace_v35 {
         };
      
         let half_apt = 50000000u64; 
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
         if (half_apt > 0) {
             coin::transfer<AptosCoin>(&module_signer, worker_addr, half_apt);
         };
@@ -1160,6 +1222,41 @@ module job_work_board::job_marketplace_v35 {
                     job_id,
                     poster: job.poster,
                     worker: worker_addr,
+                    time: timestamp::now_seconds()
+                }
+            );
+        };
+    }
+
+    public entry fun top_up_escrow(
+        poster: &signer,
+        job_id: u64,
+        amount: u64
+    ) acquires Jobs, Events {
+        let poster_addr = signer::address_of(poster);
+        assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
+        let jobs = borrow_global_mut<Jobs>(@job_work_board);
+        assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
+        let job = table::borrow_mut(&mut jobs.jobs, job_id);
+        assert!(job.poster == poster_addr, ENOT_POSTER);
+        assert!(job.active, ENOT_ACTIVE);
+        assert!(amount > 0, EINVALID_AMOUNT);
+
+        let poster_balance = coin::balance<AptosCoin>(poster_addr);
+        assert!(poster_balance >= amount, EINSUFFICIENT_FUNDS);
+
+        let job_escrow_addr = job.escrow_address;
+        coin::transfer<AptosCoin>(poster, job_escrow_addr, amount);
+        job.escrowed_amount = job.escrowed_amount + amount;
+
+        if (exists<Events>(@job_work_board)) {
+            let events = borrow_global_mut<Events>(@job_work_board);
+            event::emit_event(
+                &mut events.escrow_topped_up_event,
+                EscrowToppedUpEvent {
+                    job_id,
+                    poster: poster_addr,
+                    amount,
                     time: timestamp::now_seconds()
                 }
             );
@@ -1241,7 +1338,7 @@ module job_work_board::job_marketplace_v35 {
     public entry fun poster_remove_inactive_worker(
         poster: &signer,
         job_id: u64
-    ) acquires Jobs, MarketplaceCapability, Events {
+    ) acquires Jobs, JobEscrows, Events {
         let poster_addr = signer::address_of(poster);
         assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
         let jobs = borrow_global_mut<Jobs>(@job_work_board);
@@ -1270,8 +1367,9 @@ module job_work_board::job_marketplace_v35 {
         let worker_amount = 20000000u64; 
         let escrow_amount = total_stake - poster_amount - worker_amount;
 
-        let marketplace_cap = borrow_global<MarketplaceCapability>(@job_work_board);
-        let module_signer = account::create_signer_with_capability(&marketplace_cap.cap);
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
 
         if (poster_amount > 0) {
             coin::transfer<AptosCoin>(&module_signer, poster_addr, poster_amount);
@@ -1279,9 +1377,7 @@ module job_work_board::job_marketplace_v35 {
         if (worker_amount > 0) {
             coin::transfer<AptosCoin>(&module_signer, worker_addr, worker_amount);
         };
-        if (escrow_amount > 0) {
-            coin::transfer<AptosCoin>(&module_signer, marketplace_cap.escrow_address, escrow_amount);
-        };
+        if (escrow_amount > 0) { /* keep inside job escrow, no transfer */ };
 
         job.worker = option::none();
         job.approved = false;
@@ -1327,10 +1423,41 @@ module job_work_board::job_marketplace_v35 {
 
 
 
-    public fun transfer_from_escrow(recipient: address, amount: u64) acquires MarketplaceCapability {
-        let cap_ref = &borrow_global<MarketplaceCapability>(@job_work_board).cap;
-        let signer = account::create_signer_with_capability(cap_ref);
-        coin::transfer<AptosCoin>(&signer, recipient, amount);
+    public fun transfer_from_escrow(_recipient: address, _amount: u64) { /* deprecated in per-job escrow model */ }
+
+    public entry fun withdraw_stake(
+        worker: &signer,
+        job_id: u64
+    ) acquires Jobs, JobEscrows, Events {
+        let worker_addr = signer::address_of(worker);
+        assert!(exists<Jobs>(@job_work_board), EMODULE_NOT_INITIALIZED);
+        let jobs = borrow_global_mut<Jobs>(@job_work_board);
+        assert!(table::contains(&jobs.jobs, job_id), EJOB_NOT_FOUND);
+        let job = table::borrow_mut(&mut jobs.jobs, job_id);
+        assert!(option::is_some(&job.worker), EWORKER_NOT_APPLIED);
+        assert!(*option::borrow(&job.worker) == worker_addr, ENOT_WORKER);
+        assert!(!job.active, ENOT_ACTIVE);
+        let amount = job.worker_stake;
+        assert!(amount > 0, EINVALID_AMOUNT);
+
+        let escrows = borrow_global<JobEscrows>(@job_work_board);
+        let info = table::borrow(&escrows.escrows, job_id);
+        let module_signer = account::create_signer_with_capability(&info.cap);
+        coin::transfer<AptosCoin>(&module_signer, worker_addr, amount);
+        job.worker_stake = 0;
+
+        if (exists<Events>(@job_work_board)) {
+            let events = borrow_global_mut<Events>(@job_work_board);
+            event::emit_event(
+                &mut events.stake_withdrawn_event,
+                StakeWithdrawnEvent {
+                    job_id,
+                    worker: worker_addr,
+                    amount,
+                    time: timestamp::now_seconds()
+                }
+            );
+        };
     }
 
     public fun get_job_milestones( index: u64): vector<u64> acquires Jobs {
