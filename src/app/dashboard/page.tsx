@@ -9,7 +9,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
 import StatsCard from '@/components/dashboard/StatsCard';
-import ProjectCard from '@/components/dashboard/ProjectCard';
 import ActivityItem from '@/components/dashboard/ActivityItem';
 import JobPostForm from '@/components/dashboard/JobPostForm';
 import JobManagementCard from '@/components/dashboard/JobManagementCard';
@@ -77,9 +76,9 @@ export default function DashboardPage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed': return 'Hoàn thành';
-      case 'in-progress': return 'Đang thực hiện';
-      case 'pending': return 'Chờ xử lý';
+      case 'completed': return 'Completed';
+      case 'in-progress': return 'In Progress';
+      case 'pending': return 'Pending';
       default: return status;
     }
   };
@@ -99,10 +98,10 @@ export default function DashboardPage() {
                   <Wallet className="w-12 h-12 text-primary" />
                 </div>
                 <h1 style={robotoCondensed} className="text-4xl lg:text-5xl font-bold text-text-primary mb-4">
-                  Kết nối ví để truy cập Dashboard
+                  Connect wallet to access Dashboard
                 </h1>
                 <p style={robotoCondensed} className="text-xl text-text-secondary mb-8">
-                  Bạn cần kết nối ví Petra để xem thông tin dashboard và quản lý dự án
+                  You need to connect Petra wallet to view dashboard and manage projects
                 </p>
               </div>
 
@@ -114,13 +113,13 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 mx-auto"
                 >
                   <Wallet className="w-5 h-5" />
-                  {isConnecting ? 'Đang kết nối...' : 'Kết nối ví Petra'}
+                  {isConnecting ? 'Connecting...' : 'Connect Petra Wallet'}
                 </Button>
                 
                 <div className="text-sm text-muted-foreground">
-                  Hoặc{' '}
+                  Or{' '}
                   <Link href="/" className="text-primary hover:underline">
-                    quay về trang chủ
+                    go back to home
                   </Link>
                 </div>
               </div>
@@ -152,7 +151,7 @@ export default function DashboardPage() {
               style={robotoCondensed}
               className="text-xl lg:text-2xl text-text-secondary max-w-2xl"
             >
-              Quản lý dự án và theo dõi thu nhập của bạn
+              Manage projects and track your earnings
             </p>
           </div>
 
@@ -173,23 +172,23 @@ export default function DashboardPage() {
             <TabsList className="flex w-full mb-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Tổng quan
+                Overview
               </TabsTrigger>
               <TabsTrigger value="projects" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
-                Dự án
+                Projects
               </TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
-                Hoạt động
+                Activity
               </TabsTrigger>
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                DID Profile
+                Profile
               </TabsTrigger>
               <TabsTrigger value="profile-settings" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Cập nhật hồ sơ
+                Update Profile
               </TabsTrigger>
             </TabsList>
 
@@ -197,38 +196,38 @@ export default function DashboardPage() {
               {/* Stats Cards */}
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatsCard 
-                  title="Tổng thu nhập" 
+                    title="Total Earnings" 
                   value={`$${MOCK_STATS.totalEarnings.toLocaleString()}`} 
                 />
                 <StatsCard 
-                  title="Dự án đang thực hiện" 
+                  title="Active Projects" 
                   value={MOCK_STATS.activeProjects} 
                 />
                 <StatsCard 
-                  title="Tỷ lệ hoàn thành" 
+                  title="Completion Rate" 
                   value={`${MOCK_STATS.completionRate}%`} 
                 />
                 <StatsCard 
-                  title="Thanh toán chờ" 
+                  title="Pending Payments" 
                   value={`$${MOCK_STATS.pendingPayments.toLocaleString()}`} 
                 />
               </div>
 
               {/* Quick Actions */}
               <Card variant="outlined" className="p-6">
-                <h2 className="text-xl font-semibold text-text-primary mb-4">Thao tác nhanh</h2>
+                <h2 className="text-xl font-semibold text-text-primary mb-4">Quick Actions</h2>
                 <div className="grid md:grid-cols-4 gap-4">
                   <Button variant="outline" className="h-16 flex flex-col gap-2">
-                    <span className="text-sm">Tạo dự án mới</span>
+                    <span className="text-sm">Create New Project</span>
                   </Button>
                   <Button variant="outline" className="h-16 flex flex-col gap-2">
-                    <span className="text-sm">Rút tiền</span>
+                    <span className="text-sm">Withdraw Funds</span>
                   </Button>
                   <Button variant="outline" className="h-16 flex flex-col gap-2">
-                    <span className="text-sm">Xem báo cáo</span>
+                    <span className="text-sm">View Report</span>
                   </Button>
                   <Button variant="outline" className="h-16 flex flex-col gap-2">
-                    <span className="text-sm">Cài đặt</span>
+                    <span className="text-sm">Settings</span>
                   </Button>
                 </div>
               </Card>
@@ -245,19 +244,19 @@ export default function DashboardPage() {
                 <TabsList className="flex w-full mb-6">
                   <TabsTrigger value="post-job" className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />
-                    Đăng Job
+                    Post Job
                   </TabsTrigger>
                   <TabsTrigger value="posted-jobs" className="flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Quản lý Job đã đăng
+                    Manage Posted Jobs
                   </TabsTrigger>
                   <TabsTrigger value="accepted-jobs" className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4" />
-                    Quản lý Job đã nhận
+                    Manage Accepted Jobs
                   </TabsTrigger>
                   <TabsTrigger value="disputes" className="flex items-center gap-2">
                     <Shield className="h-4 w-4" />
-                    Quản lý tranh chấp
+                    Manage Disputes
                   </TabsTrigger>
                 </TabsList>
 
@@ -273,9 +272,9 @@ export default function DashboardPage() {
                 <TabsContent value="posted-jobs" className="space-y-6">
                   <Card variant="outlined" className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-semibold text-text-primary">Job đã đăng</h2>
+                      <h2 className="text-xl font-semibold text-text-primary">Posted Jobs</h2>
                       <Button variant="outline" size="sm">
-                        Xem tất cả
+                        View All
                       </Button>
                     </div>
                     
@@ -297,9 +296,9 @@ export default function DashboardPage() {
                 <TabsContent value="accepted-jobs" className="space-y-6">
                   <Card variant="outlined" className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-semibold text-text-primary">Job đã nhận</h2>
+                      <h2 className="text-xl font-semibold text-text-primary">Accepted Jobs</h2>
                       <Button variant="outline" size="sm">
-                        Xem tất cả
+                        View All
                       </Button>
                     </div>
                     
@@ -321,18 +320,18 @@ export default function DashboardPage() {
                 <TabsContent value="disputes" className="space-y-6">
                   <Card variant="outlined" className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-semibold text-text-primary">Quản lý tranh chấp</h2>
+                      <h2 className="text-xl font-semibold text-text-primary">Manage Disputes</h2>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <Card variant="outlined" className="p-4">
-                        <h3 className="font-semibold mb-2">Tạo tranh chấp</h3>
-                        <p className="text-sm text-muted-foreground mb-3">Khởi tạo tranh chấp cho một Job khi phát sinh vấn đề.</p>
-                        <Button size="sm" onClick={() => console.log('create dispute')}>Tạo tranh chấp</Button>
+                        <h3 className="font-semibold mb-2">Create Dispute</h3>
+                        <p className="text-sm text-muted-foreground mb-3">Create a dispute for a Job when an issue arises.</p>
+                        <Button size="sm" onClick={() => console.log('create dispute')}>Create Dispute</Button>
                       </Card>
                       <Card variant="outlined" className="p-4">
-                        <h3 className="font-semibold mb-2">Danh sách tranh chấp</h3>
-                        <p className="text-sm text-muted-foreground mb-3">Theo dõi các tranh chấp bạn đã tạo hoặc tham gia.</p>
-                        <Button variant="outline" size="sm" onClick={() => console.log('view disputes')}>Xem danh sách</Button>
+                        <h3 className="font-semibold mb-2">Dispute List</h3>
+                        <p className="text-sm text-muted-foreground mb-3">Track disputes you have created or participated in.</p>
+                        <Button variant="outline" size="sm" onClick={() => console.log('view disputes')}>View List</Button>
                       </Card>
                     </div>
                   </Card>
@@ -343,9 +342,9 @@ export default function DashboardPage() {
             <TabsContent value="activity" className="space-y-6">
               <Card variant="outlined" className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-text-primary">Hoạt động gần đây</h2>
+                  <h2 className="text-xl font-semibold text-text-primary">Recent Activity</h2>
                   <Button variant="outline" size="sm">
-                    Xem tất cả
+                    View All
                   </Button>
                 </div>
                 

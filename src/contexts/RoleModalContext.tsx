@@ -30,8 +30,6 @@ export function RoleModalProvider({ children }: { children: ReactNode }) {
 
   const confirm = () => {
     if (!selectedRole) return;
-    // Placeholder for real registration logic
-    // You can export selectedRole through another context or callback if needed
     setIsOpen(false);
   };
 
@@ -41,8 +39,8 @@ export function RoleModalProvider({ children }: { children: ReactNode }) {
       {isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={close}>
           <div className="bg-background border border-border rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-2">Đăng ký vai trò</h3>
-            <p className="text-sm text-muted-foreground mb-4">Chọn một vai trò để tiếp tục đăng ký.</p>
+            <h3 className="text-lg font-semibold mb-2">Register Role</h3>
+            <p className="text-sm text-muted-foreground mb-4">Select a role to continue registration.</p>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <Button
                 variant={selectedRole === "freelancer" ? "primary" : "outline"}
@@ -54,12 +52,12 @@ export function RoleModalProvider({ children }: { children: ReactNode }) {
                 variant={selectedRole === "poster" ? "primary" : "outline"}
                 onClick={() => setSelectedRole("poster")}
               >
-                Người thuê việc
+                Poster
               </Button>
             </div>
             <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={close}>Hủy</Button>
-              <Button variant="primary" size="sm" onClick={confirm} disabled={!selectedRole}>Xác nhận</Button>
+              <Button variant="outline" size="sm" onClick={close}>Cancel</Button>
+              <Button variant="primary" size="sm" onClick={confirm} disabled={!selectedRole}>Confirm</Button>
             </div>
           </div>
         </div>

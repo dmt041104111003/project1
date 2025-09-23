@@ -117,22 +117,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               address: acc.address,
             });
             if (!result || result.error) {
-              throw new Error(result?.error || 'Đăng nhập thất bại');
+              throw new Error(result?.error || 'Login failed');
             }
           } catch (e) {
             console.error('NextAuth sign-in failed', e);
-            toast.error('Đăng nhập thất bại');
+            toast.error('Login failed');
           }
         }
-        toast.success(`Kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
+        toast.success(`Connected to Petra wallet successfully! Address: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
       } catch (err) {
         console.error('Wallet connection error:', err);
-        toast.error('Kết nối ví Petra thất bại. Vui lòng thử lại.');
+        toast.error('Failed to connect to Petra wallet. Please try again.');
       } finally {
         setIsConnecting(false);
       }
     } else {
-      toast.error('Vui lòng cài đặt ví Petra để kết nối. Truy cập: https://petra.app');
+      toast.error('Please install Petra wallet to connect. Visit: https://petra.app');
       setIsConnecting(false);
     }
   };
@@ -142,10 +142,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const wallet = window.aptos!;
         await wallet.disconnect();
-        toast.success('Đã ngắt kết nối ví Petra thành công');
+          toast.success('Disconnected from Petra wallet successfully');
       } catch (err) {
         console.error('Wallet disconnection error:', err);
-        toast.error('Lỗi khi ngắt kết nối ví');
+        toast.error('Error when disconnecting wallet');
       }
     }
     try {
