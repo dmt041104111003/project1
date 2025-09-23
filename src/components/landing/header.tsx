@@ -101,16 +101,13 @@ export function Header() {
                  <Link
                    key={item.name}
                    href={item.href}
-                   className={`transition-colors font-medium relative ${
+                   className={`transition-colors font-medium relative no-underline ${
                      isActive 
                        ? 'text-primary' 
                        : 'text-text-primary hover:text-primary'
                    }`}
                  >
                    {item.name}
-                   {isActive && (
-                     <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary rounded-full"></span>
-                   )}
                  </Link>
                );
              })}
@@ -169,7 +166,7 @@ export function Header() {
                     <Link
                       key={item.name}
                       href={item.href}
-                                             className={`transition-colors font-medium flex items-center ${
+                                              className={`transition-colors font-medium flex items-center no-underline ${
                          isActive 
                            ? 'text-primary' 
                            : 'text-text-primary hover:text-primary'
@@ -177,9 +174,6 @@ export function Header() {
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       {item.name}
-                      {isActive && (
-                                                 <span className="ml-2 w-2 h-2 bg-primary rounded-full"></span>
-                      )}
                     </Link>
                   );
                 })}
