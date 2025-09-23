@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
@@ -28,6 +28,36 @@ const robotoCondensed = {
 
 export default function DashboardPage() {
   const { account, connectWallet, isConnecting } = useWallet();
+
+  const TOP_LEVEL_TABS = ["overview", "projects", "activity", "profile", "profile-settings"] as const
+  const [activeTab, setActiveTab] = useState<string>("overview")
+  const PROJECT_SUB_TABS = ["post-job", "posted-jobs", "accepted-jobs"] as const
+  const [projectSubTab, setProjectSubTab] = useState<string>("post-job")
+
+  useEffect(() => {
+    const applyHash = () => {
+      const raw = (typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "") || "overview"
+      if (raw.startsWith("projects:")) {
+        const [, sub] = raw.split(":")
+        setActiveTab("projects")
+        if (PROJECT_SUB_TABS.includes(sub as any)) {
+          setProjectSubTab(sub)
+        } else {
+          setProjectSubTab("post-job")
+        }
+        return
+      }
+
+      if (TOP_LEVEL_TABS.includes(raw as any)) {
+        setActiveTab(raw)
+      } else {
+        setActiveTab("overview")
+      }
+    }
+    applyHash()
+    window.addEventListener("hashchange", applyHash)
+    return () => window.removeEventListener("hashchange", applyHash)
+  }, [])
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -126,7 +156,20 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value)
+              // Update URL hash without scrolling to top
+              if (typeof window !== "undefined") {
+                const newUrl = value === "projects"
+                  ? `${window.location.pathname}#projects:${projectSubTab}`
+                  : `${window.location.pathname}#${value}`
+                window.history.replaceState(null, "", newUrl)
+              }
+            }}
+            className="w-full"
+          >
             <TabsList className="flex w-full mb-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
@@ -192,7 +235,13 @@ export default function DashboardPage() {
             </TabsContent>
 
             <TabsContent value="projects" className="space-y-6">
-              <Tabs defaultValue="post-job" className="w-full">
+              <Tabs value={projectSubTab} onValueChange={(sub) => {
+                setProjectSubTab(sub)
+                if (typeof window !== "undefined") {
+                  const newUrl = `${window.location.pathname}#projects:${sub}`
+                  window.history.replaceState(null, "", newUrl)
+                }
+              }} className="w-full">
                 <TabsList className="flex w-full mb-6">
                   <TabsTrigger value="post-job" className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />
