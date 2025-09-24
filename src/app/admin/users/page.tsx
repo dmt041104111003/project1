@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState<string>("");
   const [showDetails, setShowDetails] = useState<boolean>(false);
+  const [showCids, setShowCids] = useState<boolean>(true);
 
   const shorten = (addr: string) => (addr?.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr);
   const copy = async (text: string) => {
@@ -38,6 +39,7 @@ export default function AdminUsersPage() {
       toast.error("Copy failed");
     }
   };
+  const shortenCid = (cid: string) => (cid?.length > 16 ? `${cid.slice(0, 8)}...${cid.slice(-6)}` : cid);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -72,6 +74,10 @@ export default function AdminUsersPage() {
             <input type="checkbox" checked={showDetails} onChange={(e) => setShowDetails(e.target.checked)} />
             Include profile details
           </label>
+          <label className="text-sm flex items-center gap-2">
+            <input type="checkbox" checked={showCids} onChange={(e) => setShowCids(e.target.checked)} />
+            Show CIDs
+          </label>
         </div>
       </div>
       {loading ? (
@@ -91,7 +97,15 @@ export default function AdminUsersPage() {
                     <th className="py-2 pr-4">Links</th>
                   </>
                 )}
+                {showCids && (
+                  <>
+                    <th className="py-2 pr-4">Profile CID</th>
+                    <th className="py-2 pr-4">Avatar CID</th>
+                    <th className="py-2 pr-4">CV CID</th>
+                  </>
+                )}
                 <th className="py-2 pr-4">Created</th>
+                <th className="py-2 pr-4">Updated</th>
                 <th className="py-2 pr-4">Last Login</th>
               </tr>
             </thead>
@@ -117,7 +131,48 @@ export default function AdminUsersPage() {
                       <td className="py-2 pr-4 truncate max-w-[260px]">{(u.links || [])?.join(', ')}</td>
                     </>
                   )}
+                  {showCids && (
+                    <>
+                      <td className="py-2 pr-4 font-mono truncate max-w-[220px]">
+                        {u.profileCid ? (
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={() => copy(u.profileCid!)}
+                            title="Click to copy"
+                          >
+                            {shortenCid(u.profileCid!)}
+                          </button>
+                        ) : ''}
+                      </td>
+                      <td className="py-2 pr-4 font-mono truncate max-w-[220px]">
+                        {u.avatarCid ? (
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={() => copy(u.avatarCid!)}
+                            title="Click to copy"
+                          >
+                            {shortenCid(u.avatarCid!)}
+                          </button>
+                        ) : ''}
+                      </td>
+                      <td className="py-2 pr-4 font-mono truncate max-w-[220px]">
+                        {u.cvCid ? (
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={() => copy(u.cvCid!)}
+                            title="Click to copy"
+                          >
+                            {shortenCid(u.cvCid!)}
+                          </button>
+                        ) : ''}
+                      </td>
+                    </>
+                  )}
                   <td className="py-2 pr-4">{new Date(u.createdAt).toLocaleString()}</td>
+                  <td className="py-2 pr-4">{new Date(u.updatedAt).toLocaleString()}</td>
                   <td className="py-2 pr-4">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : ""}</td>
                 </tr>
               ))}
