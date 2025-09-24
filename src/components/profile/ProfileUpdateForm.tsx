@@ -194,6 +194,25 @@ export default function ProfileUpdateForm() {
       const profileBare = (cid || existingCids.profile || '').replace('ipfs://', '');
       const cvBare = ((uploadedFiles.cv || existingCids.cv) || '').replace('ipfs://', '');
       const avatarBare = ((uploadedFiles.avatar || existingCids.avatar) || '').replace('ipfs://', '');
+
+      if (account) {
+        await fetch(`/api/profile/${account}` ,{
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            headline: formData.headline,
+            summary: formData.summary,
+            skills: formData.skills,
+            experience: formData.experience,
+            education: formData.education,
+            links: formData.links,
+            profileCid: profileBare,
+            cvCid: cvBare,
+            avatarCid: avatarBare,
+          })
+        });
+      }
+
       const hash = await updateProfileAssets(profileBare, cvBare, avatarBare);
       setTxHash(hash);
       toast.success('Profile updated successfully!');
