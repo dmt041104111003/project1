@@ -29,7 +29,6 @@ export default function AdminUsersPage() {
   const [query, setQuery] = useState<string>("");
   const [showDetails, setShowDetails] = useState<boolean>(false);
   const [showCids, setShowCids] = useState<boolean>(true);
-  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
   const abortRef = useRef<AbortController | null>(null);
   const TTL_MS = 30000; 
 
@@ -59,7 +58,6 @@ export default function AdminUsersPage() {
         const params = new URLSearchParams();
         params.set('limit', '50');
         if (debouncedQuery) params.set('q', debouncedQuery);
-        if (verifiedOnly) params.set('verified', 'true');
         if (showDetails) params.set('include', 'details');
         const cacheKey = `adminUsers:${params.toString()}`;
         const cachedRaw = sessionStorage.getItem(cacheKey);
@@ -89,7 +87,7 @@ export default function AdminUsersPage() {
       clearTimeout(id);
       abortRef.current?.abort();
     };
-  }, [debouncedQuery, showDetails, verifiedOnly]);
+  }, [debouncedQuery, showDetails]);
 
   return (
     <div>
@@ -109,10 +107,6 @@ export default function AdminUsersPage() {
           <label className="text-sm flex items-center gap-2">
             <input type="checkbox" checked={showCids} onChange={(e) => setShowCids(e.target.checked)} />
             Show CIDs
-          </label>
-          <label className="text-sm flex items-center gap-2">
-            <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} />
-            Verified only
           </label>
         </div>
       </div>

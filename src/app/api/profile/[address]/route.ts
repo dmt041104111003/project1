@@ -15,8 +15,9 @@ export async function GET(_req: Request, context: { params: Promise<{ address: s
     const PROFILE_MODULE = process.env.NEXT_PUBLIC_PROFILE_MODULE as string;
     const APTOS_REST_URL = process.env.NEXT_PUBLIC_APTOS_REST_URL as string;
     const runView = async (func: string) => fetch(`${APTOS_REST_URL}/v1/view`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ function: func, type_arguments: [], arguments: [address] })
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=60' },
+      body: JSON.stringify({ function: func, type_arguments: [], arguments: [address] }),
+      cache: 'force-cache'
     });
 
     if (select === 'exists') {

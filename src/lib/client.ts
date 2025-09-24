@@ -74,21 +74,58 @@ export async function updateProfileAssets(
 }
 
 
-export function cidToUrl(cid: string): string {
-  const gatewayBase = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://ipfs.io/ipfs/';
-  const clean = cid.startsWith('ipfs://') ? cid.slice(7) : cid;
-  return `${gatewayBase.replace(/\/$/, '')}/${clean}`;
+const DEFAULT_GATEWAYS = [
+  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_IPFS_GATEWAY : undefined,
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://ipfs.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/'
+].filter(Boolean) as string[];
+
+function normalizeCid(cid: string): string {
+  return cid.startsWith('ipfs://') ? cid.slice(7) : cid;
+}
+
+export function cidToUrl(cid: string, gateway?: string): string {
+  const base = (gateway || DEFAULT_GATEWAYS[0] || 'https://ipfs.io/ipfs/').replace(/\/$/, '');
+  return `${base}/${normalizeCid(cid)}`;
+}
+
+const cidCache = new Map<string, { ts: number; data: unknown }>();
+const CID_TTL_MS = 5 * 60 * 1000;
+
+async function fetchWithTimeout(resource: string, ms: number, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(resource, { ...(init || {}), signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 export async function fetchJsonFromCid<T = unknown>(cid: string): Promise<T | null> {
-  try {
-    const res = await fetch(cidToUrl(cid), { cache: 'no-store' });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch (e) {
-    console.error('fetchJsonFromCid error', e);
-    return null;
+  const key = normalizeCid(cid);
+  const now = Date.now();
+  const cached = cidCache.get(key);
+  if (cached && now - cached.ts < CID_TTL_MS) {
+    return cached.data as T;
   }
+
+  const gateways = DEFAULT_GATEWAYS.length ? DEFAULT_GATEWAYS : ['https://ipfs.io/ipfs/'];
+  for (const gw of gateways) {
+    try {
+      const url = cidToUrl(key, gw);
+      const res = await fetchWithTimeout(url, 7000, { cache: 'force-cache' });
+      if (!res.ok) continue;
+      const data = (await res.json()) as T;
+      cidCache.set(key, { ts: now, data });
+      return data;
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
 }
 
 export async function checkProfileExists(address: string): Promise<boolean> {
