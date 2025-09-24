@@ -89,8 +89,15 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
           
         </div>
 
-        {offchain && (
-          <Section title="Off-chain details (IPFS)">
+        <Section title="Off-chain details (IPFS)">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CidDisplay label="Profile CID" cid={profileData.profile_cid} />
+              <CidDisplay label="Avatar CID" cid={profileData.avatar_cid} />
+              <CidDisplay label="CV CID" cid={profileData.cv_cid} />
+              <CidDisplay label="Verification CID" cid={profileData.verification_cid} />
+            </div>
+            {offchain && (
+              <div className="mt-4 space-y-3">
               {'name' in offchain && (
                 <div>
                   <label className="text-muted-foreground">Name</label>
@@ -121,8 +128,9 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
                   <img src={offchain.id_card_back_url as string} alt="id-back" className="rounded border border-border max-h-40 object-cover" />
                 </div>
               )}
-          </Section>
-        )}
+              </div>
+            )}
+        </Section>
         {didDetails && (
           <div className="border-t border-border pt-4">
             <h4 className="font-medium mb-3 text-foreground">On-chain DID details</h4>
@@ -167,10 +175,6 @@ export default function ProfileDisplay({ userAddress }: ProfileDisplayProps) {
                 {new Date(Number(profileData.created_at) * 1000).toLocaleDateString('en-US')}
               </p>
             </div>
-            <CidDisplay label="Verification CID" cid={profileData.verification_cid} />
-            <CidDisplay label="Profile CID" cid={profileData.profile_cid} />
-            <CidDisplay label="Avatar CID" cid={profileData.avatar_cid} />
-            <CidDisplay label="CV CID" cid={profileData.cv_cid} />
             {latestEventTime && (
               <div>
                 <label className="text-muted-foreground">Registration time</label>
