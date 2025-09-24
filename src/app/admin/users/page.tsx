@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type AdminUser = {
   id: string;
@@ -20,6 +21,16 @@ type AdminUser = {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const shorten = (addr: string) => (addr?.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr);
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied address to clipboard");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -56,7 +67,16 @@ export default function AdminUsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-border/60">
-                  <td className="py-2 pr-4 font-mono">{u.address}</td>
+                  <td className="py-2 pr-4 font-mono">
+                    <button
+                      type="button"
+                      className="hover:underline"
+                      onClick={() => copy(u.address)}
+                      title="Click to copy"
+                    >
+                      {shorten(u.address)}
+                    </button>
+                  </td>
                   <td className="py-2 pr-4">{u.role}</td>
                   <td className="py-2 pr-4">{u.isVerifiedDid ? "Yes" : "No"}</td>
                   <td className="py-2 pr-4 truncate max-w-[240px]">{u.headline || ""}</td>

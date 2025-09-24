@@ -57,9 +57,6 @@ export default function AdminLayout({
           <Link className={linkClass('/admin/disputes')} href="/admin/disputes">
             <span className={isCollapsed ? 'hidden' : ''}>Disputes</span>
           </Link>
-          <Link className={linkClass('/admin/profiles')} href="/admin/profiles">
-            <span className={isCollapsed ? 'hidden' : ''}>Profiles</span>
-          </Link>
           <Link className={linkClass('/admin/settings')} href="/admin/settings">
             <span className={isCollapsed ? 'hidden' : ''}>Settings</span>
           </Link>
@@ -91,7 +88,7 @@ export default function AdminLayout({
                 <Link className={linkClass('/admin/users')} href="/admin/users" onClick={() => setIsMobileMenuOpen(false)}>Users</Link>
                 <Link className={linkClass('/admin/jobs')} href="/admin/jobs" onClick={() => setIsMobileMenuOpen(false)}>Jobs</Link>
                 <Link className={linkClass('/admin/disputes')} href="/admin/disputes" onClick={() => setIsMobileMenuOpen(false)}>Disputes</Link>
-                <Link className={linkClass('/admin/profiles')} href="/admin/profiles" onClick={() => setIsMobileMenuOpen(false)}>Profiles</Link>
+                {/* Profiles merged into Users - link removed */}
                 <Link className={linkClass('/admin/settings')} href="/admin/settings" onClick={() => setIsMobileMenuOpen(false)}>Settings</Link>
                 <Link className="hover:text-primary" href="/" onClick={() => setIsMobileMenuOpen(false)}>← Back to home</Link>
               </nav>
