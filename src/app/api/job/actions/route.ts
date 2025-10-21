@@ -65,6 +65,22 @@ async function postJob(params: any) {
   }
   
   try {
+    console.log('🔍 DEBUG - postJob parameters:', {
+      user_address,
+      user_commitment,
+      job_details_cid,
+      milestones,
+      application_deadline,
+      commitmentLength: user_commitment?.length
+    });
+
+    // Convert milestones to vector<u64> format expected by contract
+    // Contract expects: milestones: vector<u64> (array of amounts in micro-APT)
+    const milestonesAmounts = milestones.map((milestone: any) => {
+      const amount = parseFloat(milestone.amount || '0');
+      return Math.floor(amount * 100_000_000); // Convert APT to micro-APT
+    });
+    
     const payload = {
       type: 'entry_function_payload',
       function: JOB.EXECUTE_JOB_ACTION,
@@ -77,10 +93,17 @@ async function postJob(params: any) {
         0, // milestone_index (not used for post)
         [], // cid (not used for post)
         job_details_cid, // job_details_cid
-        milestones, // milestones
+        milestonesAmounts, // milestones as vector<u64>
         application_deadline // application_deadline
       ]
     };
+
+    console.log('🔍 DEBUG - Transaction payload:', {
+      function: JOB.EXECUTE_JOB_ACTION,
+      arguments: payload.arguments,
+      user_commitment_in_args: payload.arguments[2],
+      commitment_match: payload.arguments[2] === user_commitment
+    });
     
     return NextResponse.json({
       success: true,

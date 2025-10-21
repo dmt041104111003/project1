@@ -8,7 +8,7 @@ export const authOptions: AuthOptions = {
     maxAge: 60 * 60 * 24,
   },
   jwt: {
-    maxAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 ,     // 7 days total
   },
   providers: [
     Credentials({
@@ -25,11 +25,22 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user && (user as any).address) {
         const address = (user as any).address as string;
         token.address = address;
       }
+      
+      // Auto-refresh token every 24h
+      const now = Math.floor(Date.now() / 1000);
+      const tokenAge = now - (Number(token.iat) || now);
+      const oneDay = 24 * 60 * 60;
+      
+      if (tokenAge > oneDay) {
+        // Refresh token by updating iat
+        token.iat = now;
+      }
+      
       return token;
     },
     async session({ session, token }) {
@@ -46,5 +57,4 @@ export const authOptions: AuthOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-
 

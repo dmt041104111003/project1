@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
 type WalletContextType = {
   account: string | null;
@@ -12,6 +12,7 @@ type WalletContextType = {
   disconnectWallet: () => void;
   accountType: 'aptos' | null;
   aptosNetwork: string | null;
+  getAuthToken: () => Promise<string | null>;
 };
 
 type WalletEventListener = (network: string) => void;
@@ -27,17 +28,18 @@ const WalletContext = createContext<WalletContextType>({
   disconnectWallet: () => {},
   accountType: null,
   aptosNetwork: null,
+  getAuthToken: async () => null,
 });
 
 export const useWallet = () => useContext(WalletContext);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [account, setAccount] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [accountType, setAccountType] = useState<'aptos' | null>(null);
   const [aptosNetwork, setAptosNetwork] = useState<string | null>(null);
-  const { data: session } = useSession();
 
   useEffect(() => {
     const savedAccount = localStorage.getItem('walletAccount');
@@ -112,23 +114,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('walletAccount', acc.address);
         localStorage.setItem('walletType', 'aptos');
         localStorage.setItem('aptosNetwork', network);
-        if (!session) {
-          try {
-            const result = await signIn('credentials', {
-              redirect: false,
-              address: acc.address,
-            });
-            if (!result || result.error) {
-              throw new Error(result?.error || 'Login failed');
-            }
-            router.push('/auth/did-verification');
-          } catch (e) {
-            console.error('NextAuth sign-in failed', e);
-            toast.error('Login failed');
+        
+        // Sign in with NextAuth
+        try {
+          const result = await signIn('credentials', {
+            redirect: false,
+            address: acc.address,
+            signature: 'wallet-connected', // Placeholder
+            message: 'wallet-authentication',
+          });
+          
+          if (result?.error) {
+            throw new Error(result.error);
           }
-        } else {
-          // If already logged in, still redirect to verification
-          router.push('/auth/did-verification');
+          
+          router.push('/dashboard');
+        } catch (e) {
+          console.error('NextAuth sign-in failed:', e);
+          toast.error('Authentication failed');
         }
         toast.success(`Connected to Petra wallet successfully! Address: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
       } catch (err) {
@@ -148,21 +151,32 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const wallet = window.aptos!;
         await wallet.disconnect();
-          toast.success('Disconnected from Petra wallet successfully');
+        toast.success('Disconnected from Petra wallet successfully');
       } catch (err) {
         console.error('Wallet disconnection error:', err);
         toast.error('Error when disconnecting wallet');
       }
     }
+    
+    // Sign out from NextAuth
     try {
       await signOut({ redirect: false });
-    } catch {}
+    } catch (e) {
+      console.error('NextAuth sign-out failed:', e);
+    }
+    
     setAccount(null);
     setAccountType(null);
     setAptosNetwork(null);
     localStorage.removeItem('walletAccount');
     localStorage.removeItem('walletType');
     localStorage.removeItem('aptosNetwork');
+  };
+
+  // Simple auth token
+  const getAuthToken = async (): Promise<string | null> => {
+    if (!account) return null;
+    return account; // Just use address as token
   };
 
   return (
@@ -174,6 +188,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         disconnectWallet,
         accountType,
         aptosNetwork,
+        getAuthToken,
       }}
     >
       {children}
@@ -198,7 +213,7 @@ declare global {
         type_arguments: string[];
         arguments: unknown[];
       }) => Promise<{ hash: string }>;
-      signMessage?: (message: { message: string; nonce: string }) => Promise<string>;
+      signMessage?: (message: { message: string }) => Promise<string>;
     };
   }
 }

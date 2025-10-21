@@ -1,53 +1,42 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/container';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
-
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet } from 'lucide-react';
-import { aptosView } from '@/lib/aptos';
-import { DID, JOB, CONTRACT_ADDRESS, APTOS_NODE_URL } from '@/constants/contracts';
-import { Buffer } from 'buffer';
 
+// Helper function for SHA256
+const sha256Hex = async (s: string): Promise<string> => {
+  const enc = new TextEncoder();
+  const data = enc.encode(s);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const bytes = Array.from(new Uint8Array(hash));
+  return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+import { Wallet } from 'lucide-react';
 
 export default function DashboardPage() {
   const { account, connectWallet, isConnecting } = useWallet();
 
-  const [didResolved, setDidResolved] = useState<string>("")
-  const [didCheckResult, setDidCheckResult] = useState<string>('')
-  const [didToCheck, setDidToCheck] = useState<string>('')
-
-  // State cho Job features
+  // State cho Job form
   const [jobTitle, setJobTitle] = useState<string>('')
   const [jobDescription, setJobDescription] = useState<string>('')
-  const [jobBudget, setJobBudget] = useState<string>('')
   const [jobDuration, setJobDuration] = useState<string>('7')
   const [jobSkills, setJobSkills] = useState<string>('')
   const [jobRequirements, setJobRequirements] = useState<string>('')
   const [jobResult, setJobResult] = useState<string>('')
-  const [jobId, setJobId] = useState<string>('')
-  const [jobStatus, setJobStatus] = useState<string>('')
-  const [jobHistory, setJobHistory] = useState<any[]>([])
-  const [loadingJobHistory, setLoadingJobHistory] = useState<boolean>(false)
+  const [profileStatus, setProfileStatus] = useState<string>('')
+  const [isProfileVerified, setIsProfileVerified] = useState<boolean | null>(null)
   
   // State cho skills và milestones
   const [skillsList, setSkillsList] = useState<string[]>([])
   const [milestonesList, setMilestonesList] = useState<Array<{amount: string, duration: string, unit: string}>>([])
   const [currentSkill, setCurrentSkill] = useState<string>('')
   const [currentMilestone, setCurrentMilestone] = useState<{amount: string, duration: string, unit: string}>({amount: '', duration: '', unit: 'ngày'})
-
-
-  const signEntry = async (functionId: string, args: unknown[]) => {
-    if (!(window as any).aptos) throw new Error('Aptos wallet not available');
-    const tx = { type: 'entry_function_payload', function: functionId, type_arguments: [], arguments: args };
-    const res = await (window as any).aptos.signAndSubmitTransaction(tx);
-    return res?.hash as string;
-  }
 
   const sha256Hex = async (s: string) => {
     const enc = new TextEncoder();
@@ -56,58 +45,6 @@ export default function DashboardPage() {
     const bytes = Array.from(new Uint8Array(hash));
     return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
   };
-
-  const refreshProfile = async () => {
-    try {
-      if (!account) return
-      
-      // Generate DID from account
-      const didCommitHex = await sha256Hex(account);
-      const did = `did:aptos:${didCommitHex}`;
-      
-      console.log('Generated DID:', did);
-      setDidResolved(did);
-      
-    } catch (e) { 
-      console.error(e)
-      setDidResolved("Lỗi khi tạo DID")
-    }
-  }
-
-  useEffect(() => { if (account) { refreshProfile() } }, [account])
-
-
-
-
-  const checkDID = async () => {
-    try {
-      if (!didToCheck.trim()) {
-        setDidCheckResult('❌ Vui lòng nhập DID');
-        return;
-      }
-      
-      setDidCheckResult('🔄 Đang kiểm tra DID...');
-      
-      // Extract commitment from DID string
-      const didParts = didToCheck.split(':');
-      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
-        setDidCheckResult('❌ Format DID không hợp lệ');
-        return;
-      }
-      
-      const commitmentHex = didParts[2];
-      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
-      
-      const rolesRes = await aptosView<any>({
-        function: DID.GET_ROLE_TYPES_BY_COMMITMENT,
-        arguments: [Array.from(commitment)]
-      });
-      const hasProfile = Array.isArray(rolesRes) && rolesRes.length > 0;
-      setDidCheckResult(hasProfile ? '✅ DID hợp lệ' : '❌ DID không tồn tại');
-    } catch (e: any) {
-      setDidCheckResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
 
   // ✅ SKILLS & MILESTONES FUNCTIONS
   const addSkill = () => {
@@ -132,331 +69,115 @@ export default function DashboardPage() {
     setMilestonesList(milestonesList.filter((_, i) => i !== index));
   }
 
+  // Calculate total budget from milestones
+  const calculateTotalBudget = () => {
+    return milestonesList.reduce((total, milestone) => {
+      const amount = parseFloat(milestone.amount) || 0;
+      return total + amount;
+    }, 0);
+  }
+
+  // ✅ AUTO CHECK PROFILE ON LOAD
+  React.useEffect(() => {
+    if (account) {
+      checkProfile();
+    }
+  }, [account]);
+
+  // ✅ PROFILE CHECK FUNCTION
+  const checkProfile = async () => {
+    try {
+      setProfileStatus('🔄 Đang kiểm tra profile...')
+      
+      // Check if user has verified profile
+      const profileCheck = await fetch('/api/did/check-profile', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const profileData = await profileCheck.json();
+      if (!profileData.success) throw new Error(profileData.error);
+      
+      if (profileData.verified) {
+        // Check if user has Poster role (role 2)
+        const hasPosterRole = profileData.roleTypes && profileData.roleTypes.includes(2);
+        
+        if (hasPosterRole) {
+          setProfileStatus('✅ Profile đã được verify với role Poster! Bạn có thể đăng job.');
+          setIsProfileVerified(true);
+        } else {
+          setProfileStatus('❌ Profile đã verify nhưng không có role Poster! Vào /auth/did-verification để cập nhật role.');
+          setIsProfileVerified(false);
+        }
+      } else {
+        setProfileStatus('❌ Profile chưa được verify! Vào /auth/did-verification để tạo profile.');
+        setIsProfileVerified(false);
+      }
+      
+    } catch (e: any) {
+      setProfileStatus(`❌ Lỗi kiểm tra profile: ${e?.message || 'thất bại'}`);
+      setIsProfileVerified(false);
+    }
+  }
 
   // ✅ JOB FUNCTIONS
   const createJob = async () => {
     try {
-      setJobResult('🔄 Đang upload metadata lên IPFS...')
+      setJobResult('🔄 Đang tạo job...')
       
-      // Upload job metadata to IPFS
+  
+      
       const ipfsResponse = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          type: 'job',
           title: jobTitle,
           description: jobDescription,
-          budget: parseInt(jobBudget),
-          duration_days: parseInt(jobDuration),
-          skills_required: skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s),
-          requirements: jobRequirements,
-          user_address: account // Add user address for DID verification
+          requirements: skillsList.join(', '), // Use skills list as requirements
+          user_commitment: await sha256Hex(account || '') // Generate commitment from account
         })
       });
       
       const ipfsData = await ipfsResponse.json();
       if (!ipfsData.success) throw new Error(ipfsData.error);
       
-      setJobResult('💼 Đang tạo job...')
-      console.log('IPFS upload successful:', ipfsData);
+      // Now call job actions API with correct parameters
+      const response = await fetch('/api/job/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'post',
+          user_address: account,
+          user_commitment: await sha256Hex(account || ''),
+          job_details_cid: ipfsData.ipfsHash,
+          milestones: milestonesList,
+          application_deadline: Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 24 * 60 * 60) // Convert days to seconds
+        })
+      });
       
-      const did = didResolved;
-      console.log('Current DID:', did);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
       
-      if (!did || did === "Lỗi khi tạo DID") {
-        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
-      }
+      // Sign and submit transaction using wallet
+      setJobResult('🔄 Đang ký transaction...');
       
-      // Get commitment from DID
-      const didParts = did.split(':');
-      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
-        throw new Error('DID format không hợp lệ');
-      }
+      const wallet = (window as any).aptos;
+      if (!wallet) throw new Error('Wallet not found');
       
-      const commitmentHex = didParts[2];
-      console.log('Commitment hex:', commitmentHex);
+      const tx = await wallet.signAndSubmitTransaction(data.payload);
+      const hash = tx?.hash || '';
       
-      if (!commitmentHex || commitmentHex.length < 2) {
-        throw new Error('Commitment hex không hợp lệ');
-      }
-      
-      // On-chain stored commitment is ASCII bytes of the hex string ("0x...")
-      const commitmentAsciiBytes = Array.from(Buffer.from(commitmentHex, 'utf8'));
-      console.log('Commitment ASCII bytes:', commitmentAsciiBytes);
-      
-      // Convert milestones to array
-      let milestones: number[];
-      let durationPerMilestone: number[];
-      
-      if (milestonesList.length > 0) {
-        milestones = milestonesList.map(m => parseInt(m.amount) * 100_000_000);
-        durationPerMilestone = milestonesList.map(m => {
-          const duration = parseInt(m.duration);
-          const multiplier = m.unit === 'tuần' ? 7 * 86400 : m.unit === 'tháng' ? 30 * 86400 : 86400;
-          return duration * multiplier;
-        });
+      if (hash) {
+        setJobResult(`✅ Job đã được tạo thành công! TX: ${hash}`);
+        console.log('Job created with hash:', hash);
       } else {
-        // Fallback to single milestone
-        milestones = [parseInt(jobBudget) * 100_000_000];
-        durationPerMilestone = [parseInt(jobDuration) * 86400];
+        setJobResult('✅ Job đã được gửi transaction!');
+        console.log('Job transaction submitted');
       }
       
-      const applicationDeadline = Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 86400);
-      
-      console.log('Calling contract with arguments:', {
-        function: JOB.POST_JOB,
-        jobTitle,
-        ipfsHash: ipfsData.ipfsHash,
-        milestones,
-        applicationDeadline,
-        skills: skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s),
-        durationPerMilestone,
-        commitment: commitmentAsciiBytes
-      });
-      
-      // Convert IPFS hash to bytes array
-      const cidBytes = Array.from(Buffer.from(ipfsData.ipfsHash, 'utf8'));
-      console.log('CID string:', ipfsData.ipfsHash);
-      console.log('CID bytes:', cidBytes);
-      
-      const txHash = await signEntry(JOB.POST_JOB, [
-        jobTitle, // _job_title (không sử dụng trong contract)
-        cidBytes, // job_details_cid as bytes array
-        milestones, // milestones
-        applicationDeadline, // application_deadline
-        skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s), // _skills (không sử dụng)
-        durationPerMilestone, // duration_per_milestone
-        commitmentAsciiBytes // poster_commitment (ASCII bytes of "0x...")
-      ]);
-      
-      console.log('Contract call successful, tx hash:', txHash);
-      
-      setJobResult('✅ Job đã được tạo thành công!');
     } catch (e: any) {
       setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
-
-  const applyToJob = async () => {
-    try {
-      setJobResult('🔄 Đang apply vào job...')
-      const did = didResolved;
-      if (!did || did === "Lỗi khi tạo DID") {
-        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
-      }
-      
-      // Get commitment from DID
-      const didParts = did.split(':');
-      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
-        throw new Error('DID format không hợp lệ');
-      }
-      
-      const commitmentHex = didParts[2];
-      if (!commitmentHex || commitmentHex.length < 2) {
-        throw new Error('Commitment hex không hợp lệ');
-      }
-      
-      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
-      
-      await signEntry(JOB.APPLY, [
-        parseInt(jobId),
-        Array.from(commitment) // worker_commitment
-      ]);
-      
-      setJobResult('✅ Đã apply vào job thành công!');
-    } catch (e: any) {
-      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
-
-  const completeJob = async () => {
-    try {
-      setJobResult('🔄 Đang hoàn tất job...')
-      const did = didResolved;
-      if (!did || did === "Lỗi khi tạo DID") {
-        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
-      }
-      
-      // Get commitment from DID
-      const didParts = did.split(':');
-      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
-        throw new Error('DID format không hợp lệ');
-      }
-      
-      const commitmentHex = didParts[2];
-      if (!commitmentHex || commitmentHex.length < 2) {
-        throw new Error('Commitment hex không hợp lệ');
-      }
-      
-      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
-      
-      await signEntry(JOB.COMPLETE_JOB, [
-        parseInt(jobId),
-        Array.from(commitment) // poster_commitment
-      ]);
-      
-      setJobResult('✅ Job đã được hoàn tất!');
-    } catch (e: any) {
-      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
-
-  const cancelJob = async () => {
-    try {
-      setJobResult('🔄 Đang hủy job...')
-      const did = didResolved;
-      if (!did || did === "Lỗi khi tạo DID") {
-        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
-      }
-      
-      // Get commitment from DID
-      const didParts = did.split(':');
-      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
-        throw new Error('DID format không hợp lệ');
-      }
-      
-      const commitmentHex = didParts[2];
-      if (!commitmentHex || commitmentHex.length < 2) {
-        throw new Error('Commitment hex không hợp lệ');
-      }
-      
-      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
-      
-      await signEntry(JOB.CANCEL_JOB, [
-        parseInt(jobId),
-        Array.from(commitment) // poster_commitment
-      ]);
-      
-      setJobResult('✅ Job đã được hủy!');
-    } catch (e: any) {
-      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
-
-  const checkJobStatus = async () => {
-    try {
-      setJobStatus('Đang kiểm tra...')
-      const job = await aptosView<any>({ 
-        function: JOB.GET_JOB_LATEST, 
-        arguments: [parseInt(jobId)] 
-      });
-      setJobStatus(`Job ID: ${job?.[0] || 'Unknown'}, Active: ${job?.[1] || 'Unknown'}, Completed: ${job?.[2] || 'Unknown'}`);
-    } catch (e: any) {
-      setJobStatus(`❌ Lỗi: ${e?.message || 'thất bại'}`);
-    }
-  }
-
-  const loadJobHistory = async () => {
-    try {
-      if (!account) return;
-      
-      setLoadingJobHistory(true);
-      setJobHistory([]);
-      
-      // Query job events from blockchain
-      const contractAddress = CONTRACT_ADDRESS;
-      
-      console.log('Loading job history for contract:', contractAddress);
-      
-      // Get job posted events
-      const postedEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_posted?limit=10`)
-        .then(res => res.json())
-        .catch(() => []);
-      
-      // Get job completed events  
-      const completedEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_completed?limit=10`)
-        .then(res => res.json())
-        .catch(() => []);
-        
-      // Get job cancelled events
-      const cancelledEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_cancelled?limit=10`)
-        .then(res => res.json())
-        .catch(() => []);
-      
-      // Process events and create history
-      const history: any[] = [];
-      
-      // Process posted events
-      if (postedEvents.data) {
-        for (const event of postedEvents.data) {
-          // Check if this job involves the current user
-          const userAddress = account?.toLowerCase();
-          const userHash = await sha256Hex(userAddress || '');
-          const posterCommitment = event.data.poster_commitment;
-          
-          // Convert commitment to hex for comparison
-          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
-          
-          if (commitmentHex === userHash) {
-            history.push({
-              id: event.data.job_id,
-              title: event.data.job_title,
-              budget: `${(event.data.escrowed_amount / 100_000_000).toFixed(2)} APT`,
-              ipfs_cid: event.data.cid,
-              status: 'Open',
-              createdAt: new Date(parseInt(event.data.start_time) * 1000).toLocaleDateString(),
-              txHash: event.version,
-              type: 'Posted'
-            });
-          }
-        }
-      }
-      
-      // Process completed events
-      if (completedEvents.data) {
-        for (const event of completedEvents.data) {
-          const userAddress = account?.toLowerCase();
-          const userHash = await sha256Hex(userAddress || '');
-          const posterCommitment = event.data.poster_commitment;
-          
-          // Convert commitment to hex for comparison
-          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
-          
-          if (commitmentHex === userHash) {
-            history.push({
-              id: event.data.job_id,
-              title: event.data.job_title,
-              budget: `${(event.data.escrowed_amount / 100_000_000).toFixed(2)} APT`,
-              freelancer: event.data.worker_commitment,
-              status: 'Completed',
-              createdAt: new Date(parseInt(event.data.complete_time) * 1000).toLocaleDateString(),
-              txHash: event.version,
-              type: 'Completed'
-            });
-          }
-        }
-      }
-      
-      // Process cancelled events
-      if (cancelledEvents.data) {
-        for (const event of cancelledEvents.data) {
-          const userAddress = account?.toLowerCase();
-          const userHash = await sha256Hex(userAddress || '');
-          const posterCommitment = event.data.poster_commitment;
-          
-          // Convert commitment to hex for comparison
-          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
-          
-          if (commitmentHex === userHash) {
-            history.push({
-              id: event.data.job_id,
-              title: event.data.job_title,
-              reason: event.data.reason,
-              status: 'Cancelled',
-              createdAt: new Date(parseInt(event.data.cancel_time) * 1000).toLocaleDateString(),
-              txHash: event.version,
-              type: 'Cancelled'
-            });
-          }
-        }
-      }
-      
-      setJobHistory(history);
-      
-    } catch (e: any) {
-      console.error('Error loading job history:', e);
-      setJobHistory([]);
-    } finally {
-      setLoadingJobHistory(false);
     }
   }
 
@@ -473,10 +194,10 @@ export default function DashboardPage() {
                   <Wallet className="w-12 h-12 text-primary" />
                 </div>
                 <h1 className="text-4xl lg:text-5xl font-bold text-text-primary mb-4">
-                  Connect wallet to access Profile
+                  Connect wallet to access Dashboard
                 </h1>
                 <p className="text-xl text-text-secondary mb-8">
-                  You need to connect Petra wallet to manage your profile
+                  You need to connect Petra wallet to manage your jobs
                 </p>
               </div>
 
@@ -514,102 +235,108 @@ export default function DashboardPage() {
       <main className="flex-1 pt-20">
         <Container>
           <div className="space-y-6">
-
-
-            {/* ✅ DID CHECK SECTION */}
-            <Card className="p-6 shadow-lg border-2 border-green-200 hover:border-green-300 transition-all duration-200">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">🔍 Kiểm tra DID</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">DID để kiểm tra</label>
-                  <input 
-                    className="border-2 border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-green-400" 
-                    value={didToCheck} 
-                    onChange={(e) => setDidToCheck(e.target.value)} 
-                    placeholder="did:aptos:0x..." 
-                  />
+            {/* Job Form */}
+            <div className="max-w-2xl mx-auto">
+              <Card className="p-8">
+                <div className="text-center mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">💼 Đăng Dự Án</h1>
+                  <p className="text-gray-600 dark:text-gray-400">Tạo dự án mới và tìm freelancer phù hợp</p>
+                  
+                  {/* Profile Status */}
+                  {profileStatus && (
+                    <div className={`p-3 rounded-lg text-sm font-medium ${
+                      profileStatus.includes('✅') 
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+                        : profileStatus.includes('❌')
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {profileStatus.includes('✅') ? '✅' : profileStatus.includes('❌') ? '❌' : '🔄'}
+                        </span>
+                        <span>{profileStatus}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                <Button 
-                  size="lg" 
-                  onClick={checkDID}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  🔍 Kiểm tra DID
-                </Button>
-                
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm border border-green-200 dark:border-green-700">
-                  <strong className="text-green-800 dark:text-green-200">Kết quả:</strong> 
-                  <span className="text-gray-700 dark:text-gray-300 ml-2">{didCheckResult || 'Chưa kiểm tra'}</span>
-                </div>
-              </div>
-            </Card>
 
-
-            {/* ✅ JOB MANAGEMENT SECTION */}
-            <Card className="p-6 shadow-lg border-2 border-blue-200 hover:border-blue-300 transition-all duration-200">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">💼 Đăng Dự Án</h2>
-                <div className="text-sm text-gray-600 dark:text-gray-300 bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full">
-                  <div>Role sẽ được check tự động khi upload</div>
-                </div>
-              </div>
-              
-              <div className="max-w-2xl mx-auto space-y-6">
-                {/* Project Details */}
-                <div className="space-y-4">
+                <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); createJob(); }}>
+                  {/* Basic Info */}
                   <div>
-                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Tiêu đề dự án</label>
-                    <input 
-                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
-                      value={jobTitle} 
-                      onChange={(e) => setJobTitle(e.target.value)} 
-                      placeholder="Ví dụ: Cần phát triển smart contract cho marketplace" 
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Tiêu đề dự án *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={jobTitle}
+                      onChange={(e) => setJobTitle(e.target.value)}
+                      placeholder="Ví dụ: Phát triển smart contract"
+                      disabled={isProfileVerified === false}
+                      className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        isProfileVerified === false 
+                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                      }`}
                     />
                   </div>
-                  
+
+                  {/* Description */}
                   <div>
-                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Mô tả chi tiết</label>
-                    <textarea 
-                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400 resize-none" 
-                      value={jobDescription} 
-                      onChange={(e) => setJobDescription(e.target.value)} 
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Mô tả dự án *
+                    </label>
+                    <textarea
+                      required
+                      value={jobDescription}
+                      onChange={(e) => setJobDescription(e.target.value)}
                       placeholder="Mô tả chi tiết về dự án, yêu cầu và mục tiêu..."
                       rows={4}
+                      disabled={isProfileVerified === false}
+                      className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
+                        isProfileVerified === false 
+                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                      }`}
                     />
                   </div>
-                  
+
+                  {/* Skills */}
                   <div>
-                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Kỹ năng yêu cầu</label>
-                    <div className="flex gap-2">
-                      <input 
-                        className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
-                        value={currentSkill} 
-                        onChange={(e) => setCurrentSkill(e.target.value)} 
-                        placeholder="Thêm kỹ năng..." 
-                        onKeyPress={(e) => e.key === 'Enter' && addSkill()}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Kỹ năng yêu cầu (sẽ được lưu vào requirements)
+                    </label>
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={currentSkill}
+                        onChange={(e) => setCurrentSkill(e.target.value)}
+                        placeholder="Thêm kỹ năng..."
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+                        disabled={isProfileVerified === false}
+                        className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          isProfileVerified === false 
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        }`}
                       />
-                      <button 
-                        onClick={addSkill}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
-                      >
+                      <Button type="button" onClick={addSkill} variant="outline" disabled={isProfileVerified === false}>
                         +
-                      </button>
+                      </Button>
                     </div>
                     {skillsList.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {skillsList.map((skill, index) => (
-                          <span 
+                          <span
                             key={index}
                             className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm"
                           >
                             {skill}
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => removeSkill(index)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-red-600 dark:hover:text-red-400"
+                              className="text-blue-600 dark:text-blue-400 hover:text-red-600"
                             >
                               ×
                             </button>
@@ -618,70 +345,107 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                  
+
+                  {/* Duration */}
                   <div>
-                    <label className="text-sm font-medium block mb-2 text-gray-700">Thời hạn nộp đơn</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Thời hạn nộp đơn
+                    </label>
                     <div className="flex gap-2">
-                      <input 
-                        className="w-24 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                        value={jobDuration} 
-                        onChange={(e) => setJobDuration(e.target.value)} 
-                        placeholder="7" 
+                      <input
+                        type="number"
+                        value={jobDuration}
+                        onChange={(e) => setJobDuration(e.target.value)}
+                        placeholder="7"
+                        disabled={isProfileVerified === false}
+                        className={`w-24 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          isProfileVerified === false 
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        }`}
                       />
-                      <select className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" aria-label="Đơn vị thời gian">
+                      <select 
+                        disabled={isProfileVerified === false}
+                        title="Chọn đơn vị thời gian"
+                        className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          isProfileVerified === false 
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        }`}
+                      >
                         <option>ngày</option>
                         <option>tuần</option>
                         <option>tháng</option>
                       </select>
                     </div>
                   </div>
-                  
+
+                  {/* Milestones */}
                   <div>
-                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">
-                      Cột mốc dự án (Số tiền và thời gian ước tính cho mỗi giai đoạn)
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Cột mốc dự án *
+                      </label>
+                      <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        Tổng: {calculateTotalBudget().toFixed(2)} APT
+                      </div>
+                    </div>
                     <div className="space-y-3">
                       <div className="flex gap-2">
-                        <input 
-                          className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
-                          value={currentMilestone.amount} 
-                          onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})} 
-                          placeholder="Số tiền (APT)" 
+                        <input
+                          type="number"
+                          value={currentMilestone.amount}
+                          onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})}
+                          placeholder="Số tiền (APT)"
+                          disabled={isProfileVerified === false}
+                          className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            isProfileVerified === false 
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          }`}
                         />
-                        <input 
-                          className="w-32 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                        <input
+                          type="number"
                           value={currentMilestone.duration}
                           onChange={(e) => setCurrentMilestone({...currentMilestone, duration: e.target.value})}
-                          placeholder="Thời gian" 
+                          placeholder="Thời gian"
+                          disabled={isProfileVerified === false}
+                          className={`w-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            isProfileVerified === false 
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          }`}
                         />
-                        <select 
-                          className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
-                          aria-label="Đơn vị thời gian cột mốc"
+                        <select
                           value={currentMilestone.unit}
                           onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
+                          disabled={isProfileVerified === false}
+                          title="Chọn đơn vị thời gian cho milestone"
+                          className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            isProfileVerified === false 
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          }`}
                         >
                           <option>ngày</option>
                           <option>tuần</option>
                           <option>tháng</option>
                         </select>
                       </div>
-                      <button 
-                        onClick={addMilestone}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
-                      >
-                        <span>+</span>
-                        Thêm cột mốc
-                      </button>
+                      <Button type="button" onClick={addMilestone} variant="outline" className="w-full" disabled={isProfileVerified === false}>
+                        + Thêm cột mốc
+                      </Button>
                       {milestonesList.length > 0 && (
                         <div className="space-y-2">
                           {milestonesList.map((milestone, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                               <span className="text-sm text-gray-700 dark:text-gray-300">
                                 {milestone.amount} APT - {milestone.duration} {milestone.unit}
                               </span>
-                              <button 
+                              <button
+                                type="button"
                                 onClick={() => removeMilestone(index)}
-                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                                className="text-red-600 hover:text-red-800"
                               >
                                 ×
                               </button>
@@ -691,147 +455,44 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
-                </div>
-                
-                <Button 
-                  size="lg" 
-                  onClick={createJob}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  🚀 Đăng dự án
-                </Button>
-                
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm border border-blue-200 dark:border-blue-700">
-                  <strong className="text-blue-800 dark:text-blue-200">Kết quả:</strong> 
-                  <span className="text-gray-700 dark:text-gray-300 ml-2">{jobResult || 'Chưa thực hiện'}</span>
-                </div>
-              </div>
-            </Card>
 
-            {/* ✅ JOB MANAGEMENT SECTION */}
-            <Card variant="outlined" className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-text-primary">🔧 Quản Lý Dự Án</h2>
-              </div>
-              
-              <div className="max-w-2xl mx-auto space-y-6">
-                <div>
-                  <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Job ID</label>
-                  <input 
-                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
-                    value={jobId} 
-                    onChange={(e) => setJobId(e.target.value)} 
-                    placeholder="Nhập Job ID..." 
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button 
-                    size="lg" 
-                    onClick={applyToJob}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                  >
-                    📝 Apply Job
-                  </Button>
-                  <Button 
-                    size="lg" 
-                    onClick={completeJob}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                  >
-                    ✅ Hoàn tất
-                  </Button>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button 
-                    size="lg" 
-                    onClick={cancelJob}
-                    className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                  >
-                    ❌ Hủy Job
-                  </Button>
-                  <Button 
-                    size="lg" 
-                    onClick={checkJobStatus}
-                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                  >
-                    🔍 Kiểm tra Status
-                  </Button>
-                </div>
-                
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm border border-blue-200 dark:border-blue-700">
-                  <strong className="text-blue-800 dark:text-blue-200">Status:</strong> 
-                  <span className="text-gray-700 dark:text-gray-300 ml-2">{jobStatus || 'Chưa kiểm tra'}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* ✅ JOB HISTORY SECTION */}
-            <Card variant="outlined" className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-text-primary">📋 Lịch sử Job</h2>
-                <Button 
-                  size="sm" 
-                  onClick={loadJobHistory}
-                  disabled={loadingJobHistory}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  {loadingJobHistory ? '🔄 Đang tải...' : '🔄 Tải lịch sử'}
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                {loadingJobHistory ? (
-                  <div className="text-center py-8">
-                    <div className="text-lg">🔄 Đang tải lịch sử job...</div>
-                  </div>
-                ) : jobHistory.length > 0 ? (
-                  <div className="space-y-3">
-                    {jobHistory.map((job, index) => (
-                      <div key={index} className="p-4 border rounded-lg bg-gray-50">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <div className="font-medium text-gray-600">Tiêu đề</div>
-                            <div className="text-blue-600 font-semibold">{job.title}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-600">Budget</div>
-                            <div className="text-green-600 font-semibold">{job.budget}</div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-600">Trạng thái</div>
-                            <div className={`font-semibold ${
-                              job.status === 'Completed' ? 'text-green-600' : 
-                              job.status === 'Open' ? 'text-blue-600' : 
-                              'text-red-600'
-                            }`}>
-                              {job.status}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-600">Loại</div>
-                            <div className="text-purple-600 font-semibold">{job.type}</div>
-                          </div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t">
-                          <div className="text-xs text-gray-500">
-                            <strong>IPFS:</strong> {job.ipfs_cid || 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            <strong>Tx:</strong> {job.txHash}
-                          </div>
-                        </div>
+                  {/* Budget Summary */}
+                  {milestonesList.length > 0 && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tổng ngân sách:</span>
+                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                          {calculateTotalBudget().toFixed(2)} APT
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="text-lg text-gray-500">📭 Chưa có lịch sử job</div>
-                    <div className="text-sm text-gray-400 mt-2">Tạo job đầu tiên để xem lịch sử</div>
-                  </div>
-                )}
-              </div>
-            </Card>
+                    </div>
+                  )}
+
+                  {/* Submit */}
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
+                        disabled={milestonesList.length === 0 || isProfileVerified === false}
+                      >
+                        {isProfileVerified === false ? '🔒 Cần verify profile trước' : '🚀 Đăng dự án'}
+                      </Button>
+
+                  {/* Result */}
+                  {jobResult && (
+                    <div className={`p-4 rounded-lg text-sm ${
+                      jobResult.includes('✅') 
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+                        : jobResult.includes('❌')
+                        ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+                    }`}>
+                      {jobResult}
+                    </div>
+                  )}
+                </form>
+              </Card>
+            </div>
           </div>
         </Container>
       </main>
