@@ -4,7 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { Toaster } from "@/components/ui/toaster";
-import { RoleModalProvider } from "@/contexts/RoleModalContext";
 import AuthSessionProvider from "@/components/providers/SessionProvider";
 
 const geistSans = Geist({
@@ -79,7 +78,6 @@ export default function RootLayout({
         <AuthSessionProvider>
           <ThemeProvider>
             <WalletProvider>
-              <RoleModalProvider>
           <div className="fixed inset-0 z-0 pointer-events-none">
             <div 
               className="w-full h-full"
@@ -95,13 +93,12 @@ export default function RootLayout({
           </div>
 
             
-            {/* Main content */}
-            <div className="relative z-10 min-h-screen">
+            {/* Main content (avoid creating a stacking context that traps modals) */}
+            <div className="relative min-h-screen">
               {children}
             </div>
             
               <Toaster />
-              </RoleModalProvider>
             </WalletProvider>
           </ThemeProvider>
         </AuthSessionProvider>

@@ -6,7 +6,7 @@ import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
 import JobCard from '@/components/jobs/JobCard';
 import JobFilters from '@/components/jobs/JobFilters';
-import { MOCK_JOBS, CATEGORIES } from '@/constants/jobs';
+import { CATEGORIES } from '@/constants/jobs';
 
 
 
@@ -20,6 +20,9 @@ export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showEscrowOnly, setShowEscrowOnly] = useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -28,7 +31,34 @@ export default function JobsPage() {
     document.head.appendChild(link);
   }, []);
 
-  const filteredJobs = MOCK_JOBS.filter(job => {
+  // Fetch jobs from blockchain
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/jobs');
+        const data = await response.json();
+        
+        if (data.success) {
+          setJobs(data.jobs);
+          console.log('Fetched jobs from blockchain:', data.jobs.length);
+        } else {
+          setError(data.error || 'Failed to fetch jobs');
+        }
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+        setError('Failed to fetch jobs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
+
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || job.category.toLowerCase() === selectedCategory;
@@ -70,18 +100,39 @@ export default function JobsPage() {
             categories={CATEGORIES}
           />
 
-          <div className="space-y-6">
-            {filteredJobs.map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
-          </div>
-
-          {filteredJobs.length === 0 && (
+          {loading && (
             <div className="text-center py-12">
-              <p className="text-text-secondary text-lg">
-                No jobs found matching your filters
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-text-secondary text-lg mt-4">
+                Loading jobs from blockchain...
               </p>
             </div>
+          )}
+
+          {error && (
+            <div className="text-center py-12">
+              <p className="text-red-500 text-lg">
+                Error: {error}
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && (
+            <>
+              <div className="space-y-6">
+                {filteredJobs.map((job) => (
+                  <JobCard key={job.id} job={job} />
+                ))}
+              </div>
+
+              {filteredJobs.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-text-secondary text-lg">
+                    No jobs found matching your filters
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </Container>
       </main>

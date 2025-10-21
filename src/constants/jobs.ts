@@ -3,7 +3,7 @@ export interface Job {
   id: number;
   title: string;
   description: string;
-  budget: string;
+  budget: string | number;
   duration: string;
   skills: string[];
   category: string;
@@ -11,6 +11,12 @@ export interface Job {
   verified: boolean;
   postedBy: string;
   postedDate: string;
+  requirements?: string;
+  escrowed_amount?: number;
+  milestones?: number[];
+  cid?: string;
+  duration_days?: number;
+  created_at?: string;
 }
 
 export interface JobCardProps {

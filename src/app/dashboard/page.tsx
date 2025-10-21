@@ -11,7 +11,7 @@ import { Footer } from '@/components/landing/footer';
 import { useWallet } from '@/contexts/WalletContext';
 import { Wallet } from 'lucide-react';
 import { aptosView } from '@/lib/aptos';
-import { DID, CV, ZKP } from '@/constants/contracts';
+import { DID, JOB, CONTRACT_ADDRESS, APTOS_NODE_URL } from '@/constants/contracts';
 import { Buffer } from 'buffer';
 
 
@@ -19,43 +19,28 @@ export default function DashboardPage() {
   const { account, connectWallet, isConnecting } = useWallet();
 
   const [didResolved, setDidResolved] = useState<string>("")
-  const [cvSummary, setCvSummary] = useState<string>("")
-  const [cvRole, setCvRole] = useState<string>("")
+  const [didCheckResult, setDidCheckResult] = useState<string>('')
+  const [didToCheck, setDidToCheck] = useState<string>('')
 
-  const [proofType, setProofType] = useState<number>(1)
-  const [resultLog, setResultLog] = useState<string>("")
-
-  // Fields for create_cv
-  const [cvTitle, setCvTitle] = useState<string>("")
-  const [cvSumIn, setCvSumIn] = useState<string>("")
-  const [cvRoleIn, setCvRoleIn] = useState<string>("")
-  const cvCommitHex = '0x'
-  const cvProofHex = '0x'
-
-  const DEFAULT_TABLE_ID = 'auto_table_type_1'
-  const zkpTableCommit = '0x'
-  const zkpTableSize = 0
-  const [zkpVkHash, setZkpVkHash] = useState<string>('0x')
-
-  const [checkHas, setCheckHas] = useState<string>('')
-  const [checkVerify, setCheckVerify] = useState<string>('')
-  const [checkEligibility, setCheckEligibility] = useState<string>('')
-  const [checkCvDoc, setCheckCvDoc] = useState<string>('')
-  const [checkRole, setCheckRole] = useState<string>('')
+  // State cho Job features
+  const [jobTitle, setJobTitle] = useState<string>('')
+  const [jobDescription, setJobDescription] = useState<string>('')
+  const [jobBudget, setJobBudget] = useState<string>('')
+  const [jobDuration, setJobDuration] = useState<string>('7')
+  const [jobSkills, setJobSkills] = useState<string>('')
+  const [jobRequirements, setJobRequirements] = useState<string>('')
+  const [jobResult, setJobResult] = useState<string>('')
+  const [jobId, setJobId] = useState<string>('')
+  const [jobStatus, setJobStatus] = useState<string>('')
+  const [jobHistory, setJobHistory] = useState<any[]>([])
+  const [loadingJobHistory, setLoadingJobHistory] = useState<boolean>(false)
   
-  // Thêm state cho các tính năng mới
-  const [checkHasCv, setCheckHasCv] = useState<string>('')
-  const [checkCvCommitment, setCheckCvCommitment] = useState<string>('')
-  const [updateResult, setUpdateResult] = useState<string>('')
-  const [burnResult, setBurnResult] = useState<string>('')
-  
-  // State cho ZKP features
-  const [verifyZkpResult, setVerifyZkpResult] = useState<string>('')
-  const [lookupTableResult, setLookupTableResult] = useState<string>('')
-  const [tableTypeResult, setTableTypeResult] = useState<string>('')
-  const [claimDataResult, setClaimDataResult] = useState<string>('')
+  // State cho skills và milestones
+  const [skillsList, setSkillsList] = useState<string[]>([])
+  const [milestonesList, setMilestonesList] = useState<Array<{amount: string, duration: string, unit: string}>>([])
+  const [currentSkill, setCurrentSkill] = useState<string>('')
+  const [currentMilestone, setCurrentMilestone] = useState<{amount: string, duration: string, unit: string}>({amount: '', duration: '', unit: 'ngày'})
 
-  useEffect(() => {}, []);
 
   const signEntry = async (functionId: string, args: unknown[]) => {
     if (!(window as any).aptos) throw new Error('Aptos wallet not available');
@@ -64,78 +49,414 @@ export default function DashboardPage() {
     return res?.hash as string;
   }
 
+  const sha256Hex = async (s: string) => {
+    const enc = new TextEncoder();
+    const data = enc.encode(s);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    const bytes = Array.from(new Uint8Array(hash));
+    return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const refreshProfile = async () => {
     try {
       if (!account) return
-      const acc = await (window as any).aptos?.account?.()
-      const pub = acc?.publicKey || ""
-      if (!pub) return
-      const dids = await aptosView<string[]>({ function: DID.GET_DID_BY_PUBLIC_KEY, arguments: [pub] })
-      const did = dids?.[0] || ""
-      setDidResolved(did)
-      if (did) {
-        const cv = await aptosView<any[]>({ function: CV.GET_CV, arguments: [did] })
-        const doc = cv?.[0]
-        setCvSummary(doc?.summary || "")
-        const role = await aptosView<string[]>({ function: CV.GET_CV_ROLE, arguments: [did] })
-        setCvRole(role?.[0] || "")
-      }
-    } catch (e) { console.error(e) }
+      
+      // Generate DID from account
+      const didCommitHex = await sha256Hex(account);
+      const did = `did:aptos:${didCommitHex}`;
+      
+      console.log('Generated DID:', did);
+      setDidResolved(did);
+      
+    } catch (e) { 
+      console.error(e)
+      setDidResolved("Lỗi khi tạo DID")
+    }
   }
 
   useEffect(() => { if (account) { refreshProfile() } }, [account])
 
-  const generateProofServer = async () => {
-    const res = await fetch('/api/zkp/fullprove', { method: 'POST' });
-    const j = await res.json();
-    if (!res.ok) throw new Error(j?.error || 'fullprove failed');
-    if (j?.verification_key_hash_sha256) setZkpVkHash(j.verification_key_hash_sha256);
-  }
 
-  const createCv = async () => {
-    const did = didResolved
-    if (!did) throw new Error('Thiếu DID, hãy bấm Lấy DID')
-    await signEntry(CV.CREATE_CV, [did, cvTitle, cvSumIn, cvRoleIn, cvCommitHex, cvProofHex])
-  }
 
-  const addZkpProof = async (didForProof: string) => {
-    const empty19 = Array(19).fill('0x')
-    return signEntry(ZKP.ADD_ZKP_PROOF, [
-      didForProof,
-      ...empty19,
-      zkpTableCommit,
-      zkpTableSize,
-      proofType,
-      zkpVkHash,
-    ])
-  }
 
-  // Thêm các functions mới
-  const updateCv = async () => {
-    const did = didResolved
-    if (!did) throw new Error('Thiếu DID')
-    await signEntry(CV.UPDATE_CV, [did, cvTitle, cvSumIn, cvRoleIn, cvCommitHex, cvProofHex])
-  }
-
-  const burnCv = async () => {
-    const did = didResolved
-    if (!did) throw new Error('Thiếu DID')
-    await signEntry(CV.BURN_CV, [did])
-  }
-
-  const doAll = async () => {
+  const checkDID = async () => {
     try {
-      setResultLog('🔄 Đang tạo bằng chứng ZKP...')
-      await generateProofServer()
-      setResultLog('📝 Đang tạo CV trên blockchain...')
-      const did = didResolved
-      if (!did) throw new Error('Thiếu DID')
-      await signEntry(CV.CREATE_CV, [did, cvTitle, cvSumIn, cvRoleIn, cvCommitHex, cvProofHex])
-      setResultLog('🔗 Đang gắn bằng chứng vào CV...')
-      await addZkpProof(did)
-      setResultLog('✅ Hoàn tất! CV đã được tạo và gắn bằng chứng thành công!')
+      if (!didToCheck.trim()) {
+        setDidCheckResult('❌ Vui lòng nhập DID');
+        return;
+      }
+      
+      setDidCheckResult('🔄 Đang kiểm tra DID...');
+      
+      // Extract commitment from DID string
+      const didParts = didToCheck.split(':');
+      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
+        setDidCheckResult('❌ Format DID không hợp lệ');
+        return;
+      }
+      
+      const commitmentHex = didParts[2];
+      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
+      
+      const rolesRes = await aptosView<any>({
+        function: DID.GET_ROLE_TYPES_BY_COMMITMENT,
+        arguments: [Array.from(commitment)]
+      });
+      const hasProfile = Array.isArray(rolesRes) && rolesRes.length > 0;
+      setDidCheckResult(hasProfile ? '✅ DID hợp lệ' : '❌ DID không tồn tại');
     } catch (e: any) {
-      setResultLog(`❌ Lỗi: ${e?.message || 'thất bại'}`)
+      setDidCheckResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  // ✅ SKILLS & MILESTONES FUNCTIONS
+  const addSkill = () => {
+    if (currentSkill.trim()) {
+      setSkillsList([...skillsList, currentSkill.trim()]);
+      setCurrentSkill('');
+    }
+  }
+
+  const removeSkill = (index: number) => {
+    setSkillsList(skillsList.filter((_, i) => i !== index));
+  }
+
+  const addMilestone = () => {
+    if (currentMilestone.amount.trim() && currentMilestone.duration.trim()) {
+      setMilestonesList([...milestonesList, currentMilestone]);
+      setCurrentMilestone({amount: '', duration: '', unit: 'ngày'});
+    }
+  }
+
+  const removeMilestone = (index: number) => {
+    setMilestonesList(milestonesList.filter((_, i) => i !== index));
+  }
+
+
+  // ✅ JOB FUNCTIONS
+  const createJob = async () => {
+    try {
+      setJobResult('🔄 Đang upload metadata lên IPFS...')
+      
+      // Upload job metadata to IPFS
+      const ipfsResponse = await fetch('/api/ipfs/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: jobTitle,
+          description: jobDescription,
+          budget: parseInt(jobBudget),
+          duration_days: parseInt(jobDuration),
+          skills_required: skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s),
+          requirements: jobRequirements,
+          user_address: account // Add user address for DID verification
+        })
+      });
+      
+      const ipfsData = await ipfsResponse.json();
+      if (!ipfsData.success) throw new Error(ipfsData.error);
+      
+      setJobResult('💼 Đang tạo job...')
+      console.log('IPFS upload successful:', ipfsData);
+      
+      const did = didResolved;
+      console.log('Current DID:', did);
+      
+      if (!did || did === "Lỗi khi tạo DID") {
+        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
+      }
+      
+      // Get commitment from DID
+      const didParts = did.split(':');
+      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
+        throw new Error('DID format không hợp lệ');
+      }
+      
+      const commitmentHex = didParts[2];
+      console.log('Commitment hex:', commitmentHex);
+      
+      if (!commitmentHex || commitmentHex.length < 2) {
+        throw new Error('Commitment hex không hợp lệ');
+      }
+      
+      // On-chain stored commitment is ASCII bytes of the hex string ("0x...")
+      const commitmentAsciiBytes = Array.from(Buffer.from(commitmentHex, 'utf8'));
+      console.log('Commitment ASCII bytes:', commitmentAsciiBytes);
+      
+      // Convert milestones to array
+      let milestones: number[];
+      let durationPerMilestone: number[];
+      
+      if (milestonesList.length > 0) {
+        milestones = milestonesList.map(m => parseInt(m.amount) * 100_000_000);
+        durationPerMilestone = milestonesList.map(m => {
+          const duration = parseInt(m.duration);
+          const multiplier = m.unit === 'tuần' ? 7 * 86400 : m.unit === 'tháng' ? 30 * 86400 : 86400;
+          return duration * multiplier;
+        });
+      } else {
+        // Fallback to single milestone
+        milestones = [parseInt(jobBudget) * 100_000_000];
+        durationPerMilestone = [parseInt(jobDuration) * 86400];
+      }
+      
+      const applicationDeadline = Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 86400);
+      
+      console.log('Calling contract with arguments:', {
+        function: JOB.POST_JOB,
+        jobTitle,
+        ipfsHash: ipfsData.ipfsHash,
+        milestones,
+        applicationDeadline,
+        skills: skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s),
+        durationPerMilestone,
+        commitment: commitmentAsciiBytes
+      });
+      
+      // Convert IPFS hash to bytes array
+      const cidBytes = Array.from(Buffer.from(ipfsData.ipfsHash, 'utf8'));
+      console.log('CID string:', ipfsData.ipfsHash);
+      console.log('CID bytes:', cidBytes);
+      
+      const txHash = await signEntry(JOB.POST_JOB, [
+        jobTitle, // _job_title (không sử dụng trong contract)
+        cidBytes, // job_details_cid as bytes array
+        milestones, // milestones
+        applicationDeadline, // application_deadline
+        skillsList.length > 0 ? skillsList : jobSkills.split(',').map(s => s.trim()).filter(s => s), // _skills (không sử dụng)
+        durationPerMilestone, // duration_per_milestone
+        commitmentAsciiBytes // poster_commitment (ASCII bytes of "0x...")
+      ]);
+      
+      console.log('Contract call successful, tx hash:', txHash);
+      
+      setJobResult('✅ Job đã được tạo thành công!');
+    } catch (e: any) {
+      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  const applyToJob = async () => {
+    try {
+      setJobResult('🔄 Đang apply vào job...')
+      const did = didResolved;
+      if (!did || did === "Lỗi khi tạo DID") {
+        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
+      }
+      
+      // Get commitment from DID
+      const didParts = did.split(':');
+      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
+        throw new Error('DID format không hợp lệ');
+      }
+      
+      const commitmentHex = didParts[2];
+      if (!commitmentHex || commitmentHex.length < 2) {
+        throw new Error('Commitment hex không hợp lệ');
+      }
+      
+      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
+      
+      await signEntry(JOB.APPLY, [
+        parseInt(jobId),
+        Array.from(commitment) // worker_commitment
+      ]);
+      
+      setJobResult('✅ Đã apply vào job thành công!');
+    } catch (e: any) {
+      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  const completeJob = async () => {
+    try {
+      setJobResult('🔄 Đang hoàn tất job...')
+      const did = didResolved;
+      if (!did || did === "Lỗi khi tạo DID") {
+        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
+      }
+      
+      // Get commitment from DID
+      const didParts = did.split(':');
+      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
+        throw new Error('DID format không hợp lệ');
+      }
+      
+      const commitmentHex = didParts[2];
+      if (!commitmentHex || commitmentHex.length < 2) {
+        throw new Error('Commitment hex không hợp lệ');
+      }
+      
+      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
+      
+      await signEntry(JOB.COMPLETE_JOB, [
+        parseInt(jobId),
+        Array.from(commitment) // poster_commitment
+      ]);
+      
+      setJobResult('✅ Job đã được hoàn tất!');
+    } catch (e: any) {
+      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  const cancelJob = async () => {
+    try {
+      setJobResult('🔄 Đang hủy job...')
+      const did = didResolved;
+      if (!did || did === "Lỗi khi tạo DID") {
+        throw new Error('Thiếu DID hoặc DID không hợp lệ. Vui lòng tạo profile trước.');
+      }
+      
+      // Get commitment from DID
+      const didParts = did.split(':');
+      if (didParts.length !== 3 || didParts[0] !== 'did' || didParts[1] !== 'aptos') {
+        throw new Error('DID format không hợp lệ');
+      }
+      
+      const commitmentHex = didParts[2];
+      if (!commitmentHex || commitmentHex.length < 2) {
+        throw new Error('Commitment hex không hợp lệ');
+      }
+      
+      const commitment = Buffer.from(commitmentHex.slice(2), 'hex');
+      
+      await signEntry(JOB.CANCEL_JOB, [
+        parseInt(jobId),
+        Array.from(commitment) // poster_commitment
+      ]);
+      
+      setJobResult('✅ Job đã được hủy!');
+    } catch (e: any) {
+      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  const checkJobStatus = async () => {
+    try {
+      setJobStatus('Đang kiểm tra...')
+      const job = await aptosView<any>({ 
+        function: JOB.GET_JOB_LATEST, 
+        arguments: [parseInt(jobId)] 
+      });
+      setJobStatus(`Job ID: ${job?.[0] || 'Unknown'}, Active: ${job?.[1] || 'Unknown'}, Completed: ${job?.[2] || 'Unknown'}`);
+    } catch (e: any) {
+      setJobStatus(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+    }
+  }
+
+  const loadJobHistory = async () => {
+    try {
+      if (!account) return;
+      
+      setLoadingJobHistory(true);
+      setJobHistory([]);
+      
+      // Query job events from blockchain
+      const contractAddress = CONTRACT_ADDRESS;
+      
+      console.log('Loading job history for contract:', contractAddress);
+      
+      // Get job posted events
+      const postedEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_posted?limit=10`)
+        .then(res => res.json())
+        .catch(() => []);
+      
+      // Get job completed events  
+      const completedEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_completed?limit=10`)
+        .then(res => res.json())
+        .catch(() => []);
+        
+      // Get job cancelled events
+      const cancelledEvents = await fetch(`${APTOS_NODE_URL}/v1/accounts/${contractAddress}/events/${contractAddress}::escrow::Events/job_cancelled?limit=10`)
+        .then(res => res.json())
+        .catch(() => []);
+      
+      // Process events and create history
+      const history: any[] = [];
+      
+      // Process posted events
+      if (postedEvents.data) {
+        for (const event of postedEvents.data) {
+          // Check if this job involves the current user
+          const userAddress = account?.toLowerCase();
+          const userHash = await sha256Hex(userAddress || '');
+          const posterCommitment = event.data.poster_commitment;
+          
+          // Convert commitment to hex for comparison
+          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+          
+          if (commitmentHex === userHash) {
+            history.push({
+              id: event.data.job_id,
+              title: event.data.job_title,
+              budget: `${(event.data.escrowed_amount / 100_000_000).toFixed(2)} APT`,
+              ipfs_cid: event.data.cid,
+              status: 'Open',
+              createdAt: new Date(parseInt(event.data.start_time) * 1000).toLocaleDateString(),
+              txHash: event.version,
+              type: 'Posted'
+            });
+          }
+        }
+      }
+      
+      // Process completed events
+      if (completedEvents.data) {
+        for (const event of completedEvents.data) {
+          const userAddress = account?.toLowerCase();
+          const userHash = await sha256Hex(userAddress || '');
+          const posterCommitment = event.data.poster_commitment;
+          
+          // Convert commitment to hex for comparison
+          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+          
+          if (commitmentHex === userHash) {
+            history.push({
+              id: event.data.job_id,
+              title: event.data.job_title,
+              budget: `${(event.data.escrowed_amount / 100_000_000).toFixed(2)} APT`,
+              freelancer: event.data.worker_commitment,
+              status: 'Completed',
+              createdAt: new Date(parseInt(event.data.complete_time) * 1000).toLocaleDateString(),
+              txHash: event.version,
+              type: 'Completed'
+            });
+          }
+        }
+      }
+      
+      // Process cancelled events
+      if (cancelledEvents.data) {
+        for (const event of cancelledEvents.data) {
+          const userAddress = account?.toLowerCase();
+          const userHash = await sha256Hex(userAddress || '');
+          const posterCommitment = event.data.poster_commitment;
+          
+          // Convert commitment to hex for comparison
+          const commitmentHex = '0x' + posterCommitment.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+          
+          if (commitmentHex === userHash) {
+            history.push({
+              id: event.data.job_id,
+              title: event.data.job_title,
+              reason: event.data.reason,
+              status: 'Cancelled',
+              createdAt: new Date(parseInt(event.data.cancel_time) * 1000).toLocaleDateString(),
+              txHash: event.version,
+              type: 'Cancelled'
+            });
+          }
+        }
+      }
+      
+      setJobHistory(history);
+      
+    } catch (e: any) {
+      console.error('Error loading job history:', e);
+      setJobHistory([]);
+    } finally {
+      setLoadingJobHistory(false);
     }
   }
 
@@ -193,261 +514,324 @@ export default function DashboardPage() {
       <main className="flex-1 pt-20">
         <Container>
           <div className="space-y-6">
-              <Card variant="outlined" className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-text-primary">📝 Nhập thông tin CV</h2>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-3 border rounded">
-                  <div className="text-sm font-medium mb-2">Thông tin hồ sơ</div>
-                  <div className="text-xs text-muted-foreground mb-2">DID sẽ tự lấy từ ví Petra đã kết nối.</div>
-                  <div className="text-xs text-muted-foreground mb-2">DID: {didResolved || '-'}</div>
-                  <label className="text-xs mb-1 block">Chức danh</label>
-                  <input className="border rounded px-3 py-2 w-full mb-2" value={cvTitle} onChange={(e) => setCvTitle(e.target.value)} placeholder="Nhập chức danh" />
-                  <label className="text-xs mb-1 block">Tóm tắt</label>
-                  <input className="border rounded px-3 py-2 w-full mb-2" value={cvSumIn} onChange={(e) => setCvSumIn(e.target.value)} placeholder="Nhập tóm tắt" />
-                  <label className="text-xs mb-1 block">Role type</label>
-                  <input className="border rounded px-3 py-2 w-full mb-2" value={cvRoleIn} onChange={(e) => setCvRoleIn(e.target.value)} placeholder="Nhập loại vai trò" />
-                </div>
-                <div className="p-3 border rounded">
-                  <div className="text-sm font-medium mb-2">Loại bằng chứng</div>
-                  <select className="border rounded px-3 py-2 w-full mb-2" value={proofType} onChange={(e) => setProofType(Number(e.target.value))} title="Chọn loại bằng chứng">
-                    <option value={1}>Bằng cấp học vấn</option>
-                    <option value={4}>Kỹ năng chuyên môn</option>
-                  </select>
-                  <div className="text-xs text-muted-foreground">Server sẽ tự sinh proof và hash VK.</div>
-                </div>
-                  </div>
-              <div className="mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <Button size="sm" onClick={doAll}>Tạo CV + Proof + Gắn bằng chứng (1 nút)</Button>
-                  <Button size="sm" onClick={async () => {
-                    try {
-                      setResultLog('🔄 Đang tạo bằng chứng ZKP...')
-                      await generateProofServer()
-                      setResultLog('🔗 Đang gắn bằng chứng vào CV...')
-                      const did = didResolved
-                      if (!did) throw new Error('Thiếu DID')
-                      await addZkpProof(did)
-                      setResultLog('✅ Gắn bằng chứng thành công!')
-                    } catch (e: any) {
-                      setResultLog(`❌ Lỗi: ${e?.message || 'thất bại'}`)
-                    }
-                  }}>Chỉ gắn Proof</Button>
-                  <Button size="sm" onClick={async () => {
-                    try {
-                      setUpdateResult('Đang cập nhật...')
-                      await updateCv()
-                      setUpdateResult('✅ Cập nhật CV thành công!')
-                    } catch (e: any) {
-                      setUpdateResult(`❌ Lỗi: ${e?.message || 'thất bại'}`)
-                    }
-                  }}>Cập nhật CV</Button>
-                  <Button size="sm" onClick={async () => {
-                    try {
-                      setBurnResult('Đang xóa CV...')
-                      await burnCv()
-                      setBurnResult('✅ Xóa CV thành công!')
-                    } catch (e: any) {
-                      setBurnResult(`❌ Lỗi: ${e?.message || 'thất bại'}`)
-                    }
-                  }}>Xóa CV</Button>
-                      </div>
-                <div className="text-xs text-muted-foreground mt-2 break-words">{resultLog || ''}</div>
-                <div className="text-xs text-muted-foreground mt-1 break-words">{updateResult || ''}</div>
-                <div className="text-xs text-muted-foreground mt-1 break-words">{burnResult || ''}</div>
-                  </div>
-                </Card>
 
-                <Card variant="outlined" className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-text-primary">🔍 Kiểm tra và xác thực</h2>
+
+            {/* ✅ DID CHECK SECTION */}
+            <Card className="p-6 shadow-lg border-2 border-green-200 hover:border-green-300 transition-all duration-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">🔍 Kiểm tra DID</h2>
               </div>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">🔍 Kiểm tra có bằng chứng</div>
-                  <select className="border rounded px-3 py-2 w-full" value={proofType} onChange={(e) => setProofType(Number(e.target.value))} title="Chọn loại bằng chứng">
-                    <option value={1}>Bằng cấp học vấn</option>
-                    <option value={4}>Kỹ năng chuyên môn</option>
-                  </select>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckHas('Đang kiểm tra...')
-                    try {
-                      const r = await aptosView<boolean[]>({ function: ZKP.HAS_ZKP_PROOF, arguments: [did, proofType] })
-                      setCheckHas(String(r?.[0]))
-                    } catch (e: any) { setCheckHas(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Kiểm tra</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkHas || 'Chưa kiểm tra'}
-                  </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">DID để kiểm tra</label>
+                  <input 
+                    className="border-2 border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-green-400" 
+                    value={didToCheck} 
+                    onChange={(e) => setDidToCheck(e.target.value)} 
+                    placeholder="did:aptos:0x..." 
+                  />
                 </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">✅ Xác thực CV với bằng chứng</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckVerify('Đang xác thực...')
-                    try {
-                      const r = await aptosView<boolean[]>({ function: CV.VERIFY_CV_WITH_ZKP, arguments: [did, proofType, DEFAULT_TABLE_ID] })
-                      setCheckVerify(String(r?.[0]))
-                    } catch (e: any) { setCheckVerify(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Xác thực</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkVerify || 'Chưa kiểm tra'}
-                  </div>
+                
+                <Button 
+                  size="lg" 
+                  onClick={checkDID}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  🔍 Kiểm tra DID
+                </Button>
+                
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm border border-green-200 dark:border-green-700">
+                  <strong className="text-green-800 dark:text-green-200">Kết quả:</strong> 
+                  <span className="text-gray-700 dark:text-gray-300 ml-2">{didCheckResult || 'Chưa kiểm tra'}</span>
                 </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">🎯 Kiểm tra đủ điều kiện</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckEligibility('Đang kiểm tra...')
-                    try {
-                      const r = await aptosView<boolean[]>({ function: CV.CHECK_ELIGIBILITY_SIMPLE, arguments: [did, 'education_proof', 'skill_proof'] })
-                      setCheckEligibility(String(r?.[0]))
-                    } catch (e: any) { setCheckEligibility(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Kiểm tra</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkEligibility || 'Chưa kiểm tra'}
+              </div>
+            </Card>
+
+
+            {/* ✅ JOB MANAGEMENT SECTION */}
+            <Card className="p-6 shadow-lg border-2 border-blue-200 hover:border-blue-300 transition-all duration-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">💼 Đăng Dự Án</h2>
+                <div className="text-sm text-gray-600 dark:text-gray-300 bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full">
+                  <div>Role sẽ được check tự động khi upload</div>
+                </div>
+              </div>
+              
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Project Details */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Tiêu đề dự án</label>
+                    <input 
+                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                      value={jobTitle} 
+                      onChange={(e) => setJobTitle(e.target.value)} 
+                      placeholder="Ví dụ: Cần phát triển smart contract cho marketplace" 
+                    />
                   </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Mô tả chi tiết</label>
+                    <textarea 
+                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400 resize-none" 
+                      value={jobDescription} 
+                      onChange={(e) => setJobDescription(e.target.value)} 
+                      placeholder="Mô tả chi tiết về dự án, yêu cầu và mục tiêu..."
+                      rows={4}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Kỹ năng yêu cầu</label>
+                    <div className="flex gap-2">
+                      <input 
+                        className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                        value={currentSkill} 
+                        onChange={(e) => setCurrentSkill(e.target.value)} 
+                        placeholder="Thêm kỹ năng..." 
+                        onKeyPress={(e) => e.key === 'Enter' && addSkill()}
+                      />
+                      <button 
+                        onClick={addSkill}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {skillsList.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {skillsList.map((skill, index) => (
+                          <span 
+                            key={index}
+                            className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                          >
+                            {skill}
+                            <button 
+                              onClick={() => removeSkill(index)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-red-600 dark:hover:text-red-400"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
                       </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium block mb-2 text-gray-700">Thời hạn nộp đơn</label>
+                    <div className="flex gap-2">
+                      <input 
+                        className="w-24 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        value={jobDuration} 
+                        onChange={(e) => setJobDuration(e.target.value)} 
+                        placeholder="7" 
+                      />
+                      <select className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" aria-label="Đơn vị thời gian">
+                        <option>ngày</option>
+                        <option>tuần</option>
+                        <option>tháng</option>
+                      </select>
                     </div>
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">📄 Lấy thông tin CV</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckCvDoc('Đang tải...')
-                    try {
-                      const r = await aptosView<any[]>({ function: CV.GET_CV, arguments: [did] })
-                      setCheckCvDoc(JSON.stringify(r?.[0] || null))
-                    } catch (e: any) { setCheckCvDoc(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Lấy thông tin</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong>
-                    <pre className="text-xs whitespace-pre-wrap break-all mt-1">{checkCvDoc || 'Chưa kiểm tra'}</pre>
                   </div>
-                </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">👤 Lấy loại vai trò</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckRole('Đang tải...')
-                    try {
-                      const r = await aptosView<string[]>({ function: CV.GET_CV_ROLE, arguments: [did] })
-                      setCheckRole(String(r?.[0] || ''))
-                    } catch (e: any) { setCheckRole(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Lấy vai trò</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkRole || 'Chưa kiểm tra'}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">❓ Kiểm tra có CV</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckHasCv('Đang kiểm tra...')
-                    try {
-                      const r = await aptosView<boolean[]>({ function: CV.HAS_CV, arguments: [did] })
-                      setCheckHasCv(String(r?.[0]))
-                    } catch (e: any) { setCheckHasCv(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Kiểm tra</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkHasCv || 'Chưa kiểm tra'}
-                  </div>
-                </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">🔐 Lấy CV Commitment</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setCheckCvCommitment('Đang tải...')
-                    try {
-                      const r = await aptosView<string[]>({ function: CV.GET_CV_COMMITMENT, arguments: [did] })
-                      setCheckCvCommitment(String(r?.[0] || ''))
-                    } catch (e: any) { setCheckCvCommitment(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Lấy Commitment</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {checkCvCommitment || 'Chưa kiểm tra'}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">🔍 Xác thực ZKP Proof</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setVerifyZkpResult('Đang xác thực...')
-                    try {
-                      const r = await aptosView<boolean[]>({ function: ZKP.VERIFY_ZKP_PROOF, arguments: [did, proofType] })
-                      setVerifyZkpResult(String(r?.[0]))
-                    } catch (e: any) { setVerifyZkpResult(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Xác thực ZKP</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {verifyZkpResult || 'Chưa kiểm tra'}
-                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">
+                      Cột mốc dự án (Số tiền và thời gian ước tính cho mỗi giai đoạn)
+                    </label>
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <input 
+                          className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                          value={currentMilestone.amount} 
+                          onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})} 
+                          placeholder="Số tiền (APT)" 
+                        />
+                        <input 
+                          className="w-32 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                          value={currentMilestone.duration}
+                          onChange={(e) => setCurrentMilestone({...currentMilestone, duration: e.target.value})}
+                          placeholder="Thời gian" 
+                        />
+                        <select 
+                          className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                          aria-label="Đơn vị thời gian cột mốc"
+                          value={currentMilestone.unit}
+                          onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
+                        >
+                          <option>ngày</option>
+                          <option>tuần</option>
+                          <option>tháng</option>
+                        </select>
+                      </div>
+                      <button 
+                        onClick={addMilestone}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
+                      >
+                        <span>+</span>
+                        Thêm cột mốc
+                      </button>
+                      {milestonesList.length > 0 && (
+                        <div className="space-y-2">
+                          {milestonesList.map((milestone, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                              <span className="text-sm text-gray-700 dark:text-gray-300">
+                                {milestone.amount} APT - {milestone.duration} {milestone.unit}
+                              </span>
+                              <button 
+                                onClick={() => removeMilestone(index)}
+                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">📊 Lấy Lookup Table</div>
-                  <Button size="sm" onClick={async () => {
-                    setLookupTableResult('Đang tải...')
-                    try {
-                      const r = await aptosView<any[]>({ function: ZKP.GET_LOOKUP_TABLE, arguments: [DEFAULT_TABLE_ID] })
-                      setLookupTableResult(JSON.stringify(r?.[0] || null))
-                    } catch (e: any) { setLookupTableResult(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Lấy Table</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong>
-                    <pre className="text-xs whitespace-pre-wrap break-all mt-1">{lookupTableResult || 'Chưa kiểm tra'}</pre>
                   </div>
                 </div>
+                
+                <Button 
+                  size="lg" 
+                  onClick={createJob}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  🚀 Đăng dự án
+                </Button>
+                
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm border border-blue-200 dark:border-blue-700">
+                  <strong className="text-blue-800 dark:text-blue-200">Kết quả:</strong> 
+                  <span className="text-gray-700 dark:text-gray-300 ml-2">{jobResult || 'Chưa thực hiện'}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* ✅ JOB MANAGEMENT SECTION */}
+            <Card variant="outlined" className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-text-primary">🔧 Quản Lý Dự Án</h2>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">🏷️ Lấy Table Type</div>
-                  <Button size="sm" onClick={async () => {
-                    setTableTypeResult('Đang tải...')
-                    try {
-                      const r = await aptosView<string[]>({ function: ZKP.GET_TABLE_TYPE, arguments: [DEFAULT_TABLE_ID] })
-                      setTableTypeResult(String(r?.[0] || ''))
-                    } catch (e: any) { setTableTypeResult(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Lấy Type</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {tableTypeResult || 'Chưa kiểm tra'}
-                  </div>
+              <div className="max-w-2xl mx-auto space-y-6">
+                <div>
+                  <label className="text-sm font-semibold block mb-2 text-gray-700 dark:text-gray-300">Job ID</label>
+                  <input 
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-400" 
+                    value={jobId} 
+                    onChange={(e) => setJobId(e.target.value)} 
+                    placeholder="Nhập Job ID..." 
+                  />
                 </div>
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="text-sm font-medium text-gray-700">📋 Xác thực Claim Data</div>
-                  <Button size="sm" onClick={async () => {
-                    const did = didResolved
-                    if (!did) return
-                    setClaimDataResult('Đang xác thực...')
-                    try {
-                      const claimDataHex = '0x' + Buffer.from('test_claim_data').toString('hex')
-                      const r = await aptosView<boolean[]>({ 
-                        function: ZKP.VERIFY_CLAIM_DATA, 
-                        arguments: [did, 'education_proof', claimDataHex] 
-                      })
-                      setClaimDataResult(String(r?.[0]))
-                    } catch (e: any) { setClaimDataResult(`❌ Lỗi: ${e?.message || 'thất bại'}`) }
-                  }}>Xác thực Claim</Button>
-                  <div className="p-2 bg-gray-50 rounded text-sm">
-                    <strong>Kết quả:</strong> {claimDataResult || 'Chưa kiểm tra'}
-                  </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Button 
+                    size="lg" 
+                    onClick={applyToJob}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  >
+                    📝 Apply Job
+                  </Button>
+                  <Button 
+                    size="lg" 
+                    onClick={completeJob}
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  >
+                    ✅ Hoàn tất
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Button 
+                    size="lg" 
+                    onClick={cancelJob}
+                    className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  >
+                    ❌ Hủy Job
+                  </Button>
+                  <Button 
+                    size="lg" 
+                    onClick={checkJobStatus}
+                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  >
+                    🔍 Kiểm tra Status
+                  </Button>
+                </div>
+                
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm border border-blue-200 dark:border-blue-700">
+                  <strong className="text-blue-800 dark:text-blue-200">Status:</strong> 
+                  <span className="text-gray-700 dark:text-gray-300 ml-2">{jobStatus || 'Chưa kiểm tra'}</span>
                 </div>
               </div>
-                </Card>
+            </Card>
+
+            {/* ✅ JOB HISTORY SECTION */}
+            <Card variant="outlined" className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-text-primary">📋 Lịch sử Job</h2>
+                <Button 
+                  size="sm" 
+                  onClick={loadJobHistory}
+                  disabled={loadingJobHistory}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {loadingJobHistory ? '🔄 Đang tải...' : '🔄 Tải lịch sử'}
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                {loadingJobHistory ? (
+                  <div className="text-center py-8">
+                    <div className="text-lg">🔄 Đang tải lịch sử job...</div>
+                  </div>
+                ) : jobHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {jobHistory.map((job, index) => (
+                      <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <div className="font-medium text-gray-600">Tiêu đề</div>
+                            <div className="text-blue-600 font-semibold">{job.title}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-600">Budget</div>
+                            <div className="text-green-600 font-semibold">{job.budget}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-600">Trạng thái</div>
+                            <div className={`font-semibold ${
+                              job.status === 'Completed' ? 'text-green-600' : 
+                              job.status === 'Open' ? 'text-blue-600' : 
+                              'text-red-600'
+                            }`}>
+                              {job.status}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-600">Loại</div>
+                            <div className="text-purple-600 font-semibold">{job.type}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t">
+                          <div className="text-xs text-gray-500">
+                            <strong>IPFS:</strong> {job.ipfs_cid || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            <strong>Tx:</strong> {job.txHash}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-lg text-gray-500">📭 Chưa có lịch sử job</div>
+                    <div className="text-sm text-gray-400 mt-2">Tạo job đầu tiên để xem lịch sử</div>
+                  </div>
+                )}
+              </div>
+            </Card>
           </div>
         </Container>
       </main>

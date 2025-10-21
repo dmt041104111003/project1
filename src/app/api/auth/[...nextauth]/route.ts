@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import type { AuthOptions, Session, SessionStrategy } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
 
 export const authOptions: AuthOptions = {
   session: {
@@ -29,11 +28,6 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
       if (user && (user as any).address) {
         const address = (user as any).address as string;
-        await prisma.user.upsert({
-          where: { address },
-          create: { address },
-          update: { lastLoginAt: new Date() },
-        });
         token.address = address;
       }
       return token;
@@ -41,9 +35,7 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       const address = (token as any).address as string | undefined;
       if (address) {
-        const dbUser = await prisma.user.findUnique({ where: { address }, select: { role: true } });
-        (session as Session & { address?: string; role?: string }).address = address;
-        (session as Session & { address?: string; role?: string }).role = dbUser?.role ?? 'USER';
+        (session as Session & { address?: string }).address = address;
       }
       return session;
     },

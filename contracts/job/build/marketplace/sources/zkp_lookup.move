@@ -41,28 +41,23 @@ module did_addr_profile::zkp_lookup {
 
     struct ZKPRegistry has key {
         did_commitments: Table<String, vector<u8>>,       
-        profile_commitments: Table<String, vector<u8>>,   
         tables: Table<String, ZKPLookupTable>,
         user_proofs: Table<String, vector<ZKPProof>>, // did_commitment_hex -> proofs
         did_events: EventHandle<DidAddedEvent>,
-        profile_events: EventHandle<ProfileAddedEvent>,
         table_events: EventHandle<TableAddedEvent>,
         proof_events: EventHandle<ProofAddedEvent>,
     }
 
     struct DidAddedEvent has drop, store { did: String, timestamp: u64 }
-    struct ProfileAddedEvent has drop, store { did: String, timestamp: u64 }
     struct TableAddedEvent has drop, store { table_id: String, timestamp: u64 }
     struct ProofAddedEvent has drop, store { did_commitment_hex: String, table_commitment_hex: String, timestamp: u64 }
 
     fun init_module(account: &signer) {
         move_to(account, ZKPRegistry {
             did_commitments: table::new(),
-            profile_commitments: table::new(),
             tables: table::new(),
             user_proofs: table::new(),
             did_events: account::new_event_handle<DidAddedEvent>(account),
-            profile_events: account::new_event_handle<ProfileAddedEvent>(account),
             table_events: account::new_event_handle<TableAddedEvent>(account),
             proof_events: account::new_event_handle<ProofAddedEvent>(account),
         });
@@ -75,13 +70,6 @@ module did_addr_profile::zkp_lookup {
         event::emit_event(&mut registry.did_events, DidAddedEvent { did, timestamp: timestamp::now_seconds() });
     }
 
-    public entry fun set_profile_commitment(did: String, commitment: vector<u8>) acquires ZKPRegistry {
-        let registry = borrow_global_mut<ZKPRegistry>(@did_addr_profile);
-        if (table::contains(&registry.profile_commitments, did)) { table::remove(&mut registry.profile_commitments, did); };
-        table::add(&mut registry.profile_commitments, did, commitment);
-        event::emit_event(&mut registry.profile_events, ProfileAddedEvent { did, timestamp: timestamp::now_seconds() });
-    }
-
     public fun set_did_commitment_internal(did: String, commitment: vector<u8>) acquires ZKPRegistry {
         let registry = borrow_global_mut<ZKPRegistry>(@did_addr_profile);
         if (table::contains(&registry.did_commitments, did)) { table::remove(&mut registry.did_commitments, did); };
@@ -89,17 +77,9 @@ module did_addr_profile::zkp_lookup {
         event::emit_event(&mut registry.did_events, DidAddedEvent { did, timestamp: timestamp::now_seconds() });
     }
 
-    public fun set_profile_commitment_internal(did: String, commitment: vector<u8>) acquires ZKPRegistry {
-        let registry = borrow_global_mut<ZKPRegistry>(@did_addr_profile);
-        if (table::contains(&registry.profile_commitments, did)) { table::remove(&mut registry.profile_commitments, did); };
-        table::add(&mut registry.profile_commitments, did, commitment);
-        event::emit_event(&mut registry.profile_events, ProfileAddedEvent { did, timestamp: timestamp::now_seconds() });
-    }
-
     public fun clear_did_internal(did: String) acquires ZKPRegistry {
         let registry = borrow_global_mut<ZKPRegistry>(@did_addr_profile);
         if (table::contains(&registry.did_commitments, did)) { table::remove(&mut registry.did_commitments, did); };
-        if (table::contains(&registry.profile_commitments, did)) { table::remove(&mut registry.profile_commitments, did); };
         if (table::contains(&registry.user_proofs, did)) { table::remove(&mut registry.user_proofs, did); };
     }
 

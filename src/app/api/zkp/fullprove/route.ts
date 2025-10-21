@@ -29,16 +29,10 @@ export async function POST(req: NextRequest) {
   try {
     console.log('[fullprove] start');
     let did = '';
-    let fullName = '';
-    let age = '';
-    let roleType: number | null = null;
     try {
       const body = await req.json();
       did = String(body?.did || '');
-      fullName = String(body?.fullName || '');
-      age = String(body?.age || '');
-      roleType = body?.roleType != null ? Number(body.roleType) : null;
-      console.log('[fullprove] body parsed', { didLen: did.length, fullNameLen: fullName.length, ageLen: age.length, roleType });
+      console.log('[fullprove] body parsed', { didLen: did.length });
     } catch {}
 
     const wasmPath = resolvePath(process.env.ZK_WASM_PATH || 'zk/membership_js/membership.wasm');
@@ -75,7 +69,6 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     let did_commitment = '';
-    let profile_commitment = '';
     let t_I_commitment = '';
     let a_commitment = '';
     try {
@@ -83,21 +76,15 @@ export async function POST(req: NextRequest) {
         const enc = new TextEncoder();
         did_commitment = await sha256Hex(enc.encode(did).buffer);
         console.log('[fullprove] did_commitment', shortHex(did_commitment));
-      }
-      if (fullName || age || roleType !== null) {
-        const enc = new TextEncoder();
-        const payload = JSON.stringify({ fullName, age, roleType, verification_key_hash_sha256 });
-        profile_commitment = await sha256Hex(enc.encode(payload).buffer);
-        console.log('[fullprove] profile_commitment', shortHex(profile_commitment));
-        t_I_commitment = profile_commitment;
-        a_commitment = profile_commitment;
+        // Use did_commitment for both t_I_commitment and a_commitment
+        t_I_commitment = did_commitment;
+        a_commitment = did_commitment;
       }
     } catch {}
 
     const debug = {
       vkHash: shortHex(verification_key_hash_sha256),
       didCommit: shortHex(did_commitment),
-      profileCommit: shortHex(profile_commitment),
     };
 
     console.log('[fullprove] done', debug);
@@ -108,7 +95,6 @@ export async function POST(req: NextRequest) {
       public: proofData.publicSignals, 
       verification_key_hash_sha256,
       did_commitment,
-      profile_commitment,
       t_I_commitment,
       a_commitment,
       debug

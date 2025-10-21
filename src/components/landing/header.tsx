@@ -10,7 +10,6 @@ import { NAVIGATION } from '@/constants/landing';
 import { useWallet } from '@/contexts/WalletContext';
 import { Wallet, LogOut, ChevronDown, Copy, Check, Shield, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRoleModal } from '@/contexts/RoleModalContext';
 
 // const dancingScript = {
 //   fontFamily: "'Dancing Script', cursive",
@@ -25,7 +24,6 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const roleModal = useRoleModal();
   const pathname = usePathname();
   const { account, isConnecting, connectWallet, disconnectWallet, aptosNetwork } = useWallet();
 
@@ -71,13 +69,9 @@ export function Header() {
     }
   };
 
-  const openRoleModal = () => {
-    setShowWalletMenu(false);
-    roleModal.open(null);
-  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
       <Container>
         <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-3">
@@ -265,16 +259,7 @@ export function Header() {
                   <ExternalLink className="w-3 h-3 ml-auto" />
                 </Button>
               </Link>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={openRoleModal}
-                className="w-full justify-start hover:text-primary/80 hover:bg-primary/10"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Register role
-                <ExternalLink className="w-3 h-3 ml-auto" />
-              </Button>
+           
               <Button 
                 variant="ghost" 
                 size="sm" 
