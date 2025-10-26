@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: `Milestone ${action} transaction prepared`, payload, instructions: 'Submit this payload to Aptos network using your wallet' });
     }
     
+    return NextResponse.json({ success: false, error: 'Unhandled action type' }, { status: 400 });
+    
   } catch (error: unknown) {
     return NextResponse.json({ success: false, error: (error as Error).message || 'Failed to execute job action' }, { status: 500 });
   }
