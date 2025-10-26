@@ -30,7 +30,7 @@ export function PersonaSwitcher() {
               {PERSONAS.poster.benefits.map((benefit, index) => (
                 <div key={index} className="border border-gray-300 bg-white p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 bg-blue-800 text-black flex items-center justify-center font-bold text-xs">
+                    <div className="w-5 h-5 bg-blue-100 text-blue-800 border border-blue-300 flex items-center justify-center font-bold text-xs rounded">
                       {index + 1}
                     </div>
                     <p className="text-gray-800 text-sm font-medium">
@@ -58,7 +58,7 @@ export function PersonaSwitcher() {
               {PERSONAS.freelancer.benefits.map((benefit, index) => (
                 <div key={index} className="border border-gray-300 bg-white p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 bg-blue-800 text-black flex items-center justify-center font-bold text-xs">
+                    <div className="w-5 h-5 bg-blue-100 text-blue-800 border border-blue-300 flex items-center justify-center font-bold text-xs rounded">
                       {index + 1}
                     </div>
                     <p className="text-gray-800 text-sm font-medium">

@@ -18,13 +18,13 @@ export function Button({
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return 'bg-blue-800 text-white border border-blue-800';
+        return 'bg-white text-black border-2 border-black';
       case 'secondary':
         return 'bg-gray-100 text-blue-800 border border-blue-800';
       case 'outline':
         return 'bg-white text-blue-800 border border-blue-800';
       default:
-        return 'bg-blue-800 text-white border border-blue-800';
+        return 'bg-white text-black border-2 border-black';
     }
   };
 

@@ -75,7 +75,7 @@ export function Header() {
                  <Link
                    key={item.name}
                    href={item.href}
-                   className={`font-medium no-underline ${
+                   className={`font-medium no-underline text-lg ${
                      isActive 
                        ? 'text-blue-800 border-b-2 border-blue-800 pb-1' 
                        : 'text-gray-700 hover:text-blue-800'
@@ -150,7 +150,7 @@ export function Header() {
               <div className="flex flex-col gap-2 pt-4 border-t-2 border-blue-800">
                 {!account ? (
                   <button 
-                    className="px-3 py-2 bg-blue-800 text-white hover:bg-blue-900"
+                    className="px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
                     onClick={connectWallet}
                     disabled={isConnecting}
                   >
@@ -169,12 +169,12 @@ export function Header() {
                       </div>
                     </div>
                     <Link href="/auth/did-verification" onClick={() => setIsMobileMenuOpen(false)}>
-                      <button className="w-full px-3 py-2 text-blue-800 hover:bg-blue-100 border-l-4 border-blue-800">
+                      <button className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100">
                         DID verification
                       </button>
                     </Link>
                     <button 
-                      className="w-full px-3 py-2 text-red-600 hover:bg-red-100 border-l-4 border-red-600"
+                      className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
                       onClick={disconnectWallet}
                     >
                       Disconnect
@@ -207,13 +207,13 @@ export function Header() {
             </div>
             <div className="pt-2 border-t-2 border-blue-800 space-y-1">
               <Link href="/auth/did-verification" onClick={() => setShowWalletMenu(false)}>
-                <button className="w-full px-3 py-2 text-blue-800 hover:bg-blue-100 border-l-4 border-blue-800 font-medium">
+                <button className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 font-medium">
                   DID verification
                 </button>
               </Link>
            
-              <button 
-                className="w-full px-3 py-2 text-red-600 hover:bg-red-100 border-l-4 border-red-600 font-medium"
+              <button
+                className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 font-medium"
                 onClick={disconnectWallet}
               >
                 Disconnect

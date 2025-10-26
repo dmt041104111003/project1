@@ -8,6 +8,7 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 
 // Display Components
 export { Card, CardHeader, CardContent, CardFooter } from './card';
+export { Avatar, AvatarSVG } from './avatar';
 
 // Toast Components
 export { ToastProvider, useToast, Toaster } from './toaster';

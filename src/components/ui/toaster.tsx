@@ -65,12 +65,12 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
   const getToastStyles = () => {
     switch (toast.type) {
       case 'success':
-        return 'bg-green-600 text-white border border-green-700';
+        return 'bg-green-600 text-black border border-green-700';
       case 'error':
-        return 'bg-red-600 text-white border border-red-700';
+        return 'bg-red-600 text-black border border-red-700';
       case 'info':
       default:
-        return 'bg-blue-600 text-white border border-blue-700';
+        return 'bg-blue-600 text-black border border-blue-700';
     }
   };
 
@@ -80,7 +80,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
         <span className="font-bold">{toast.message}</span>
         <button
           onClick={() => onRemove(toast.id)}
-          className="ml-4 text-white font-bold text-lg"
+          className="ml-4 text-black font-bold text-lg"
         >
           ×
         </button>

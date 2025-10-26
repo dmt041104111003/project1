@@ -27,14 +27,14 @@ export function Hero() {
               <Button 
                 variant="primary" 
                 size="lg" 
-                className="block w-full max-w-xs bg-blue-600"
+                className="block w-full max-w-xs !bg-gray-900 !text-white !border-2 !border-black hover:!bg-black"
               >
                 {HERO_DATA.primaryCta}
               </Button>
               <Button 
                 variant="secondary" 
                 size="lg" 
-                className="block w-full max-w-xs bg-gray-100 text-blue-900"
+                className="block w-full max-w-xs !bg-gray-900 !text-white !border-2 !border-black hover:!bg-black"
               >
                 {HERO_DATA.secondaryCta}
               </Button>

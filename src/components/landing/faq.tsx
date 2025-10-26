@@ -16,11 +16,11 @@ export function FAQ() {
     <section id="faq" className="py-16">
       <Container>
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-blue-800 mb-4">
+          <h2 className="text-4xl font-bold text-blue-800 mb-4">
             Frequently asked questions
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
-          <p className="text-lg text-gray-700 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-700 max-w-2xl mx-auto">
             Common questions about the Marketplace2vn platform
           </p>
         </div>
@@ -33,17 +33,17 @@ export function FAQ() {
                   onClick={() => toggleFAQ(index)}
                   className="w-full px-6 py-4 text-left flex items-center justify-between bg-gray-50 border-b border-gray-300"
                 >
-                  <span className="font-bold text-gray-900">
+                  <span className="font-bold text-gray-900 text-lg">
                     {faq.question}
                   </span>
-                  <span className="text-blue-800 font-bold">
+                  <span className="text-blue-800 font-bold text-xl">
                     {openIndex === index ? '−' : '+'}
                   </span>
                 </button>
                 
                 {openIndex === index && (
                   <div className="px-6 py-4">
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-gray-700 leading-relaxed text-lg">
                       {faq.answer}
                     </p>
                   </div>
