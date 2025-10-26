@@ -1,108 +1,58 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import React from 'react';
 import { Container } from '@/components/ui/container';
 import { HERO_DATA } from '@/constants/landing';
 
-
-const robotoCondensed = {
-  fontFamily: "'Roboto Condensed', sans-serif",
-  fontWeight: 400,
-  fontStyle: 'normal',
-};
-
 export function Hero() {
-  useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-  }, []);
-
   return (
-    <section id="home" className="min-h-screen flex items-center justify-center py-20 bg-background">
+    <section id="home" className="min-h-screen flex items-center">
       <Container>
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8 animate-fade-in-left">
-            <div className="space-y-4">
-              <h1 className="text-4xl lg:text-6xl font-bold text-text-primary leading-tight">
-                <span 
-                  style={robotoCondensed}
-                  className="text-6xl lg:text-8xl text-primary block"
-                >
-                  {HERO_DATA.title}
-                </span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+          {/* Left side - Content */}
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-4xl lg:text-5xl font-bold text-blue-800 mb-6">
+                {HERO_DATA.title}
               </h1>
-              <p 
-                style={robotoCondensed}
-                className="text-xl lg:text-2xl text-text-secondary max-w-2xl"
-              >
-                {HERO_DATA.description}
-              </p>
+              <div className="w-20 h-1 bg-blue-800 mb-6"></div>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="w-full sm:w-auto">
+            <p className="text-lg text-gray-700 leading-relaxed">
+              {HERO_DATA.description}
+            </p>
+            
+            <div className="space-y-4 pt-4">
+              <button className="block w-full max-w-xs px-8 py-4 bg-blue-600 text-white text-center font-bold">
                 {HERO_DATA.primaryCta}
-              </Button>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">
+              </button>
+              <button className="block w-full max-w-xs px-8 py-4 bg-gray-100 text-blue-900 border-2 border-blue-800 text-center font-bold">
                 {HERO_DATA.secondaryCta}
-              </Button>
-            </div>
-            
-            <div className="flex items-center gap-6 text-text-muted">
-              {HERO_DATA.trustIndicators.map((indicator, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span>{indicator.label}</span>
-                </div>
-              ))}
+              </button>
             </div>
           </div>
-          
-          <div className="animate-fade-in-right">
-            <div className="relative">
-              <div className="bg-card rounded-2xl p-8 backdrop-blur-sm border border-border shadow-lg">
-                <div className="bg-card rounded-xl p-6 shadow-2xl border border-border">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-text-primary">Verify ID</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-lg border border-border backdrop-blur-sm">
-                        <img 
-                          src="/images/landing/logo_full.png" 
-                          alt="Identity Verification" 
-                          className="h-8 object-contain"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">Identity Verification</p>
-                          <p className="text-xs text-text-secondary">DID-based authentication</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-lg border border-border backdrop-blur-sm">
-                        <img 
-                          src="/images/landing/logo_full.png" 
-                          alt="Escrow Vault" 
-                          className="h-8 object-contain"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">Escrow Vault</p>
-                          <p className="text-xs text-text-secondary">Secure payment protection</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+
+          {/* Right side - Simple blocks */}
+          <div>
+            <div className="border border-gray-400 bg-gray-50 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">
+                PLATFORM INFO
+              </h2>
               
-              <div className="absolute -top-6 -right-6">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-2 h-2 bg-accent rounded-full animate-pulse z-10 relative"></div>
-                    <span className="absolute inline-flex h-12 w-12 rounded-full bg-accent opacity-75 animate-ping -top-5 -left-5 z-0"></span>
-                  </div>
-                  <span className="text-sm font-medium text-accent">Live</span>
+              <div className="space-y-3">
+                <div className="border border-gray-300 bg-white p-3">
+                  <div className="font-bold text-gray-900">Identity Verification</div>
+                  <div className="text-sm text-gray-600">DID-based authentication</div>
+                </div>
+
+                <div className="border border-gray-300 bg-white p-3">
+                  <div className="font-bold text-gray-900">Escrow Protection</div>
+                  <div className="text-sm text-gray-600">Automated payment security</div>
+                </div>
+
+                <div className="border border-gray-300 bg-white p-3">
+                  <div className="font-bold text-gray-900">Smart Contracts</div>
+                  <div className="text-sm text-gray-600">Automated job completion</div>
                 </div>
               </div>
             </div>

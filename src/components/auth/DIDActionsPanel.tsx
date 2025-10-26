@@ -270,10 +270,10 @@ export default function DIDActionsPanel() {
       {verificationStatus && (
         <div className={`p-3 rounded-lg text-sm font-medium ${
           verificationStatus.includes('đã được verify') || verificationStatus.includes('thành công')
-            ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+            ? 'bg-green-50 text-green-800 border border-green-200'
             : verificationStatus.includes('chưa được verify') || verificationStatus.includes('Lỗi')
-            ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
-            : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+            ? 'bg-red-50 text-red-800 border border-red-200'
+            : 'bg-blue-50 text-blue-800 border border-blue-200'
         }`}>
           {verificationStatus}
         </div>

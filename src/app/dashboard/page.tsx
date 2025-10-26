@@ -303,15 +303,15 @@ export default function DashboardPage() {
           <div className="space-y-6">
             {/* Tabs */}
             <div className="max-w-4xl mx-auto">
-              <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+              <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                 {(['post', 'manage', 'applicants'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       activeTab === tab
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     {tab === 'post' ? 'Đăng Dự Án' : tab === 'manage' ? 'Quản Lý Dự Án' : 'Ứng Viên'}
@@ -324,16 +324,16 @@ export default function DashboardPage() {
             <div className="max-w-2xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Đăng Dự Án</h1>
-                  <p className="text-gray-600 dark:text-gray-400">Tạo dự án mới và tìm freelancer phù hợp</p>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Đăng Dự Án</h1>
+                  <p className="text-gray-600">Tạo dự án mới và tìm freelancer phù hợp</p>
                   
                   {profileStatus && (
                     <div className={`p-3 rounded-lg text-sm font-medium ${
                       profileStatus.includes('đã được verify') 
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
                         : profileStatus.includes('chưa được verify') || profileStatus.includes('không có role')
-                        ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
-                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+                        ? 'bg-red-50 text-red-800 border border-red-200'
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
                     }`}>
                       <div className="flex items-center gap-2">
                         <span>{profileStatus}</span>
@@ -344,7 +344,7 @@ export default function DashboardPage() {
 
                 <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); createJob(); }}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tiêu đề dự án *
                     </label>
                     <input
@@ -354,14 +354,14 @@ export default function DashboardPage() {
                       onChange={(e) => setJobTitle(e.target.value)}
                       placeholder="Ví dụ: Phát triển smart contract"
                       disabled={!canPostJobs}
-                      className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                       }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Mô tả dự án *
                     </label>
                     <textarea
@@ -371,14 +371,14 @@ export default function DashboardPage() {
                       placeholder="Mô tả chi tiết về dự án, yêu cầu và mục tiêu..."
                       rows={4}
                       disabled={!canPostJobs}
-                      className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
-                        !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
+                        !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                       }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Kỹ năng yêu cầu
                     </label>
                     <div className="flex gap-2 mb-3">
@@ -389,8 +389,8 @@ export default function DashboardPage() {
                         placeholder="Thêm kỹ năng..."
                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                         disabled={!canPostJobs}
-                        className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        className={`flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                         }`}
                       />
                       <Button type="button" onClick={addSkill} variant="outline" disabled={!canPostJobs}>
@@ -402,13 +402,13 @@ export default function DashboardPage() {
                         {skillsList.map((skill, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                            className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
                           >
                             {skill}
                             <button
                               type="button"
                               onClick={() => removeSkill(index)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-red-600"
+                              className="text-blue-600 hover:text-red-600"
                             >
                               ×
                             </button>
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Thời hạn nộp đơn
                     </label>
                     <div className="flex gap-2">
@@ -429,15 +429,15 @@ export default function DashboardPage() {
                         onChange={(e) => setJobDuration(e.target.value)}
                         placeholder="7"
                         disabled={!canPostJobs}
-                        className={`w-24 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        className={`w-24 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                         }`}
                       />
                       <select 
                         disabled={!canPostJobs}
                         title="Chọn đơn vị thời gian"
-                        className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        className={`px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                         }`}
                       >
                         <option>ngày</option>
@@ -449,10 +449,10 @@ export default function DashboardPage() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-medium text-gray-700">
                         Cột mốc dự án *
                       </label>
-                      <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                      <div className="text-sm font-semibold text-blue-600">
                         Tổng: {calculateTotalBudget().toFixed(3)} APT
                       </div>
                     </div>
@@ -466,8 +466,8 @@ export default function DashboardPage() {
                           onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})}
                           placeholder="Số tiền (APT)"
                           disabled={!canPostJobs}
-                          className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          className={`flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                           }`}
                         />
                         <input
@@ -476,8 +476,8 @@ export default function DashboardPage() {
                           onChange={(e) => setCurrentMilestone({...currentMilestone, duration: e.target.value})}
                           placeholder="Thời gian"
                           disabled={!canPostJobs}
-                          className={`w-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          className={`w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                           }`}
                         />
                         <select
@@ -485,8 +485,8 @@ export default function DashboardPage() {
                           onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
                           disabled={!canPostJobs}
                           title="Chọn đơn vị thời gian cho milestone"
-                          className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          className={`px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
                           }`}
                         >
                           <option value="giây">giây</option>
@@ -503,8 +503,8 @@ export default function DashboardPage() {
                       {milestonesList.length > 0 && (
                         <div className="space-y-2">
                           {milestonesList.map((milestone, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <span className="text-sm text-gray-700">
                                 {milestone.amount} APT - {milestone.duration} {milestone.unit}
                               </span>
                               <button
@@ -522,10 +522,10 @@ export default function DashboardPage() {
                   </div>
 
                   {milestonesList.length > 0 && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tổng ngân sách:</span>
-                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{calculateTotalBudget().toFixed(3)} APT</span>
+                        <span className="text-sm font-medium text-gray-700">Tổng ngân sách:</span>
+                        <span className="text-lg font-bold text-blue-600">{calculateTotalBudget().toFixed(3)} APT</span>
                       </div>
                     </div>
                   )}
@@ -542,10 +542,10 @@ export default function DashboardPage() {
                   {jobResult && (
                     <div className={`p-4 rounded-lg text-sm ${
                       jobResult.includes('thành công') 
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
                         : jobResult.includes('Lỗi') || jobResult.includes('không hợp lệ')
-                        ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
-                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+                        ? 'bg-red-50 text-red-800 border border-red-200'
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
                     }`}>
                       {jobResult}
                     </div>
@@ -559,8 +559,8 @@ export default function DashboardPage() {
             <div className="max-w-4xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Quản Lý Dự Án</h1>
-                  <p className="text-gray-600 dark:text-gray-400">Theo dõi và quản lý các dự án của bạn</p>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản Lý Dự Án</h1>
+                  <p className="text-gray-600">Theo dõi và quản lý các dự án của bạn</p>
                 </div>
 
                 {loadingJobs ? (
@@ -570,19 +570,19 @@ export default function DashboardPage() {
                   </div>
                 ) : myJobs.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">Bạn chưa có dự án nào</p>
+                    <p className="text-gray-500">Bạn chưa có dự án nào</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {myJobs.map((job) => (
-                      <div key={job.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <div key={job.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Job #{job.id}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <h3 className="text-lg font-semibold text-gray-900">Job #{job.id}</h3>
+                            <p className="text-sm text-gray-600">
                               Status: {job.status} | Worker: {job.worker_commitment ? 'Assigned' : 'None'} | Approved: {job.approved ? 'Yes' : 'No'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Budget: {(job.budget || 0).toFixed(2)} APT</p>
+                            <p className="text-sm text-gray-600">Budget: {(job.budget || 0).toFixed(2)} APT</p>
                           </div>
                           <div className="flex gap-2">
                             {job.approved ? (
@@ -612,8 +612,8 @@ export default function DashboardPage() {
             <div className="max-w-4xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Ứng Viên</h1>
-                  <p className="text-gray-600 dark:text-gray-400">Duyệt và phê duyệt ứng viên cho các dự án của bạn</p>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Ứng Viên</h1>
+                  <p className="text-gray-600">Duyệt và phê duyệt ứng viên cho các dự án của bạn</p>
                 </div>
 
                 {loadingApplicants ? (
@@ -623,20 +623,20 @@ export default function DashboardPage() {
                   </div>
                 ) : applicants.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">Không có ứng viên nào đang chờ duyệt</p>
+                    <p className="text-gray-500">Không có ứng viên nào đang chờ duyệt</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {applicants.map((job) => (
-                      <div key={job.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <div key={job.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Job #{job.id}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <h3 className="text-lg font-semibold text-gray-900">Job #{job.id}</h3>
+                            <p className="text-sm text-gray-600">
                               Status: {job.status} | Worker: {job.worker_commitment ? 'Assigned' : 'None'} | Approved: {job.approved ? 'Yes' : 'No'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Budget: {(job.budget || 0).toFixed(2)} APT</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-gray-600">Budget: {(job.budget || 0).toFixed(2)} APT</p>
+                            <p className="text-sm text-gray-600">
                               Worker Commitment: {job.worker_commitment ? job.worker_commitment[0]?.slice(0, 20) + '...' : 'None'}
                             </p>
                           </div>

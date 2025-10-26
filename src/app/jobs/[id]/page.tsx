@@ -89,18 +89,19 @@ export default function JobDetailPage() {
     }
   }, [jobId]);
 
-  const handleApply = async () => {
+  const handleAction = async (action: 'apply' | 'submit') => {
     try {
       setApplying(true);
       
       const { wallet, accountAddress } = await getWalletAccount();
       const userCommitment = await sha256Hex(accountAddress);
       
-      const profileCheck = await fetch(`/api/ipfs/get?type=profile&commitment=${userCommitment}`);
-      const profileData = await profileCheck.json();
-      
-      if (!profileData.success || !profileData.profile_data) {
-        throw new Error(`No profile found for account ${accountAddress}. 
+      if (action === 'apply') {
+        const profileCheck = await fetch(`/api/ipfs/get?type=profile&commitment=${userCommitment}`);
+        const profileData = await profileCheck.json();
+        
+        if (!profileData.success || !profileData.profile_data) {
+          throw new Error(`No profile found for account ${accountAddress}. 
 
 You have two options:
 1. Create a new profile with your current account: Go to /auth/did-verification
@@ -108,111 +109,99 @@ You have two options:
 
 Current account: ${accountAddress}
 Generated commitment: ${userCommitment}`);
-      }
-      
-      const hasFreelancerRole = profileData.blockchain_roles && profileData.blockchain_roles.includes(1);
-      if (!hasFreelancerRole) {
-        throw new Error('You need to have freelancer role to apply for jobs. Please update your profile to include freelancer role.');
-      }
-      
-      const bannedCheck = await fetch(`/api/job/check-banned?job_id=${jobId}&worker_commitment=${userCommitment}`);
-      const bannedData = await bannedCheck.json();
-      
-      if (bannedData.success && bannedData.is_banned) {
-        throw new Error('You are banned from this job. You cannot apply again.');
-      }
-      
-      const response = await fetch('/api/job/actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'apply',
-          job_id: parseInt(jobId as string),
-          user_address: accountAddress,
-          user_commitment: userCommitment
-        })
-      });
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to prepare application');
-      }
-      
-      const tx = await wallet.signAndSubmitTransaction(data.payload);
-      const hash = tx?.hash || '';
-      
-      toast.success(hash ? `Application submitted successfully! Transaction: ${hash}` : 'Application submitted successfully!');
-      if (hash) window.location.reload();
-      
-    } catch (err: any) {
-      toast.error(`Application failed: ${err.message}`);
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleSubmitMilestone = async () => {
-    try {
-      setApplying(true);
-      
-      let milestoneIndex = parseInt(job.current_milestone);
-      if (isNaN(milestoneIndex)) {
-        milestoneIndex = parseInt(job.current_milestone || '0');
-        if (isNaN(milestoneIndex)) {
-          throw new Error('Invalid milestone index. Please refresh the page and try again.');
         }
+        
+        const hasFreelancerRole = profileData.blockchain_roles && profileData.blockchain_roles.includes(1);
+        if (!hasFreelancerRole) {
+          throw new Error('You need to have freelancer role to apply for jobs. Please update your profile to include freelancer role.');
+        }
+        
+        const bannedCheck = await fetch(`/api/job/check-banned?job_id=${jobId}&worker_commitment=${userCommitment}`);
+        const bannedData = await bannedCheck.json();
+        
+        if (bannedData.success && bannedData.is_banned) {
+          throw new Error('You are banned from this job. You cannot apply again.');
+        }
+        
+        const response = await fetch('/api/job/actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'apply',
+            job_id: parseInt(jobId as string),
+            user_address: accountAddress,
+            user_commitment: userCommitment
+          })
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to prepare application');
+        }
+        
+        const tx = await wallet.signAndSubmitTransaction(data.payload);
+        const hash = tx?.hash || '';
+        
+        toast.success(hash ? `Application submitted successfully! Transaction: ${hash}` : 'Application submitted successfully!');
+        if (hash) window.location.reload();
+        
+      } else if (action === 'submit') {
+        let milestoneIndex = parseInt(job.current_milestone);
+        if (isNaN(milestoneIndex)) {
+          milestoneIndex = parseInt(job.current_milestone || '0');
+          if (isNaN(milestoneIndex)) {
+            throw new Error('Invalid milestone index. Please refresh the page and try again.');
+          }
+        }
+        
+        const milestoneData = {
+          milestone_index: milestoneIndex,
+          description: `Milestone ${milestoneIndex + 1} submission`,
+          timestamp: new Date().toISOString(),
+          worker_commitment: job.worker_commitment
+        };
+        
+        const uploadResponse = await fetch('/api/ipfs/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...milestoneData, type: 'milestone' })
+        });
+        
+        const uploadData = await uploadResponse.json();
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || 'Failed to upload milestone data');
+        }
+        
+        const submitData = {
+          action: 'submit',
+          user_address: accountAddress,
+          user_commitment: userCommitment,
+          job_id: parseInt(jobId as string),
+          milestone_index: milestoneIndex,
+          cid: uploadData.ipfsHash
+        };
+        
+        const response = await fetch('/api/job/actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitData)
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to submit milestone');
+        }
+        
+        const tx = await wallet.signAndSubmitTransaction(data.payload);
+        const hash = tx?.hash || '';
+        
+        toast.success(hash ? `Milestone submitted successfully! Transaction: ${hash}` : 'Milestone submitted successfully!');
+        if (hash) window.location.reload();
       }
-      
-      const milestoneData = {
-        milestone_index: milestoneIndex,
-        description: `Milestone ${milestoneIndex + 1} submission`,
-        timestamp: new Date().toISOString(),
-        worker_commitment: job.worker_commitment
-      };
-      
-      const uploadResponse = await fetch('/api/ipfs/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...milestoneData, type: 'milestone' })
-      });
-      
-      const uploadData = await uploadResponse.json();
-      if (!uploadData.success) {
-        throw new Error(uploadData.error || 'Failed to upload milestone data');
-      }
-      
-      const { wallet, accountAddress } = await getWalletAccount();
-      const userCommitment = await sha256Hex(accountAddress);
-      
-      const submitData = {
-        action: 'submit',
-        user_address: accountAddress,
-        user_commitment: userCommitment,
-        job_id: parseInt(jobId as string),
-        milestone_index: milestoneIndex,
-        cid: uploadData.ipfsHash
-      };
-      
-      const response = await fetch('/api/job/actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData)
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to submit milestone');
-      }
-      
-      const tx = await wallet.signAndSubmitTransaction(data.payload);
-      const hash = tx?.hash || '';
-      
-      toast.success(hash ? `Milestone submitted successfully! Transaction: ${hash}` : 'Milestone submitted successfully!');
-      if (hash) window.location.reload();
       
     } catch (err: any) {
-      toast.error(`Milestone submission failed: ${err.message}`);
+      toast.error(`${action === 'apply' ? 'Application' : 'Milestone submission'} failed: ${err.message}`);
     } finally {
       setApplying(false);
     }
@@ -271,55 +260,55 @@ Generated commitment: ${userCommitment}`);
           {job && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg border border-gray-200 dark:border-gray-700">
+                <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-200">
                   {jobDetails ? (
                     <div className="space-y-6">
                       <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
                           {jobDetails.title || 'Untitled Job'}
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <p className="text-gray-600">
                           {jobDetails.description || 'No description provided'}
                         </p>
                       </div>
                       {jobDetails.requirements && (
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Requirements</h3>
-                          <p className="text-gray-600 dark:text-gray-400">{jobDetails.requirements}</p>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Requirements</h3>
+                          <p className="text-gray-600">{jobDetails.requirements}</p>
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">Job details not available</p>
+                      <p className="text-gray-500">Job details not available</p>
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Job Status</h3>
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Status</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                      <span className="text-gray-500">Status:</span>
                       <span className={`font-medium ${
-                        job.status === 'active' ? 'text-green-600 dark:text-green-400' :
-                        job.status === 'in_progress' ? 'text-blue-600 dark:text-blue-400' :
-                        job.status === 'completed' ? 'text-gray-600 dark:text-gray-400' : 'text-yellow-600 dark:text-yellow-400'
+                        job.status === 'active' ? 'text-green-600' :
+                        job.status === 'in_progress' ? 'text-blue-600' :
+                        job.status === 'completed' ? 'text-gray-600' : 'text-yellow-600'
                       }`}>{job.status}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-500 dark:text-gray-400">Budget:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{job.budget} APT</span>
+                      <span className="text-gray-500">Budget:</span>
+                      <span className="font-medium text-gray-900">{job.budget} APT</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-500 dark:text-gray-400">Milestones:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{job.milestones?.length || 0}</span>
+                      <span className="text-gray-500">Milestones:</span>
+                      <span className="font-medium text-gray-900">{job.milestones?.length || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-500 dark:text-gray-400">Worker:</span>
-                      <span className={`font-medium ${job.worker_commitment ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <span className="text-gray-500">Worker:</span>
+                      <span className={`font-medium ${job.worker_commitment ? 'text-green-600' : 'text-gray-600'}`}>
                         {job.worker_commitment ? 'Assigned' : 'Open'}
                       </span>
                     </div>
@@ -327,13 +316,13 @@ Generated commitment: ${userCommitment}`);
                 </div>
 
                 {job.milestones && job.milestones.length > 0 && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Milestones</h3>
+                  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Milestones</h3>
                     <div className="space-y-2">
                       {job.milestones.map((amount: number, index: number) => (
                         <div key={index} className="flex justify-between text-sm items-center">
-                          <span className="text-gray-500 dark:text-gray-400">Milestone {index + 1}:</span>
-                          <span className="font-medium text-gray-900 dark:text-white">{(amount / 100_000_000).toFixed(2)} APT</span>
+                          <span className="text-gray-500">Milestone {index + 1}:</span>
+                          <span className="font-medium text-gray-900">{(amount / 100_000_000).toFixed(2)} APT</span>
                         </div>
                       ))}
                     </div>
@@ -341,11 +330,11 @@ Generated commitment: ${userCommitment}`);
                 )}
 
                 {milestoneExpired && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-red-600">
                       <span className="font-medium">Milestone Expired</span>
                     </div>
-                    <p className="text-red-600 dark:text-red-400 text-sm mt-1">
+                    <p className="text-red-600 text-sm mt-1">
                       The current milestone deadline has passed. The job will be reset and reopened for new applications.
                     </p>
                   </div>
@@ -353,7 +342,7 @@ Generated commitment: ${userCommitment}`);
 
                 {(job.status === 'active' || job.status === 'pending_approval') && !job.worker_commitment && (
                   <button 
-                    onClick={handleApply}
+                    onClick={() => handleAction('apply')}
                     disabled={applying}
                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl font-semibold text-lg shadow-lg border-2 border-blue-500 hover:shadow-xl hover:from-blue-700 hover:to-purple-700 hover:border-blue-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
@@ -370,7 +359,7 @@ Generated commitment: ${userCommitment}`);
 
                 {job.worker_commitment && job.status === 'in_progress' && (
                   <button 
-                    onClick={handleSubmitMilestone}
+                    onClick={() => handleAction('submit')}
                     disabled={applying}
                     className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white py-4 px-6 rounded-xl font-semibold text-lg shadow-lg border-2 border-green-500 hover:shadow-xl hover:from-green-700 hover:to-teal-700 hover:border-green-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >

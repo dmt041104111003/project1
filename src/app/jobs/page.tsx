@@ -81,29 +81,29 @@ export default function JobsPage() {
 
           {jobs.length === 0 ? (
             <div className="text-center py-16">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No jobs found</h3>
-              <p className="text-gray-500 dark:text-gray-400">Be the first to post a job and start earning!</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
+              <p className="text-gray-500">Be the first to post a job and start earning!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {jobs.map((job) => (
                 <div 
                   key={job.id} 
-                  className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow cursor-pointer"
+                  className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-shadow cursor-pointer"
                   onClick={() => window.location.href = `/jobs/${job.id}`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Job #{job.id}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <h3 className="text-lg font-semibold text-gray-900">Job #{job.id}</h3>
+                      <p className="text-sm text-gray-500">
                         {job.budget} APT • {job.milestones?.length || 0} milestones
                       </p>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      job.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' :
-                      job.status === 'in_progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' :
-                      job.status === 'completed' ? 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400' :
-                      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
+                      job.status === 'active' ? 'bg-green-100 text-green-700' :
+                      job.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                      job.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                      'bg-yellow-100 text-yellow-700'
                     }`}>
                       {job.status}
                     </span>
@@ -111,14 +111,14 @@ export default function JobsPage() {
                   
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Worker:</span>
-                      <span className={`font-medium ${job.worker_commitment ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <span className="text-gray-500">Worker:</span>
+                      <span className={`font-medium ${job.worker_commitment ? 'text-green-600' : 'text-gray-600'}`}>
                         {job.worker_commitment ? 'Assigned' : 'Open'}
                       </span>
                     </div>
                     
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 break-all">CID: {job.cid}</p>
+                    <div className="pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 break-all">CID: {job.cid}</p>
                     </div>
                   </div>
                 </div>

@@ -129,10 +129,10 @@ export const FOOTER_LINKS = {
 
 export const HERO_DATA = {
   title: "Marketplace2vn",
-  subtitle: "Platform",
-  description: "Decentralized freelancer platform with DID verification and automated escrow for safety and transparency.",
-  primaryCta: "Post a Job with Escrow",
-  secondaryCta: "Verify & Get Jobs",
+  subtitle: "Tạo Website Hoàn Hảo",
+  description: "Nền tảng freelancer phi tập trung với xác minh DID và escrow tự động để đảm bảo an toàn và minh bạch.",
+  primaryCta: "Đăng Job với Escrow",
+  secondaryCta: "Xác Minh & Nhận Job",
   trustIndicators: [
     { label: "DID Verified", icon: "shield-check" },
     { label: "Escrow Protected", icon: "lock-closed" }

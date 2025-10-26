@@ -4,24 +4,11 @@ import { Container } from '@/components/ui/container';
 import { TRUST_STATS } from '@/constants/landing';
 import CountUp from 'react-countup';
 
-
-
-const robotoCondensed = {
-  fontFamily: "'Roboto Condensed', sans-serif",
-  fontWeight: 400,
-  fontStyle: 'normal',
-};
-
 export function TrustNumbers() {
   const sectionRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -41,28 +28,22 @@ export function TrustNumbers() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="py-20 bg-background-secondary">
+    <section ref={sectionRef} className="py-16">
       <Container>
         <div className="text-center mb-12">
-          <h2 
-            style={robotoCondensed}
-            className="text-4xl lg:text-5xl text-primary mb-4"
-          >
+          <h2 className="text-3xl font-bold text-blue-800 mb-4">
             Trust numbers
           </h2>
-          <p 
-            style={robotoCondensed}
-            className="text-lg text-text-secondary max-w-2xl mx-auto"
-          >
+          <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
+          <p className="text-lg text-gray-700 max-w-2xl mx-auto">
             Transparent metrics stored on-chain
           </p>
         </div>
         
         <div className="grid md:grid-cols-3 gap-8">
           {TRUST_STATS.map((stat, index) => (
-            <div key={index} className="text-center">
-              
-              <div className="text-4xl lg:text-5xl font-bold text-text-primary mb-2">
+            <div key={index} className="border border-gray-400 bg-gray-50 p-6 text-center">
+              <div className="text-4xl font-bold text-blue-800 mb-3">
                 {isVisible ? (
                   <CountUp
                     end={parseInt(stat.value.replace(/[^0-9]/g, ''))}
@@ -74,7 +55,7 @@ export function TrustNumbers() {
                   '0'
                 )}
               </div>
-              <div className="text-lg text-text-secondary">
+              <div className="text-lg font-bold text-gray-900">
                 {stat.label}
               </div>
             </div>
@@ -86,7 +67,7 @@ export function TrustNumbers() {
             href="https://explorer.aptoslabs.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+            className="text-blue-800 font-bold border border-blue-800 px-6 py-3 bg-white"
           >
             View on Block Explorer
           </a>
