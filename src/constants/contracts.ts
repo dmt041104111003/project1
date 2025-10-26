@@ -1,6 +1,7 @@
 export const APTOS_NETWORK = "testnet";
-export const APTOS_NODE_URL = "https://fullnode.testnet.aptoslabs.com";
+export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com/v1";
 export const APTOS_FAUCET_URL =  "https://faucet.testnet.aptoslabs.com";
+export const APTOS_API_KEY = process.env.APTOS_API_KEY;
 
 
 export const CONTRACT_ADDRESS ="0xe7b20cd398ea0b505ba19987b89cf4d0dbf456e82bee5a87ba0ee3f05e635f55";

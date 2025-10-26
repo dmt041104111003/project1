@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, push, onValue, off, serverTimestamp, update, remove } from 'firebase/database';
+import { APTOS_NODE_URL, DID, CONTRACT_ADDRESS, APTOS_API_KEY } from '@/constants/contracts';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -22,8 +23,13 @@ export async function GET(request: NextRequest) {
     const roomId = searchParams.get('roomId');
     const getRooms = searchParams.get('getRooms');
 
-    // Handle getting rooms list
     if (getRooms === 'true') {
+      const userAddress = searchParams.get('userAddress');
+      
+      if (!userAddress) {
+        return NextResponse.json({ error: 'User address is required' }, { status: 400 });
+      }
+      
       return new Promise((resolve) => {
         const roomsRef = ref(database, 'chatRooms');
         
@@ -33,26 +39,29 @@ export async function GET(request: NextRequest) {
             id: string;
             name: string;
             lastMessage: string;
-            address: string;
             commitment: string;
-            role: string;
             chatAccepted: boolean;
             creatorAddress: string;
+            participantCommitment: string;
             participantAddress: string;
           }> = [];
           
           if (data) {
-            rooms = Object.entries(data).map(([id, room]) => ({
-              id,
-              name: (room as Record<string, unknown>).name as string,
-              lastMessage: (room as Record<string, unknown>).lastMessage as string,
-              address: (room as Record<string, unknown>).participantAddress as string,
-              commitment: (room as Record<string, unknown>).commitment as string,
-              role: (room as Record<string, unknown>).participantRole as string,
-              chatAccepted: (room as Record<string, unknown>).chatAccepted as boolean,
-              creatorAddress: (room as Record<string, unknown>).creatorAddress as string,
-              participantAddress: (room as Record<string, unknown>).participantAddress as string
-            }));
+            rooms = Object.entries(data)
+              .map(([id, room]) => ({
+                id,
+                name: (room as Record<string, unknown>).name as string,
+                lastMessage: (room as Record<string, unknown>).lastMessage as string,
+                commitment: (room as Record<string, unknown>).participantCommitment as string,
+                chatAccepted: (room as Record<string, unknown>).chatAccepted as boolean,
+                creatorAddress: (room as Record<string, unknown>).creatorAddress as string,
+                participantCommitment: (room as Record<string, unknown>).participantCommitment as string,
+                participantAddress: (room as Record<string, unknown>).participantAddress as string
+              }))
+              .filter(room => 
+                room.creatorAddress.toLowerCase() === userAddress.toLowerCase() ||
+                room.participantAddress.toLowerCase() === userAddress.toLowerCase()
+              );
           }
           
           off(roomsRef, 'value');
@@ -61,15 +70,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Handle getting messages (original logic)
     const roomIdForMessages = roomId || 'general';
-    console.log('Fetching messages for roomId:', roomIdForMessages);
     return new Promise((resolve) => {
       const messagesRef = ref(database, `chats/${roomIdForMessages}/messages`);
       
       onValue(messagesRef, (snapshot) => {
         const data = snapshot.val();
-        console.log('Firebase data for room', roomIdForMessages, ':', data);
         let messages: Array<{
           id: string;
           text: string;
@@ -92,7 +98,6 @@ export async function GET(request: NextRequest) {
           messages.sort((a, b) => a.timestamp - b.timestamp);
         }
         
-        console.log('Processed messages:', messages);
         off(messagesRef, 'value');
         resolve(NextResponse.json({ messages }));
       });
@@ -114,39 +119,53 @@ export async function POST(request: NextRequest) {
       // Room creation fields
       name,
       commitment,
-      address,
-      role,
       creatorId,
       creatorAddress,
-      creatorCommitment,
-      // Accept room fields
       acceptRoom,
       roomIdToAccept
     } = await request.json();
 
-    // Handle room creation
-    if (name && commitment && address && creatorId) {
-      console.log('Creating room with data:', { name, commitment, address, creatorId });
+    if (name && commitment && creatorId) {
       
       const roomsRef = ref(database, 'chatRooms');
       
+      // Get address from commitment to store both
+      let participantAddress = '';
+      try {
+        const addressResponse = await fetch(`${APTOS_NODE_URL}/view`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${APTOS_API_KEY}`
+          },
+          body: JSON.stringify({
+            function: DID.GET_ADDRESS_BY_COMMITMENT, 
+            arguments: [commitment], 
+            type_arguments: [] 
+          })
+        });
+        
+        const addressData = await addressResponse.json();
+        if (addressData && addressData.length > 0) {
+          participantAddress = addressData[0];
+        }
+      } catch (error) {
+        console.error('Error getting address from commitment:', error);
+      }
+
       const newRoom = {
         name,
-        commitment,
-        participantId: address,
-        participantAddress: address,
-        participantRole: role,
+        participantId: commitment,
+        participantCommitment: commitment,
+        participantAddress: participantAddress,
         creatorId,
         creatorAddress,
-        creatorCommitment,
         chatAccepted: false,
         createdAt: serverTimestamp(),
         lastMessage: 'Phòng mới được tạo'
       };
 
-      console.log('New room object:', newRoom);
 
-      // Check if room already exists between these two commitments
       return new Promise((resolve) => {
         onValue(roomsRef, (snapshot) => {
           const data = snapshot.val();
@@ -154,26 +173,23 @@ export async function POST(request: NextRequest) {
           
           if (data) {
             existingRoom = Object.values(data).find((room) => 
-              (room as Record<string, unknown>).creatorAddress === creatorId && (room as Record<string, unknown>).participantAddress === address ||
-              (room as Record<string, unknown>).creatorAddress === address && (room as Record<string, unknown>).participantAddress === creatorId
+              (room as Record<string, unknown>).creatorAddress === creatorId && (room as Record<string, unknown>).participantCommitment === commitment ||
+              (room as Record<string, unknown>).creatorAddress === commitment && (room as Record<string, unknown>).participantCommitment === creatorId
             );
           }
           
           off(roomsRef, 'value');
           
           if (existingRoom) {
-            console.log('Room already exists:', existingRoom);
             resolve(NextResponse.json({ 
               success: false, 
-              error: 'Phòng chat với commitment này đã tồn tại' 
+              error: 'Phòng chat với địa chỉ này đã tồn tại' 
             }));
             return;
           }
           
-          // Create new room
           push(roomsRef, newRoom).then((roomRef) => {
             const newRoomId = roomRef.key;
-            console.log('Room created with ID:', newRoomId);
 
             resolve(NextResponse.json({ 
               success: true, 
@@ -191,9 +207,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle accept room
     if (acceptRoom && roomIdToAccept) {
-      console.log('Accepting room:', roomIdToAccept);
       
       const roomRef = ref(database, `chatRooms/${roomIdToAccept}`);
       
@@ -211,7 +225,6 @@ export async function POST(request: NextRequest) {
             return;
           }
           
-          // Update room to accepted
           const updatedRoom = {
             ...roomData,
             chatAccepted: true,
@@ -219,7 +232,6 @@ export async function POST(request: NextRequest) {
           };
           
           update(roomRef, updatedRoom).then(() => {
-            console.log('Room accepted successfully');
             resolve(NextResponse.json({ 
               success: true, 
               message: 'Room đã được accept' 
@@ -235,7 +247,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle message sending
     if (!text || !sender || !senderId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -262,18 +273,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { messageId, roomId } = await request.json();
-    console.log('DELETE API called with:', { messageId, roomId });
 
     if (!messageId || !roomId) {
-      console.log('Missing messageId or roomId');
       return NextResponse.json({ error: 'Message ID and Room ID are required' }, { status: 400 });
     }
 
     const messageRef = ref(database, `chats/${roomId}/messages/${messageId}`);
-    console.log('Deleting from Firebase path:', `chats/${roomId}/messages/${messageId}`);
     
     await remove(messageRef);
-    console.log('Message deleted successfully from Firebase');
 
     return NextResponse.json({ success: true, message: 'Message deleted successfully' });
   } catch (error) {

@@ -16,8 +16,15 @@ export const ChatContentWithAuth: React.FC = () => {
     
     setIsCheckingDID(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setIsDIDVerified(true);
+      const response = await fetch(`/api/blockchain/commitment?address=${account}`);
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsDIDVerified(data.verified);
+      } else {
+        setIsDIDVerified(false);
+      }
     } catch (error) {
       console.error('DID verification error:', error);
       setIsDIDVerified(false);
@@ -30,7 +37,7 @@ export const ChatContentWithAuth: React.FC = () => {
     if (account) {
       checkDIDVerification();
     }
-  }, [account, checkDIDVerification]);
+  }, [account]);
 
   if (!account) {
     return (

@@ -21,7 +21,7 @@ export interface Message {
 
 interface ChatContextType {
   messages: Message[];
-  sendMessage: (text: string, sender: string, senderId: string, replyTo?: string | null) => void;
+  sendMessage: (text: string, sender: string, senderId: string, replyTo?: any) => void;
   isLoading: boolean;
   setRoomId: (roomId: string) => void;
 }
@@ -49,10 +49,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
   // Fetch messages từ API
   const fetchMessages = async () => {
     try {
-      console.log('Fetching messages for roomId:', currentRoomId);
       const response = await fetch(`/api/chat/messages?roomId=${currentRoomId}`);
       const data = await response.json();
-      console.log('Messages response:', data);
       setMessages(data.messages || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -63,15 +61,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
   };
 
   useEffect(() => {
+    if (!currentRoomId) return;
+    
     fetchMessages();
     
     // Polling để cập nhật tin nhắn mới (có thể thay bằng WebSocket sau)
-    const interval = setInterval(fetchMessages, 2000);
+    const interval = setInterval(fetchMessages, 5000); // Tăng lên 5 giây để giảm tải
     
     return () => clearInterval(interval);
-  }, [currentRoomId, fetchMessages]);
+  }, [currentRoomId]);
 
-  const sendMessage = async (text: string, sender: string, senderId: string, replyTo?: string | null) => {
+  const sendMessage = async (text: string, sender: string, senderId: string, replyTo?: any) => {
     if (!text.trim()) return;
 
     try {

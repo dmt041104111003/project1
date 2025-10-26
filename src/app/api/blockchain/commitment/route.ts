@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { APTOS_NODE_URL, DID } from '@/constants/contracts';
+import { APTOS_NODE_URL, DID, CONTRACT_ADDRESS, APTOS_API_KEY } from '@/constants/contracts';
 
 async function lookupCommitmentOnBlockchain(commitment: string) {
   try {
-    console.log('Looking up commitment:', commitment);
     
     const [addressRes, roleRes, profileRes] = await Promise.all([
-      fetch(`${APTOS_NODE_URL}/v1/view`, {
+      fetch(`${APTOS_NODE_URL}/view`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APTOS_API_KEY}`
+        },
         body: JSON.stringify({
           function: DID.GET_ADDRESS_BY_COMMITMENT, 
           arguments: [commitment], 
@@ -16,9 +18,12 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
         })
       }),
       
-      fetch(`${APTOS_NODE_URL}/v1/view`, {
+      fetch(`${APTOS_NODE_URL}/view`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APTOS_API_KEY}`
+        },
         body: JSON.stringify({
           function: DID.GET_ROLE_TYPES_BY_COMMITMENT, 
           arguments: [commitment],
@@ -26,9 +31,12 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
         })
       }),
       
-      fetch(`${APTOS_NODE_URL}/v1/view`, {
+      fetch(`${APTOS_NODE_URL}/view`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APTOS_API_KEY}`
+        },
         body: JSON.stringify({
           function: DID.GET_PROFILE_DATA_BY_COMMITMENT, 
           arguments: [commitment],
@@ -43,12 +51,8 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
       profileRes.json()
     ]);
 
-    console.log('Address data:', addressData);
-    console.log('Role data:', roleData);
-    console.log('Profile data:', profileData);
 
     if (!addressData || addressData.length === 0) {
-      console.log('No address found for commitment');
       return null;
     }
 
@@ -58,7 +62,7 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
 
     const roles: number[] = [];
     if (roleHex && roleHex.startsWith('0x')) {
-      const hexData = roleHex.slice(2); // Remove '0x'
+      const hexData = roleHex.slice(2);
       for (let i = 0; i < hexData.length; i += 2) {
         const hexByte = hexData.slice(i, i + 2);
         const roleNumber = parseInt(hexByte, 16);
@@ -79,12 +83,14 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
     let profileName = `User ${address.slice(0, 8)}`;
     if (profileCid && profileCid.length > 0) {
       try {
-        Buffer.from(profileCid).toString('utf8');
+        const cidString = Buffer.from(profileCid).toString('utf8');
         profileName = `User ${address.slice(0, 8)}`; 
-      } catch {
-        console.log('Could not decode profile CID');
+      } catch (e) {
       }
     }
+
+    // Check if commitment has roles (verification)
+    const isVerified = roles.length > 0;
 
     return {
       address,
@@ -92,7 +98,7 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
       role: primaryRole,
       roles,
       commitment,
-      verified: true, 
+      verified: isVerified, 
       profile: {
         didCommitment,
         profileCid
@@ -105,12 +111,17 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
   }
 }
 
-async function getAllCommitmentsFromBlockchain(excludeAddress?: string) {
+// NEW FUNCTION: Check if an address has a verified DID
+async function checkAddressVerification(address: string) {
   try {
-    // Use direct API call with proper endpoint
-    const response = await fetch(`${APTOS_NODE_URL}/v1/view`, {
+    
+    // Get all commitments
+    const response = await fetch(`${APTOS_NODE_URL}/view`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${APTOS_API_KEY}`
+      },
       body: JSON.stringify({
         function: DID.GET_ALL_COMMITMENTS,
         arguments: [],
@@ -118,71 +129,112 @@ async function getAllCommitmentsFromBlockchain(excludeAddress?: string) {
       })
     });
 
-    console.log('Response status:', response.status);
-    
     if (!response.ok) {
-      console.error('HTTP error:', response.status, response.statusText);
-      return [];
+      console.error('HTTP error:', response.status);
+      return { verified: false };
     }
 
     const data = await response.json();
-    console.log('API response:', data);
-    
-    if (!data || data.length === 0) {
-      console.log('No commitments found');
-      return [];
+    if (!data || data.length === 0 || !data[0]) {
+      return { verified: false };
     }
 
-    // data có dạng: [["0x30786637..."]]
     const commitmentsList = data[0] || [];
-    console.log('Commitments list:', commitmentsList);
 
-    const commitments = await Promise.all(
-      commitmentsList.map(async (hexCommitment: string) => {
-        const commitment = hexCommitment.startsWith('0x') 
-          ? hexCommitment 
-          : `0x${hexCommitment}`;
-        
-        console.log('Processing commitment:', commitment);
-        
-        const userInfo = await lookupCommitmentOnBlockchain(commitment);
-        
-        if (!userInfo) {
-          console.log('No user info for commitment:', commitment);
-          return null;
-        }
-        
-        // Filter out excluded address at source
-        if (excludeAddress && userInfo.address.toLowerCase() === excludeAddress.toLowerCase()) {
-          console.log('Excluding current user at source:', userInfo.address);
-          return null;
-        }
-        
-        return {
-          id: `commitment-${commitment}`,
-          commitment,
-          address: userInfo.address,
-          name: userInfo.name,
-          role: userInfo.role,
-          verified: userInfo.verified,
-          profile: userInfo.profile
-        };
-      })
-    );
+    // Check each commitment to find matching address
+    for (const hexCommitment of commitmentsList) {
+      const commitment = hexCommitment.startsWith('0x') 
+        ? hexCommitment 
+        : `0x${hexCommitment}`;
+      
+      try {
+        const addressResponse = await fetch(`${APTOS_NODE_URL}/view`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${APTOS_API_KEY}`
+          },
+          body: JSON.stringify({
+            function: DID.GET_ADDRESS_BY_COMMITMENT, 
+            arguments: [commitment], 
+            type_arguments: [] 
+          })
+        });
 
-    return commitments.filter(Boolean);
+        const addressData = await addressResponse.json();
+        
+        if (addressData && addressData.length > 0) {
+          const commitmentAddress = addressData[0];
+          
+          // Found matching address! Now check if commitment has roles
+          if (commitmentAddress.toLowerCase() === address.toLowerCase()) {
+            // Check if commitment has roles (verification)
+            try {
+              const roleResponse = await fetch(`${APTOS_NODE_URL}/view`, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${APTOS_API_KEY}`
+                },
+                body: JSON.stringify({
+                  function: DID.GET_ROLE_TYPES_BY_COMMITMENT, 
+                  arguments: [commitment], 
+                  type_arguments: [] 
+                })
+              });
+
+              const roleData = await roleResponse.json();
+              console.log('Role data for commitment:', commitment, ':', roleData);
+              const hasRoles = roleData && roleData.length > 0 && roleData[0] && roleData[0] !== '0x';
+              console.log('Has roles:', hasRoles);
+              
+              return { 
+                verified: hasRoles, 
+                commitment,
+                address: commitmentAddress
+              };
+            } catch (roleError) {
+              console.error('Error checking roles:', roleError);
+              return { 
+                verified: false, 
+                commitment,
+                address: commitmentAddress
+              };
+            }
+          }
+        }
+      } catch (err) {
+        continue;
+      }
+    }
+
+    return { verified: false };
+
   } catch (error) {
-    console.error('Error getting all commitments:', error);
-    return [];
+    console.error('Error checking address verification:', error);
+    return { verified: false };
   }
 }
+
+// getAllCommitmentsFromBlockchain function has been removed
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const commitment = searchParams.get('commitment');
+    const address = searchParams.get('address');
     const excludeAddress = searchParams.get('excludeAddress');
 
+    // NEW: Check if address has verified DID
+    if (address) {
+      const verificationResult = await checkAddressVerification(address);
+      return NextResponse.json({ 
+        success: true, 
+        ...verificationResult
+      });
+    }
+
+    // Existing: Lookup by commitment
     if (commitment) {
       const userInfo = await lookupCommitmentOnBlockchain(commitment);
 
@@ -196,16 +248,10 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    let commitments = [];
-    try {
-      commitments = await getAllCommitmentsFromBlockchain(excludeAddress || undefined);
-    } catch (blockchainError) {
-      console.error('Blockchain error (non-fatal):', blockchainError);
-    }
-    
     return NextResponse.json({ 
       success: true, 
-      commitments: commitments 
+      message: 'Get all commitments functionality has been cleared',
+      commitments: []
     });
 
   } catch (error) {
