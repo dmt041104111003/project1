@@ -12,6 +12,7 @@ const ChatContentInner: React.FC = () => {
     id: '',
     name: 'Chưa xác thực',
     address: '',
+    commitment: '',
     verified: false
   });
 
@@ -29,11 +30,18 @@ const ChatContentInner: React.FC = () => {
   }>>([]);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomCommitment, setNewRoomCommitment] = useState('');
+  const [newRoomName, setNewRoomName] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [createRoomError, setCreateRoomError] = useState('');
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const { messages, sendMessage, isLoading, setRoomId } = useChat();
+
+  const getMiddleCommitment = (commitment: string) => {
+    if (!commitment || commitment.length < 5) return commitment;
+    const start = Math.floor((commitment.length - 5) / 2);
+    return commitment.slice(start, start + 5);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +49,7 @@ const ChatContentInner: React.FC = () => {
     
     const messageText = message;
     
-    await sendMessage(messageText, currentUser.name, currentUser.id, replyingTo);
+    await sendMessage(messageText, currentUser.name, currentUser.commitment || currentUser.id, replyingTo);
     setMessage('');
     setReplyingTo(null);
   };
@@ -154,13 +162,43 @@ const ChatContentInner: React.FC = () => {
   // Set current user when account changes
   React.useEffect(() => {
     if (account) {
-      const newCurrentUser = {
-        id: account,
-        name: `User ${account.slice(0, 8)}`,
-        address: account,
-        verified: true // Assume verified since ChatContentWithAuth already checked
+      const getCurrentUserCommitment = async () => {
+        try {
+          const response = await fetch(`/api/blockchain/commitment?address=${account}`);
+          const data = await response.json();
+          if (data.success && data.commitment) {
+            const newCurrentUser = {
+              id: account,
+              name: `USER${getMiddleCommitment(data.commitment)}`,
+              address: account,
+              commitment: data.commitment,
+              verified: true
+            };
+            setCurrentUser(newCurrentUser);
+          } else {
+            const newCurrentUser = {
+              id: account,
+              name: `User ${account.slice(0, 8)}`,
+              address: account,
+              commitment: '',
+              verified: true
+            };
+            setCurrentUser(newCurrentUser);
+          }
+        } catch (error) {
+          console.error('Error getting commitment:', error);
+          const newCurrentUser = {
+            id: account,
+            name: `User ${account.slice(0, 8)}`,
+            address: account,
+            commitment: '',
+            verified: true
+          };
+          setCurrentUser(newCurrentUser);
+        }
       };
-      setCurrentUser(newCurrentUser);
+      
+      getCurrentUserCommitment();
     }
   }, [account]);
 
@@ -173,7 +211,7 @@ const ChatContentInner: React.FC = () => {
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomCommitment.trim()) return;
+    if (!newRoomCommitment.trim() || !newRoomName.trim()) return;
 
     setIsCreatingRoom(true);
     setCreateRoomError('');
@@ -197,7 +235,7 @@ const ChatContentInner: React.FC = () => {
         }
 
         const roomPayload = {
-          name: `MA${newRoomCommitment.trim().slice(-4)}`,
+          name: newRoomName.trim(),
           commitment: newRoomCommitment,
           creatorId: currentUser.address,
           creatorAddress: currentUser.address
@@ -232,6 +270,7 @@ const ChatContentInner: React.FC = () => {
           return;
         }
         setNewRoomCommitment('');
+        setNewRoomName('');
         setShowCreateRoom(false);
         setCreateRoomError('');
       } else {
@@ -282,7 +321,7 @@ const ChatContentInner: React.FC = () => {
             />
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-gray-800 truncate">
-                {currentUser.address ? `User ${currentUser.address.slice(0, 8)}` : 'Chưa có địa chỉ'}
+                {currentUser.name || 'Chưa có địa chỉ'}
               </h3>
               <p className="text-xs text-gray-600 truncate">
                 {currentUser.address ? `${currentUser.address.slice(0, 8)}...${currentUser.address.slice(-8)}` : 'Chưa có địa chỉ'}
@@ -326,7 +365,7 @@ const ChatContentInner: React.FC = () => {
                       />
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-bold text-gray-800 truncate">
-                          {room.name}
+                          USER{getMiddleCommitment(room.commitment)}
                         </h3>
                         <p className="text-xs text-gray-600 truncate">
                           {room.lastMessage}
@@ -382,6 +421,17 @@ const ChatContentInner: React.FC = () => {
             <form onSubmit={handleCreateRoom} className="space-y-2">
               <input
                 type="text"
+                value={newRoomName}
+                onChange={(e) => {
+                  setNewRoomName(e.target.value);
+                  setCreateRoomError(''); // Clear error when typing
+                }}
+                placeholder="Nhập tên phòng..."
+                className="w-full px-3 py-2 border border-gray-400 focus:outline-none focus:border-gray-800"
+                disabled={isCreatingRoom}
+              />
+              <input
+                type="text"
                 value={newRoomCommitment}
                 onChange={(e) => {
                   setNewRoomCommitment(e.target.value);
@@ -404,7 +454,7 @@ const ChatContentInner: React.FC = () => {
                   variant="primary" 
                   size="sm" 
                   className="flex-1"
-                  disabled={!newRoomCommitment.trim() || isCreatingRoom}
+                  disabled={!newRoomCommitment.trim() || !newRoomName.trim() || isCreatingRoom}
                 >
                   {isCreatingRoom ? 'ĐANG KIỂM TRA...' : 'TẠO'}
                 </Button>
@@ -415,6 +465,7 @@ const ChatContentInner: React.FC = () => {
                   onClick={() => {
                     setShowCreateRoom(false);
                     setNewRoomCommitment('');
+                    setNewRoomName('');
                     setCreateRoomError('');
                   }}
                   disabled={isCreatingRoom}
@@ -442,7 +493,7 @@ const ChatContentInner: React.FC = () => {
                 />
                 <div>
                   <h2 className="font-bold text-gray-800">
-                    {rooms.find(r => r.id === selectedRoom)?.name || 'Unknown'}
+                    USER{getMiddleCommitment(rooms.find(r => r.id === selectedRoom)?.commitment || '')}
                   </h2>
                   <p className="text-xs text-gray-600">
                     {rooms.find(r => r.id === selectedRoom)?.commitment ? 
@@ -489,7 +540,7 @@ const ChatContentInner: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {messages.map((msg) => {
-                const isOwnMessage = currentUser.id === msg.senderId;
+                const isOwnMessage = (currentUser.commitment || currentUser.id) === msg.senderId;
                 
                 return (
                   <div
@@ -527,9 +578,9 @@ const ChatContentInner: React.FC = () => {
                             <div className={`text-xs ${
                               isOwnMessage ? 'text-gray-300' : 'text-gray-600'
                             }`}>
-                              {msg.replyTo.senderId === currentUser.id 
+                              {msg.replyTo.senderId === (currentUser.commitment || currentUser.id)
                                 ? 'Replying to yourself' 
-                                : `Replying to ${msg.replyTo.senderId.slice(0, 8)}...${msg.replyTo.senderId.slice(-4)}`}
+                                : `Replying to USER${getMiddleCommitment(msg.replyTo.senderId)}`}
                             </div>
                             <div className={`text-xs truncate ${
                               isOwnMessage ? 'text-gray-400' : 'text-gray-700'
@@ -540,7 +591,7 @@ const ChatContentInner: React.FC = () => {
                         )}
                         {!isOwnMessage && (
                           <div className="text-xs font-bold text-gray-800 mb-1">
-                            {msg.senderId.slice(0, 8)}...{msg.senderId.slice(-4)}:
+                            USER{getMiddleCommitment(msg.senderId)}:
                           </div>
                         )}
                         <div className="text-sm">{msg.text}</div>
