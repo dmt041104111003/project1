@@ -115,23 +115,31 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('walletType', 'aptos');
         localStorage.setItem('aptosNetwork', network);
         
-        // Sign in with NextAuth
         try {
+          console.log('Attempting NextAuth sign-in with address:', acc.address);
           const result = await signIn('credentials', {
             redirect: false,
             address: acc.address,
-            signature: 'wallet-connected', // Placeholder
-            message: 'wallet-authentication',
           });
           
+          console.log('NextAuth sign-in result:', result);
+          console.log('NextAuth sign-in result.ok:', result?.ok);
+          console.log('NextAuth sign-in result.error:', result?.error);
+          console.log('NextAuth sign-in result.url:', result?.url);
+          
           if (result?.error) {
+            console.error('NextAuth sign-in error:', result.error);
             throw new Error(result.error);
           }
           
-          router.push('/dashboard');
+          if (result?.ok) {
+            console.log('NextAuth sign-in successful, redirecting to dashboard');
+            router.push('/dashboard');
+          } else {
+            console.log('NextAuth sign-in not successful, result:', result);
+          }
         } catch (e) {
           console.error('NextAuth sign-in failed:', e);
-          toast.error('Authentication failed');
         }
         toast.success(`Connected to Petra wallet successfully! Address: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
       } catch (err) {

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Buffer } from 'buffer';
 import Link from 'next/link';
 import { Container } from '@/components/ui/container';
@@ -9,92 +9,48 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
 import { useWallet } from '@/contexts/WalletContext';
-
-// Helper function for SHA256
-const sha256Hex = async (s: string): Promise<string> => {
-  const enc = new TextEncoder();
-  const data = enc.encode(s);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  const bytes = Array.from(new Uint8Array(hash));
-  return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
-};
 import { Wallet } from 'lucide-react';
+
+interface Milestone { amount: string; duration: string; unit: string; }
+interface Job { id: string; status: string; budget: number; worker_commitment?: string[]; approved: boolean; poster_commitment: string; }
+type TabType = 'post' | 'manage' | 'applicants';
+
+const sha256Hex = async (s: string) => {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return '0x' + Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
 
 export default function DashboardPage() {
   const { account, connectWallet, isConnecting } = useWallet();
 
-  // State cho Job form
-  const [jobTitle, setJobTitle] = useState<string>('')
-  const [jobDescription, setJobDescription] = useState<string>('')
-  const [jobDuration, setJobDuration] = useState<string>('7')
-  const [jobSkills, setJobSkills] = useState<string>('')
-  const [jobRequirements, setJobRequirements] = useState<string>('')
-  const [jobResult, setJobResult] = useState<string>('')
-  const [profileStatus, setProfileStatus] = useState<string>('')
-  const [isProfileVerified, setIsProfileVerified] = useState<boolean | null>(null)
-  const [canPostJobs, setCanPostJobs] = useState<boolean>(false)
-  
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'post' | 'manage' | 'applicants'>('post')
-  
-  // Job management state
-  const [myJobs, setMyJobs] = useState<any[]>([])
-  const [loadingJobs, setLoadingJobs] = useState(false)
-  const [claimingJob, setClaimingJob] = useState<string | null>(null)
-  
-  // Applicants state
-  const [applicants, setApplicants] = useState<any[]>([])
-  const [loadingApplicants, setLoadingApplicants] = useState(false)
-  const [approvingJob, setApprovingJob] = useState<string | null>(null)
-  
-  // State cho skills và milestones
-  const [skillsList, setSkillsList] = useState<string[]>([])
-  const [milestonesList, setMilestonesList] = useState<Array<{amount: string, duration: string, unit: string}>>([])
-  const [currentSkill, setCurrentSkill] = useState<string>('')
-  const [currentMilestone, setCurrentMilestone] = useState<{amount: string, duration: string, unit: string}>({amount: '', duration: '', unit: 'ngày'})
+  const [jobTitle, setJobTitle] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [jobDuration, setJobDuration] = useState('7');
+  const [jobResult, setJobResult] = useState('');
+  const [profileStatus, setProfileStatus] = useState('');
+  const [canPostJobs, setCanPostJobs] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('post');
+  const [myJobs, setMyJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [claimingJob, setClaimingJob] = useState<string | null>(null);
+  const [applicants, setApplicants] = useState<Job[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [approvingJob, setApprovingJob] = useState<string | null>(null);
+  const [skillsList, setSkillsList] = useState<string[]>([]);
+  const [milestonesList, setMilestonesList] = useState<Milestone[]>([]);
+  const [currentSkill, setCurrentSkill] = useState('');
+  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({amount: '', duration: '', unit: 'ngày'});
 
-  const sha256Hex = async (s: string) => {
-    const enc = new TextEncoder();
-    const data = enc.encode(s);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    const bytes = Array.from(new Uint8Array(hash));
-    return '0x' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
+  const getUserCommitment = async () => sha256Hex(account!);
+  const getHexEncodedCommitment = (commitment: string) => '0x' + Buffer.from(commitment, 'utf8').toString('hex');
 
-  // Fetch my jobs
   const fetchMyJobs = async () => {
     if (!account) return;
-    
-    console.log('🔄 fetchMyJobs called with account:', account);
     setLoadingJobs(true);
     try {
-      const response = await fetch('/api/job/list');
-      const data = await response.json();
-      
-      if (data.success) {
-        // Filter jobs where current user is the poster
-        const userCommitment = await sha256Hex(account);
-        console.log('🔍 User commitment:', userCommitment);
-        console.log('🔍 All jobs:', data.jobs);
-        
-        const myJobsList = data.jobs.filter((job: any) => {
-          // Correct conversion: hex-encode the entire userCommitment string
-          // This matches the format stored in job.poster_commitment on the blockchain
-          const hexEncodedUserCommitment = '0x' + Buffer.from(userCommitment, 'utf8').toString('hex');
-          
-          console.log('🔍 Comparing:', {
-            userCommitment,
-            hexEncodedUserCommitment,
-            jobPosterCommitment: job.poster_commitment,
-            match: job.poster_commitment === hexEncodedUserCommitment
-          });
-          
-          return job.poster_commitment === hexEncodedUserCommitment;
-        });
-        
-        console.log('🔍 My jobs:', myJobsList);
-        setMyJobs(myJobsList);
-      }
+      const { jobs } = await fetch('/api/job/list').then(r => r.json());
+      const hexCommitment = getHexEncodedCommitment(await getUserCommitment());
+      setMyJobs(jobs.filter((job: Job) => job.poster_commitment === hexCommitment));
     } catch (error) {
       console.error('Error fetching jobs:', error);
     } finally {
@@ -102,65 +58,30 @@ export default function DashboardPage() {
     }
   };
 
-  // Claim stake for expired milestone
   const claimStake = async (jobId: string) => {
     if (!account) return;
-    
     setClaimingJob(jobId);
     try {
-      // Ensure account is a string
-      const accountAddress = typeof account === 'string' ? account : (account as any)?.address;
-      if (!accountAddress) {
-        throw new Error('Invalid account format. Please reconnect your wallet.');
-      }
-      
-      const userCommitment = await sha256Hex(accountAddress);
-      
-      // Check if milestone is expired
-      const expiryResponse = await fetch(`/api/job/check-expiry?job_id=${jobId}&milestone_index=0`);
-      const expiryData = await expiryResponse.json();
-      
-      console.log('🔍 Milestone expiry check:', expiryData);
+      const userCommitment = await getUserCommitment();
+      const expiryData = await fetch(`/api/job/check-expiry?job_id=${jobId}&milestone_index=0`).then(r => r.json());
       
       if (!expiryData.success || !expiryData.is_expired) {
         const deadline = new Date(expiryData.milestone_deadline * 1000);
-        const currentTime = new Date(expiryData.current_time * 1000);
-        const timeLeft = deadline.getTime() - currentTime.getTime();
-        
-        console.log('🔍 Milestone details:', {
-          deadline: deadline.toLocaleString(),
-          currentTime: currentTime.toLocaleString(),
-          timeLeft: Math.floor(timeLeft / 1000 / 60) + ' minutes'
-        });
-        
-        alert(`Milestone not expired yet. Deadline: ${deadline.toLocaleString()}, Time left: ${Math.floor(timeLeft / 1000 / 60)} minutes`);
+        const timeLeft = Math.floor((deadline.getTime() - new Date(expiryData.current_time * 1000).getTime()) / 1000 / 60);
+        alert(`Milestone not expired yet. Deadline: ${deadline.toLocaleString()}, Time left: ${timeLeft} minutes`);
         return;
       }
       
-      // Create auto-return transaction
-      const autoReturnResponse = await fetch('/api/job/auto-return-stake', {
+      const autoReturnData = await fetch('/api/job/auto-return-stake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: jobId,
-          user_address: accountAddress,
-          user_commitment: userCommitment
-        })
-      });
-      
-      const autoReturnData = await autoReturnResponse.json();
+        body: JSON.stringify({ job_id: jobId, user_address: account, user_commitment: userCommitment })
+      }).then(r => r.json());
       
       if (autoReturnData.success) {
-        // Sign and submit transaction
-        const wallet = (window as any).aptos;
-        if (wallet) {
-          const tx = await wallet.signAndSubmitTransaction(autoReturnData.payload);
-          console.log(`✅ Stake claimed: ${tx.hash}`);
-          alert(`Stake claimed successfully! Transaction: ${tx.hash}`);
-          
-          // Refresh jobs list
-          fetchMyJobs();
-        }
+        const tx = await (window as any).aptos.signAndSubmitTransaction(autoReturnData.payload);
+        alert(`Stake claimed successfully! Transaction: ${tx.hash}`);
+        fetchMyJobs();
       } else {
         alert(`Failed to claim stake: ${autoReturnData.error}`);
       }
@@ -172,29 +93,15 @@ export default function DashboardPage() {
     }
   };
 
-  // Fetch applicants for my jobs
   const fetchApplicants = async () => {
     if (!account) return;
-    
     setLoadingApplicants(true);
     try {
-      const response = await fetch('/api/job/list');
-      const data = await response.json();
-      
-      if (data.success) {
-        // Filter jobs where current user is the poster and has worker but not approved
-        const userCommitment = await sha256Hex(account);
-        const hexEncodedUserCommitment = '0x' + Buffer.from(userCommitment, 'utf8').toString('hex');
-        
-        const applicantsList = data.jobs.filter((job: any) => 
-          job.poster_commitment === hexEncodedUserCommitment && 
-          job.worker_commitment && 
-          !job.approved
-        );
-        
-        console.log('🔍 Applicants:', applicantsList);
-        setApplicants(applicantsList);
-      }
+      const { jobs } = await fetch('/api/job/list').then(r => r.json());
+      const hexCommitment = getHexEncodedCommitment(await getUserCommitment());
+      setApplicants(jobs.filter((job: Job) => 
+        job.poster_commitment === hexCommitment && job.worker_commitment && !job.approved
+      ));
     } catch (error) {
       console.error('Error fetching applicants:', error);
     } finally {
@@ -202,39 +109,20 @@ export default function DashboardPage() {
     }
   };
 
-  // Approve worker for job
   const approveWorker = async (jobId: string) => {
     if (!account) return;
-    
     setApprovingJob(jobId);
     try {
-      const userCommitment = await sha256Hex(account);
-      
-      // Call job actions API to approve
-      const response = await fetch('/api/job/actions', {
+      const data = await fetch('/api/job/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'approve',
-          job_id: parseInt(jobId),
-          user_address: account,
-          user_commitment: userCommitment
-        })
-      });
-      
-      const data = await response.json();
+        body: JSON.stringify({ action: 'approve', job_id: parseInt(jobId), user_address: account, user_commitment: await getUserCommitment() })
+      }).then(r => r.json());
       
       if (data.success) {
-        // Sign and submit transaction
-        const wallet = (window as any).aptos;
-        if (wallet) {
-          const tx = await wallet.signAndSubmitTransaction(data.payload);
-          console.log(`✅ Worker approved: ${tx.hash}`);
-          alert(`Worker approved successfully! Transaction: ${tx.hash}`);
-          
-          // Refresh applicants list
-          fetchApplicants();
-        }
+        const tx = await (window as any).aptos.signAndSubmitTransaction(data.payload);
+        alert(`Worker approved successfully! Transaction: ${tx.hash}`);
+        fetchApplicants();
       } else {
         alert(`Failed to approve worker: ${data.error}`);
       }
@@ -246,222 +134,122 @@ export default function DashboardPage() {
     }
   };
 
-  // Fetch jobs when manage tab is selected
   useEffect(() => {
-    console.log('🔄 Tab changed:', { activeTab, account });
-    if (activeTab === 'manage' && account) {
-      console.log('🔄 Fetching my jobs...');
-      fetchMyJobs();
-    } else if (activeTab === 'applicants' && account) {
-      console.log('🔄 Fetching applicants...');
-      fetchApplicants();
-    }
+    if (activeTab === 'manage' && account) fetchMyJobs();
+    else if (activeTab === 'applicants' && account) fetchApplicants();
   }, [activeTab, account]);
 
-  // ✅ SKILLS & MILESTONES FUNCTIONS
   const addSkill = () => {
-    if (currentSkill.trim()) {
-      setSkillsList([...skillsList, currentSkill.trim()]);
-      setCurrentSkill('');
-    }
-  }
-
-  const removeSkill = (index: number) => {
-    setSkillsList(skillsList.filter((_, i) => i !== index));
-  }
-
+    const trimmed = currentSkill.trim();
+    if (trimmed) { setSkillsList(prev => [...prev, trimmed]); setCurrentSkill(''); }
+  };
+  const removeSkill = (index: number) => setSkillsList(prev => prev.filter((_, i) => i !== index));
   const addMilestone = () => {
-    if (currentMilestone.amount.trim() && currentMilestone.duration.trim()) {
-      const amount = parseFloat(currentMilestone.amount);
-      if (amount < 0.001) {
-        alert('Số tiền tối thiểu là 0.001 APT');
-        return;
-      }
-      if (amount <= 0) {
-        alert('Số tiền phải lớn hơn 0');
-        return;
-      }
-      setMilestonesList([...milestonesList, currentMilestone]);
-      setCurrentMilestone({amount: '', duration: '', unit: 'ngày'});
-    }
-  }
+    if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim()) return;
+    const amount = parseFloat(currentMilestone.amount);
+    if (amount < MIN_MILESTONE) return alert(`Số tiền tối thiểu là ${MIN_MILESTONE} APT`);
+    if (amount <= 0) return alert('Số tiền phải lớn hơn 0');
+    setMilestonesList(prev => [...prev, currentMilestone]);
+    setCurrentMilestone({amount: '', duration: '', unit: 'ngày'});
+  };
+  const removeMilestone = (index: number) => setMilestonesList(prev => prev.filter((_, i) => i !== index));
+  const calculateTotalBudget = () => milestonesList.reduce((total, milestone) => total + (parseFloat(milestone.amount) || 0), 0);
 
-  const removeMilestone = (index: number) => {
-    setMilestonesList(milestonesList.filter((_, i) => i !== index));
-  }
+  const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 };
+  const APT_TO_UNITS = 100_000_000;
+  const MIN_MILESTONE = 0.001;
+  const convertTimeToSeconds = (duration: string, unit: string) => (parseFloat(duration) || 0) * (TIME_MULTIPLIERS[unit as keyof typeof TIME_MULTIPLIERS] || 1);
+  const convertAptToUnits = (apt: string) => Math.floor((parseFloat(apt) || 0) * APT_TO_UNITS);
 
-  // Calculate total budget from milestones
-  const calculateTotalBudget = () => {
-    return milestonesList.reduce((total, milestone) => {
-      const amount = parseFloat(milestone.amount) || 0;
-      return total + amount;
-    }, 0);
-  }
+  useEffect(() => { if (account) checkProfile(); }, [account]);
 
-  // Convert time to seconds
-  const convertTimeToSeconds = (duration: string, unit: string): number => {
-    const durationNum = parseFloat(duration) || 0;
-    switch (unit) {
-      case 'giây': return durationNum;
-      case 'phút': return durationNum * 60;
-      case 'giờ': return durationNum * 3600;
-      case 'ngày': return durationNum * 86400;
-      case 'tuần': return durationNum * 604800;
-      case 'tháng': return durationNum * 2592000; // 30 days
-      default: return durationNum;
-    }
-  }
-
-  // Convert APT to contract units (multiply by 100,000,000)
-  const convertAptToUnits = (apt: string): number => {
-    const aptNum = parseFloat(apt) || 0;
-    return Math.floor(aptNum * 100_000_000); // Convert to contract units
-  }
-
-  // ✅ AUTO CHECK PROFILE ON LOAD
-  React.useEffect(() => {
-    if (account) {
-      checkProfile();
-    }
-  }, [account]);
-
-  // ✅ PROFILE CHECK FUNCTION
   const checkProfile = async () => {
     try {
-      setProfileStatus('🔄 Đang kiểm tra profile...')
-      
-      // Generate commitment from account
-      const userCommitment = await sha256Hex(account || '');
-      
-      // Check if user has verified profile using the correct API
-      const profileCheck = await fetch(`/api/ipfs/get?type=profile&commitment=${userCommitment}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const profileData = await profileCheck.json();
-      console.log('Profile check response:', profileData);
+      setProfileStatus('Đang kiểm tra profile...');
+      const profileData = await fetch(`/api/ipfs/get?type=profile&commitment=${await getUserCommitment()}`).then(r => r.json());
       
       if (!profileData.success) {
-        setProfileStatus('❌ Profile chưa được verify! Vào /auth/did-verification để tạo profile.');
-        setIsProfileVerified(false);
+        setProfileStatus('Profile chưa được verify! Vào /auth/did-verification để tạo profile.');
+        setCanPostJobs(false);
         return;
       }
       
-      // Check if profile exists and has data
       const hasProfile = profileData.profile_data && Object.keys(profileData.profile_data).length > 0;
+      const hasPosterRole = profileData.blockchain_roles?.includes(2);
       
-      if (hasProfile) {
-        // Check if user has Poster role (role 2)
-        const hasPosterRole = profileData.blockchain_roles && profileData.blockchain_roles.includes(2);
-        
-        if (hasPosterRole) {
-          setProfileStatus('✅ Profile đã được verify với role Poster! Bạn có thể đăng job.');
-          setIsProfileVerified(true);
-          setCanPostJobs(true);
-        } else {
-          setProfileStatus('❌ Profile đã verify nhưng không có role Poster! Vào /auth/did-verification để cập nhật role.');
-          setIsProfileVerified(false);
-          setCanPostJobs(false);
-        }
+      if (hasProfile && hasPosterRole) {
+        setProfileStatus('Profile đã được verify với role Poster! Bạn có thể đăng job.');
+        setCanPostJobs(true);
       } else {
-        setProfileStatus('❌ Profile chưa được verify! Vào /auth/did-verification để tạo profile.');
-        setIsProfileVerified(false);
+        const message = hasProfile 
+          ? 'Profile đã verify nhưng không có role Poster! Vào /auth/did-verification để cập nhật role.'
+          : 'Profile chưa được verify! Vào /auth/did-verification để tạo profile.';
+        setProfileStatus(message);
         setCanPostJobs(false);
       }
-      
     } catch (e: any) {
-      setProfileStatus(`❌ Lỗi kiểm tra profile: ${e?.message || 'thất bại'}`);
-      setIsProfileVerified(false);
+      setProfileStatus(`Lỗi kiểm tra profile: ${e?.message || 'thất bại'}`);
       setCanPostJobs(false);
     }
-  }
+  };
 
-  // ✅ JOB FUNCTIONS
   const createJob = async () => {
     try {
-      setJobResult('🔄 Đang tạo job...')
+      setJobResult('Đang tạo job...');
       
-      // Validate milestones before creating job
-      const invalidMilestones = milestonesList.filter(milestone => {
+      const hasInvalidMilestones = milestonesList.some(milestone => {
         const amount = parseFloat(milestone.amount);
-        return amount <= 0 || amount < 0.001;
+        return amount <= 0 || amount < MIN_MILESTONE;
       });
       
-      if (invalidMilestones.length > 0) {
-        setJobResult('❌ Có milestone không hợp lệ. Số tiền phải >= 0.001 APT');
+      if (hasInvalidMilestones) {
+        setJobResult(`Có milestone không hợp lệ. Số tiền phải >= ${MIN_MILESTONE} APT`);
         return;
       }
       
-      const ipfsResponse = await fetch('/api/ipfs/upload', {
+      const userCommitment = await getUserCommitment();
+      const ipfsData = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'job',
-          title: jobTitle,
-          description: jobDescription,
-          requirements: skillsList, // Send skills as array
-          user_commitment: await sha256Hex(account || '') // Generate commitment from account
-        })
-      });
+        body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList, user_commitment: userCommitment })
+      }).then(r => r.json());
       
-      const ipfsData = await ipfsResponse.json();
       if (!ipfsData.success) throw new Error(ipfsData.error);
       
-      // Convert milestones to contract format
-      const contractMilestones = milestonesList.map(milestone => 
-        convertAptToUnits(milestone.amount)
-      );
-      
-      const contractMilestoneDurations = milestonesList.map(milestone => 
-        convertTimeToSeconds(milestone.duration, milestone.unit)
-      );
+      const contractMilestones = milestonesList.map(milestone => convertAptToUnits(milestone.amount));
+      const contractMilestoneDurations = milestonesList.map(milestone => convertTimeToSeconds(milestone.duration, milestone.unit));
 
-      // Now call job actions API with correct parameters
-      const response = await fetch('/api/job/actions', {
+      const data = await fetch('/api/job/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'post',
           user_address: account,
-          user_commitment: await sha256Hex(account || ''),
+          user_commitment: userCommitment,
           job_details_cid: ipfsData.ipfsHash,
           milestones: contractMilestones,
           milestone_durations: contractMilestoneDurations,
-          application_deadline: Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 24 * 60 * 60) // Convert days to seconds
+          application_deadline: Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 24 * 60 * 60)
         })
-      });
+      }).then(r => r.json());
       
-      const data = await response.json();
       if (!data.success) throw new Error(data.error);
       
-      // Sign and submit transaction using wallet
-      setJobResult('🔄 Đang ký transaction...');
+      setJobResult('Đang ký transaction...');
+      const tx = await (window as any).aptos.signAndSubmitTransaction(data.payload);
+      const hash = tx?.hash;
       
-      const wallet = (window as any).aptos;
-      if (!wallet) throw new Error('Wallet not found');
-      
-      const tx = await wallet.signAndSubmitTransaction(data.payload);
-      const hash = tx?.hash || '';
-      
-      if (hash) {
-        setJobResult(`✅ Job đã được tạo thành công! TX: ${hash}`);
-        console.log('Job created with hash:', hash);
-      } else {
-        setJobResult('✅ Job đã được gửi transaction!');
-        console.log('Job transaction submitted');
-      }
+      setJobResult(hash ? `Job đã được tạo thành công! TX: ${hash}` : 'Job đã được gửi transaction!');
       
     } catch (e: any) {
-      setJobResult(`❌ Lỗi: ${e?.message || 'thất bại'}`);
+      setJobResult(`Lỗi: ${e?.message || 'thất bại'}`);
     }
-  }
+  };
 
   if (!account) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        
         <main className="flex-1 pt-20">
           <Container>
             <div className="max-w-2xl mx-auto text-center py-20">
@@ -476,29 +264,18 @@ export default function DashboardPage() {
                   You need to connect Petra wallet to manage your jobs
                 </p>
               </div>
-
               <div className="space-y-4">
-                <Button 
-                  size="lg" 
-                  onClick={connectWallet}
-                  disabled={isConnecting}
-                  className="flex items-center gap-2 mx-auto"
-                >
+                <Button size="lg" onClick={connectWallet} disabled={isConnecting} className="flex items-center gap-2 mx-auto">
                   <Wallet className="w-5 h-5" />
                   {isConnecting ? 'Connecting...' : 'Connect Petra Wallet'}
                 </Button>
-                
                 <div className="text-sm text-muted-foreground">
-                  Or{' '}
-                  <Link href="/" className="text-primary hover:underline">
-                    go back to home
-                  </Link>
+                  Or <Link href="/" className="text-primary hover:underline">go back to home</Link>
                 </div>
               </div>
             </div>
           </Container>
         </main>
-
         <Footer />
       </div>
     );
@@ -514,60 +291,38 @@ export default function DashboardPage() {
             {/* Tabs */}
             <div className="max-w-4xl mx-auto">
               <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                <button
-                  onClick={() => setActiveTab('post')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'post'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  📝 Đăng Dự Án
-                </button>
-                <button
-                  onClick={() => setActiveTab('manage')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'manage'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  🎯 Quản Lý Dự Án
-                </button>
-                <button
-                  onClick={() => setActiveTab('applicants')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'applicants'
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  👥 Ứng Viên
-                </button>
+                {(['post', 'manage', 'applicants'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === tab
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {tab === 'post' ? 'Đăng Dự Án' : tab === 'manage' ? 'Quản Lý Dự Án' : 'Ứng Viên'}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Job Form Tab */}
             {activeTab === 'post' && (
             <div className="max-w-2xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">💼 Đăng Dự Án</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Đăng Dự Án</h1>
                   <p className="text-gray-600 dark:text-gray-400">Tạo dự án mới và tìm freelancer phù hợp</p>
                   
-                  {/* Profile Status */}
                   {profileStatus && (
                     <div className={`p-3 rounded-lg text-sm font-medium ${
-                      profileStatus.includes('✅') 
+                      profileStatus.includes('đã được verify') 
                         ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
-                        : profileStatus.includes('❌')
+                        : profileStatus.includes('chưa được verify') || profileStatus.includes('không có role')
                         ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
                         : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
                     }`}>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">
-                          {profileStatus.includes('✅') ? '✅' : profileStatus.includes('❌') ? '❌' : '🔄'}
-                        </span>
                         <span>{profileStatus}</span>
                       </div>
                     </div>
@@ -575,7 +330,6 @@ export default function DashboardPage() {
                 </div>
 
                 <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); createJob(); }}>
-                  {/* Basic Info */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Tiêu đề dự án *
@@ -588,14 +342,11 @@ export default function DashboardPage() {
                       placeholder="Ví dụ: Phát triển smart contract"
                       disabled={!canPostJobs}
                       className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !canPostJobs 
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                       }`}
                     />
                   </div>
 
-                  {/* Description */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Mô tả dự án *
@@ -608,14 +359,11 @@ export default function DashboardPage() {
                       rows={4}
                       disabled={!canPostJobs}
                       className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
-                        !canPostJobs 
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                        !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                       }`}
                     />
                   </div>
 
-                  {/* Skills */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Kỹ năng yêu cầu
@@ -629,9 +377,7 @@ export default function DashboardPage() {
                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                         disabled={!canPostJobs}
                         className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs 
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                         }`}
                       />
                       <Button type="button" onClick={addSkill} variant="outline" disabled={!canPostJobs}>
@@ -659,7 +405,6 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Duration */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Thời hạn nộp đơn
@@ -672,18 +417,14 @@ export default function DashboardPage() {
                         placeholder="7"
                         disabled={!canPostJobs}
                         className={`w-24 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs 
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                         }`}
                       />
                       <select 
                         disabled={!canPostJobs}
                         title="Chọn đơn vị thời gian"
                         className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !canPostJobs 
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                          !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                         }`}
                       >
                         <option>ngày</option>
@@ -693,7 +434,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Milestones */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -714,9 +454,7 @@ export default function DashboardPage() {
                           placeholder="Số tiền (APT)"
                           disabled={!canPostJobs}
                           className={`flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs 
-                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                           }`}
                         />
                         <input
@@ -726,9 +464,7 @@ export default function DashboardPage() {
                           placeholder="Thời gian"
                           disabled={!canPostJobs}
                           className={`w-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs 
-                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                           }`}
                         />
                         <select
@@ -737,9 +473,7 @@ export default function DashboardPage() {
                           disabled={!canPostJobs}
                           title="Chọn đơn vị thời gian cho milestone"
                           className={`px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            !canPostJobs 
-                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
-                              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+                            !canPostJobs ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                           }`}
                         >
                           <option value="giây">giây</option>
@@ -774,34 +508,29 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Budget Summary */}
                   {milestonesList.length > 0 && (
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tổng ngân sách:</span>
-                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {calculateTotalBudget().toFixed(3)} APT
-                        </span>
+                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{calculateTotalBudget().toFixed(3)} APT</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Submit */}
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
-                        disabled={milestonesList.length === 0 || !canPostJobs}
-                      >
-                        {!canPostJobs ? '🔒 Cần verify profile và có role Poster' : '🚀 Đăng dự án'}
-                      </Button>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
+                    disabled={milestonesList.length === 0 || !canPostJobs}
+                  >
+                    {!canPostJobs ? 'Cần verify profile và có role Poster' : 'Đăng dự án'}
+                  </Button>
 
-                  {/* Result */}
                   {jobResult && (
                     <div className={`p-4 rounded-lg text-sm ${
-                      jobResult.includes('✅') 
+                      jobResult.includes('thành công') 
                         ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
-                        : jobResult.includes('❌')
+                        : jobResult.includes('Lỗi') || jobResult.includes('không hợp lệ')
                         ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
                         : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
                     }`}>
@@ -813,12 +542,11 @@ export default function DashboardPage() {
             </div>
             )}
 
-            {/* Job Management Tab */}
             {activeTab === 'manage' && (
             <div className="max-w-4xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Quản Lý Dự Án</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Quản Lý Dự Án</h1>
                   <p className="text-gray-600 dark:text-gray-400">Theo dõi và quản lý các dự án của bạn</p>
                 </div>
 
@@ -837,15 +565,11 @@ export default function DashboardPage() {
                       <div key={job.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              Job #{job.id}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Job #{job.id}</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               Status: {job.status} | Worker: {job.worker_commitment ? 'Assigned' : 'None'} | Approved: {job.approved ? 'Yes' : 'No'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Budget: {(job.budget || 0).toFixed(2)} APT
-                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Budget: {(job.budget || 0).toFixed(2)} APT</p>
                           </div>
                           <div className="flex gap-2">
                             {job.approved ? (
@@ -871,12 +595,11 @@ export default function DashboardPage() {
             </div>
             )}
 
-            {/* Applicants Tab */}
             {activeTab === 'applicants' && (
             <div className="max-w-4xl mx-auto">
               <Card className="p-8">
                 <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">👥 Ứng Viên</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Ứng Viên</h1>
                   <p className="text-gray-600 dark:text-gray-400">Duyệt và phê duyệt ứng viên cho các dự án của bạn</p>
                 </div>
 
@@ -895,15 +618,11 @@ export default function DashboardPage() {
                       <div key={job.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              Job #{job.id}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Job #{job.id}</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               Status: {job.status} | Worker: {job.worker_commitment ? 'Assigned' : 'None'} | Approved: {job.approved ? 'Yes' : 'No'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Budget: {(job.budget || 0).toFixed(2)} APT
-                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Budget: {(job.budget || 0).toFixed(2)} APT</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               Worker Commitment: {job.worker_commitment ? job.worker_commitment[0]?.slice(0, 20) + '...' : 'None'}
                             </p>

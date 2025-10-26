@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { DID as DID_CONST } from '@/constants/contracts';
 import { useWallet } from '@/contexts/WalletContext';
 
 const ROLES = { FREELANCER: 1, POSTER: 2 } as const;
@@ -43,9 +42,11 @@ export default function DIDActionsPanel() {
   const [verificationStatus, setVerificationStatus] = useState('');
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
-  const getCurrentTabData = () => activeTab === TABS.FREELANCER ? freelancerData : posterData;
-  const getCurrentRole = () => activeTab === TABS.FREELANCER ? ROLES.FREELANCER : ROLES.POSTER;
+  const currentData = activeTab === TABS.FREELANCER ? freelancerData : posterData;
+  const currentRole = activeTab === TABS.FREELANCER ? ROLES.FREELANCER : ROLES.POSTER;
   const isRoleEnabled = (role: number) => roleTypes.includes(role);
+  const toggleRole = (role: number, checked: boolean) => 
+    setRoleTypes(checked ? [...roleTypes, role] : roleTypes.filter(r => r !== role));
 
   const checkVerificationStatus = async () => {
     if (!did) return;
@@ -142,8 +143,6 @@ export default function DIDActionsPanel() {
   };
 
   const uploadToIPFS = async (): Promise<string> => {
-    const currentData = getCurrentTabData();
-    const currentRole = getCurrentRole();
     const res = await fetch('/api/ipfs/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -170,28 +169,21 @@ export default function DIDActionsPanel() {
   const handleCreateProfile = async () => {
     try {
       if (!did) return setError('Thiếu DID');
-      
       const zkpData = await getZKPProof();
       const didCommitHex = await sha256Hex(didTail(did));
-      const didPretty = `did:aptos:${didCommitHex}`;
-      const tableCommitHex = await sha256Hex(DEFAULT_TABLE_ID);
       const profileCid = await uploadToIPFS();
-      
       const apiRes = await fetch('/api/did/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          did: didPretty, roleTypes, didCommitment: didCommitHex, profileCid,
-          tableCommitmentHex: tableCommitHex, tICommitment: zkpData.t_I_commitment, aCommitment: zkpData.a_commitment
+          did: `did:aptos:${didCommitHex}`, roleTypes, didCommitment: didCommitHex, profileCid,
+          tableCommitmentHex: await sha256Hex(DEFAULT_TABLE_ID), tICommitment: zkpData.t_I_commitment, aCommitment: zkpData.a_commitment
         })
       });
-      
       const apiData = await apiRes.json();
       if (!apiData.success) return setError(`API Error: ${apiData.error}`);
-      
       const tx = await getWalletOrThrow().signAndSubmitTransaction(apiData.payload);
-      const hash = tx?.hash || '';
-      console.log(hash ? `Tạo DID+Profile tx: ${hash}` : 'Đã gửi giao dịch');
+      console.log(tx?.hash ? `Tạo DID+Profile tx: ${tx.hash}` : 'Đã gửi giao dịch');
     } catch (e: any) {
       setError(e?.message || 'Tạo DID+Profile thất bại');
     }
@@ -200,32 +192,10 @@ export default function DIDActionsPanel() {
   const handleUpdateProfile = async () => {
     try {
       if (!did) return setError('Thiếu DID');
-      
       setIsLoading(true);
       setVerificationStatus('Đang cập nhật profile...');
       
       const didCommitHex = await sha256Hex(didTail(did));
-      const didPretty = `did:aptos:${didCommitHex}`;
-      const tableCommitHex = await sha256Hex(DEFAULT_TABLE_ID);
-      
-      const viewResponse = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          function: DID_CONST.IS_PROFILE_VERIFIED,
-          type_arguments: [],
-          arguments: [didPretty, tableCommitHex]
-        })
-      });
-      
-      if (!viewResponse.ok) {
-        throw new Error(`View function failed: ${viewResponse.statusText}`);
-      }
-      
-      const r = await viewResponse.json();
-      
-      if (!r?.[0]) return setError('Profile chưa verified. Cần verify trước khi update.');
-      
       const zkpData = await getZKPProof();
       const profileCid = await uploadToIPFS();
       
@@ -233,8 +203,8 @@ export default function DIDActionsPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          did: didPretty, roleTypes, didCommitment: didCommitHex, profileCid,
-          tableCommitmentHex: tableCommitHex, tICommitment: zkpData.t_I_commitment, aCommitment: zkpData.a_commitment
+          did: `did:aptos:${didCommitHex}`, roleTypes, didCommitment: didCommitHex, profileCid,
+          tableCommitmentHex: await sha256Hex(DEFAULT_TABLE_ID), tICommitment: zkpData.t_I_commitment, aCommitment: zkpData.a_commitment
         })
       });
       
@@ -247,45 +217,6 @@ export default function DIDActionsPanel() {
       if (hash) {
         setVerificationStatus(`Cập nhật thành công! TX: ${hash}`);
         console.log(`Cập nhật Profile tx: ${hash}`);
-        
-        // Auto-refresh profile data after successful update
-        setTimeout(async () => {
-          try {
-            console.log('Auto-refreshing profile data...');
-            const ipfsResponse = await fetch(`/api/ipfs/get?type=profile&commitment=${didCommitHex}`);
-            const ipfsData = await ipfsResponse.json();
-            
-            if (ipfsData.success && ipfsData.profile_data) {
-              const profile = ipfsData.profile_data;
-              console.log('Refreshed profile data:', profile);
-              
-              // Update both tabs with fresh data based on roles
-              const finalRoles = ipfsData.blockchain_roles || [];
-              
-              if (finalRoles.includes(ROLES.FREELANCER)) {
-                setFreelancerData({
-                  skills: profile.skills || '',
-                  about: profile.freelancerAbout || profile.about || '',
-                  experience: profile.experience || ''
-                });
-              }
-              
-              if (finalRoles.includes(ROLES.POSTER)) {
-                setPosterData({
-                  skills: '',
-                  about: profile.posterAbout || profile.about || '',
-                  experience: ''
-                });
-              }
-              
-              setRoleTypes(finalRoles);
-              setVerificationStatus('Profile đã được cập nhật và refresh thành công!');
-            }
-          } catch (refreshError) {
-            console.error('Error refreshing profile:', refreshError);
-            setVerificationStatus('Cập nhật thành công! (Refresh failed - please reload page)');
-          }
-        }, 2000); // Wait 2 seconds for blockchain to update
       } else {
         setVerificationStatus('Đã gửi giao dịch cập nhật profile');
       }
@@ -300,28 +231,20 @@ export default function DIDActionsPanel() {
   const handleBurnDid = async () => {
     try {
       if (!did) return setError('Thiếu DID');
-      
       const zkpData = await getZKPProof();
       const didCommitHex = await sha256Hex(didTail(did));
-      const didPretty = `did:aptos:${didCommitHex}`;
-      const tableCommitHex = await sha256Hex(DEFAULT_TABLE_ID);
-      
       const response = await fetch('/api/did/burn-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          did: didPretty, tableCommitmentHex: tableCommitHex,
+          did: `did:aptos:${didCommitHex}`, tableCommitmentHex: await sha256Hex(DEFAULT_TABLE_ID),
           tICommitment: zkpData.t_I_commitment, aCommitment: zkpData.a_commitment, roleTypes
         })
       });
-      
       if (!response.ok) throw new Error('Failed to get burn payload');
-      
       const { payload } = await response.json();
       const tx = await getWalletOrThrow().signAndSubmitTransaction(payload);
-      
-      const hash = tx?.hash || '';
-      console.log(hash ? `Hủy DID tx: ${hash}` : 'Đã gửi giao dịch hủy DID');
+      console.log(tx?.hash ? `Hủy DID tx: ${tx.hash}` : 'Đã gửi giao dịch hủy DID');
     } catch (e: any) {
       setError(e?.message || 'Hủy DID thất bại');
     }
@@ -331,7 +254,6 @@ export default function DIDActionsPanel() {
     <Card variant="outlined" padding="md" className="space-y-4 mt-6">
       <div className="text-sm font-medium">Danh tính (DID)</div>
       
-      {/* Verification Status */}
       {verificationStatus && (
         <div className={`p-3 rounded-lg text-sm font-medium ${
           verificationStatus.includes('đã được verify') || verificationStatus.includes('thành công')
@@ -340,7 +262,7 @@ export default function DIDActionsPanel() {
             ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
             : 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
         }`}>
-          <span>{verificationStatus}</span>
+          {verificationStatus}
         </div>
       )}
       
@@ -356,7 +278,6 @@ export default function DIDActionsPanel() {
               Hủy DID
             </Button>
           </div>
-          {/* Tabs - Always show both */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof TABS[keyof typeof TABS])}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value={TABS.FREELANCER}>
@@ -368,74 +289,30 @@ export default function DIDActionsPanel() {
             </TabsList>
 
             <TabsContent value={TABS.FREELANCER} className="space-y-4">
-              {/* Role Selection for Freelancer */}
               <Switch
                 checked={isRoleEnabled(ROLES.FREELANCER)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setRoleTypes([...roleTypes, ROLES.FREELANCER]);
-                  } else {
-                    setRoleTypes(roleTypes.filter(r => r !== ROLES.FREELANCER));
-                  }
-                }}
+                onChange={(e) => toggleRole(ROLES.FREELANCER, e.target.checked)}
                 label="Enable Freelancer Role"
                 disabled={isLoading}
               />
-              
               {isRoleEnabled(ROLES.FREELANCER) && (
                 <div className="space-y-4">
-                  <FormField
-                    label="Kỹ năng (skills)"
-                    value={freelancerData.skills}
-                    onChange={(value) => setFreelancerData(prev => ({ ...prev, skills: value }))}
-                    placeholder="React, Rust, Move, ..."
-                    disabled={isLoading}
-                    type="input"
-                  />
-                  <FormField
-                    label="Giới thiệu (about)"
-                    value={freelancerData.about}
-                    onChange={(value) => setFreelancerData(prev => ({ ...prev, about: value }))}
-                    placeholder="Mô tả về kỹ năng và kinh nghiệm của bạn"
-                    disabled={isLoading}
-                    type="textarea"
-                  />
-                  <FormField
-                    label="Kinh nghiệm (experience)"
-                    value={freelancerData.experience}
-                    onChange={(value) => setFreelancerData(prev => ({ ...prev, experience: value }))}
-                    placeholder="3 năm Frontend, 1 năm Move development, ..."
-                    disabled={isLoading}
-                    type="textarea"
-                  />
+                  <FormField label="Kỹ năng (skills)" value={freelancerData.skills} onChange={(value) => setFreelancerData(prev => ({ ...prev, skills: value }))} placeholder="React, Rust, Move, ..." disabled={isLoading} type="input" />
+                  <FormField label="Giới thiệu (about)" value={freelancerData.about} onChange={(value) => setFreelancerData(prev => ({ ...prev, about: value }))} placeholder="Mô tả về kỹ năng và kinh nghiệm của bạn" disabled={isLoading} type="textarea" />
+                  <FormField label="Kinh nghiệm (experience)" value={freelancerData.experience} onChange={(value) => setFreelancerData(prev => ({ ...prev, experience: value }))} placeholder="3 năm Frontend, 1 năm Move development, ..." disabled={isLoading} type="textarea" />
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value={TABS.POSTER} className="space-y-4">
-              {/* Role Selection for Poster */}
               <Switch
                 checked={isRoleEnabled(ROLES.POSTER)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setRoleTypes([...roleTypes, ROLES.POSTER]);
-                  } else {
-                    setRoleTypes(roleTypes.filter(r => r !== ROLES.POSTER));
-                  }
-                }}
+                onChange={(e) => toggleRole(ROLES.POSTER, e.target.checked)}
                 label="Enable Poster Role"
                 disabled={isLoading}
               />
-              
               {isRoleEnabled(ROLES.POSTER) && (
-                <FormField
-                  label="Giới thiệu (about)"
-                  value={posterData.about}
-                  onChange={(value) => setPosterData(prev => ({ ...prev, about: value }))}
-                  placeholder="Mô tả về công ty/dự án và loại công việc bạn đang tìm kiếm"
-                  disabled={isLoading}
-                  type="textarea"
-                />
+                <FormField label="Giới thiệu (about)" value={posterData.about} onChange={(value) => setPosterData(prev => ({ ...prev, about: value }))} placeholder="Mô tả về công ty/dự án và loại công việc bạn đang tìm kiếm" disabled={isLoading} type="textarea" />
               )}
             </TabsContent>
           </Tabs>
