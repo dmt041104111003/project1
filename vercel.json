@@ -3,10 +3,5 @@
     "src/app/api/zkp/fullprove/route.ts": {
       "maxDuration": 30
     }
-  },
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "includeFiles": [
-    "zk/**"
-  ]
+  }
 }

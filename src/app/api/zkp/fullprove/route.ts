@@ -35,10 +35,10 @@ export async function POST(req: NextRequest) {
       console.log('[fullprove] body parsed', { didLen: did.length });
     } catch {}
 
-    const wasmPath = resolvePath(process.env.ZK_WASM_PATH);
-    const zkeyPath = resolvePath(process.env.ZK_ZKEY_PATH);
-    const inputPath = resolvePath(process.env.ZK_INPUT_PATH);
-    const vkPath = resolvePath(process.env.ZK_VK_PATH);
+    const wasmPath = resolvePath(process.env.ZK_WASM_PATH || 'public/zk/membership_js/membership.wasm');
+    const zkeyPath = resolvePath(process.env.ZK_ZKEY_PATH || 'public/zk/circuit.zkey');
+    const inputPath = resolvePath(process.env.ZK_INPUT_PATH || 'public/zk/input.json');
+    const vkPath = resolvePath(process.env.ZK_VK_PATH || 'public/zk/verification_key.json');
 
     if (!wasmPath || !zkeyPath || !inputPath) {
       return NextResponse.json({ error: 'Missing ZK paths' }, { status: 500 });
