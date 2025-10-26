@@ -38,7 +38,7 @@ const getStatus = (completed: boolean, workerCommitment: unknown, approved: bool
 const getWorkerCommitment = (workerCommitment: unknown) => 
   (workerCommitment as { vec?: unknown[] })?.vec?.length ? (workerCommitment as { vec: unknown[] }).vec : null;
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('API: Calling GET_JOB_LATEST...');
     const jobViews = await callView(JOB.GET_JOB_LATEST, []);

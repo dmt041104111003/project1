@@ -79,9 +79,9 @@ async function lookupCommitmentOnBlockchain(commitment: string) {
     let profileName = `User ${address.slice(0, 8)}`;
     if (profileCid && profileCid.length > 0) {
       try {
-        const cidString = Buffer.from(profileCid).toString('utf8');
+        Buffer.from(profileCid).toString('utf8');
         profileName = `User ${address.slice(0, 8)}`; 
-      } catch (e) {
+      } catch {
         console.log('Could not decode profile CID');
       }
     }

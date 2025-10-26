@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AvatarSVG } from '@/components/ui/avatar';
-import { useChat, ChatProvider } from '@/contexts/ChatContext';
+import { useChat, ChatProvider, Message } from '@/contexts/ChatContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 const ChatContentInner: React.FC = () => {
@@ -47,7 +47,7 @@ const ChatContentInner: React.FC = () => {
   const [isLoadingCommitments, setIsLoadingCommitments] = useState(false);
   const [showCommitmentsList, setShowCommitmentsList] = useState(true);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
-  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const { messages, sendMessage, isLoading, setRoomId } = useChat();
 
@@ -57,7 +57,7 @@ const ChatContentInner: React.FC = () => {
     
     const messageText = message;
     
-    await sendMessage(messageText, currentUser.name, currentUser.id, replyingTo);
+    await sendMessage(messageText, currentUser.name, currentUser.id, replyingTo?.id || null);
     setMessage('');
     setReplyingTo(null);
   };

@@ -37,7 +37,7 @@ export const JobsContent: React.FC = () => {
         } else {
           setError(data.error || 'Failed to fetch jobs');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to fetch jobs');
       } finally {
         setLoading(false);

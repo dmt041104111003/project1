@@ -17,7 +17,7 @@ const sha256Hex = async (s: string): Promise<string> => {
 const getWalletAccount = async () => {
   const wallet = (window as { aptos: { 
     account: () => Promise<string | { address: string }>;
-    signAndSubmitTransaction: (payload: any) => Promise<{ hash?: string }>;
+    signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }>;
   } }).aptos;
   if (!wallet) throw new Error('Wallet not found. Please connect your wallet first.');
   const account = await wallet.account();
@@ -76,7 +76,7 @@ export const JobDetailContent: React.FC = () => {
             if (expiryData.success && expiryData.is_expired) {
               setMilestoneExpired(true);
             }
-          } catch (expiryError) {
+          } catch {
             // Handle expiry check errors silently
           }
         }
@@ -89,7 +89,7 @@ export const JobDetailContent: React.FC = () => {
               const jobDetailsData = await ipfsResponse.json();
               setJobDetails(jobDetailsData);
             }
-          } catch (ipfsError) {
+          } catch {
             // Handle IPFS fetch errors silently
           }
         }

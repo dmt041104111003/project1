@@ -125,7 +125,7 @@ export default function DIDActionsPanel() {
   }, [did, checkVerificationStatus]);
 
   const getWalletOrThrow = () => {
-    const w = (globalThis as { aptos?: { signAndSubmitTransaction: (payload: any) => Promise<any> } }).aptos ?? (globalThis as { window?: { aptos?: { signAndSubmitTransaction: (payload: any) => Promise<any> } } })?.window?.aptos;
+    const w = (globalThis as { aptos?: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos ?? (globalThis as { window?: { aptos?: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } } })?.window?.aptos;
     if (!w) throw new Error('Wallet not found');
     return w;
   };
