@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
 		const freelancersOnly = searchParams.get('freelancers') === 'true';
 		const viewFn = searchParams.get('viewFn');
 		let resolvedCid = cid ? await maybeDecryptCid(cid) : null;
+		console.log('GET /api/ipfs/get - Requested CID from FE:', cid);
+		console.log('GET /api/ipfs/get - After decrypt, resolvedCid:', resolvedCid);
 		if (!resolvedCid && viewFn) {
 			const jobId = searchParams.get('jobId');
 			if (!jobId) return NextResponse.json({ success: false, error: 'jobId required for viewFn' }, { status: 400 });
@@ -57,6 +59,11 @@ export async function GET(request: NextRequest) {
 		if (freelancersOnly) {
 			const applicants = Array.isArray((data as any)?.applicants) ? (data as any).applicants : [];
 			return NextResponse.json({ success: true, cid: resolvedCid, applicants });
+		}
+		if (searchParams.get('mode') === 'profile') {
+			const profile: Record<string,unknown> = {};
+			for(const k of ['about','description','created_at']) if(data[k]) profile[k]=data[k];
+			return NextResponse.json({ success:true, ...profile });
 		}
 		return NextResponse.json({ success: true, cid: resolvedCid, data });
 	} catch (error: unknown) {

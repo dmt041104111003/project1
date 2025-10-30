@@ -11,7 +11,11 @@ module job_work_board::role {
     const ROLE_POSTER: u8 = 2;
     const ROLE_REVIEWER: u8 = 3;
 
-    struct RoleEntry has store { kind: u8, cid: Option<string::String> }
+    struct RoleEntry has store {
+        kind: u8, // 1:freelancer 2:poster 3:reviewer
+        role: string::String, // 'freelancer' | 'poster' | 'reviewer'
+        cid: Option<string::String>
+    }
 
     struct Roles has key, store { entries: vector<RoleEntry> }
 
@@ -32,44 +36,44 @@ module job_work_board::role {
         let n = vector::length(v); let i = 0; while (i < n) { if (*vector::borrow(v, i) == a) return true; i = i + 1; }; false
     }
 
-    public fun register_freelancer(registrar: &signer, cid: string::String) acquires Roles {
+    public entry fun register_freelancer(registrar: &signer, role: string::String, cid: string::String) acquires Roles {
         assert!(string::length(&cid) > 0, E_INVALID_CID);
         let addr = signer::address_of(registrar);
         if (exists<Roles>(addr)) {
             let r = borrow_global_mut<Roles>(addr);
             assert!(!contains_in_entries(&r.entries, ROLE_FREELANCER), E_ALREADY_REGISTERED);
-            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_FREELANCER, cid: option::some(cid) });
+            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_FREELANCER, role, cid: option::some(cid) });
         } else {
             move_to(registrar, Roles { entries: vector::empty<RoleEntry>() });
             let r2 = borrow_global_mut<Roles>(addr);
-            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_FREELANCER, cid: option::some(cid) });
+            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_FREELANCER, role, cid: option::some(cid) });
         }
     }
 
-    public fun register_poster(registrar: &signer, cid: string::String) acquires Roles {
+    public entry fun register_poster(registrar: &signer, role: string::String, cid: string::String) acquires Roles {
         assert!(string::length(&cid) > 0, E_INVALID_CID);
         let addr = signer::address_of(registrar);
         if (exists<Roles>(addr)) {
             let r = borrow_global_mut<Roles>(addr);
             assert!(!contains_in_entries(&r.entries, ROLE_POSTER), E_ALREADY_REGISTERED);
-            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_POSTER, cid: option::some(cid) });
+            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_POSTER, role, cid: option::some(cid) });
         } else {
             move_to(registrar, Roles { entries: vector::empty<RoleEntry>() });
             let r2 = borrow_global_mut<Roles>(addr);
-            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_POSTER, cid: option::some(cid) });
+            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_POSTER, role, cid: option::some(cid) });
         }
     }
 
-    public fun register_reviewer(registrar: &signer) acquires Roles, ReviewerPool {
+    public entry fun register_reviewer(registrar: &signer) acquires Roles, ReviewerPool {
         let addr = signer::address_of(registrar);
         if (exists<Roles>(addr)) {
             let r = borrow_global_mut<Roles>(addr);
             assert!(!contains_in_entries(&r.entries, ROLE_REVIEWER), E_ALREADY_REGISTERED);
-            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_REVIEWER, cid: option::none<string::String>() });
+            vector::push_back(&mut r.entries, RoleEntry { kind: ROLE_REVIEWER, role: string::utf8(b"reviewer"), cid: option::none<string::String>() });
         } else {
             move_to(registrar, Roles { entries: vector::empty<RoleEntry>() });
             let r2 = borrow_global_mut<Roles>(addr);
-            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_REVIEWER, cid: option::none<string::String>() });
+            vector::push_back(&mut r2.entries, RoleEntry { kind: ROLE_REVIEWER, role: string::utf8(b"reviewer"), cid: option::none<string::String>() });
         };
         // add to reviewer pool if exists under the same address as registrar
         if (exists<ReviewerPool>(signer::address_of(registrar))) {
@@ -163,6 +167,18 @@ module job_work_board::role {
             i = i + 1;
         };
         option::none<vector<u8>>()
+    }
+
+    public fun get_role_info(addr: address, kind: u8): (string::String, Option<string::String>) acquires Roles {
+if (!exists<Roles>(addr)) return (string::utf8(b""), option::none<string::String>());        let r = borrow_global<Roles>(addr);
+        let n = vector::length(&r.entries);
+        let i = 0;
+        while (i < n) {
+            let e = vector::borrow(&r.entries, i);
+            if (e.kind == kind) return (e.role, e.cid);
+            i = i + 1;
+        };
+        (string::utf8(b""), option::none<string::String>())
     }
 }
 

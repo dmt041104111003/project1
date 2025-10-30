@@ -4,7 +4,7 @@ export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
 export const APTOS_API_KEY = process.env.APTOS_API_KEY;
 
 
-export const CONTRACT_ADDRESS = "0x51832f05e99b301c5947837edfa98754d6291c274b58a34f14cedc5a90563050";
+export const CONTRACT_ADDRESS = "0x78d748252982ddd0dc0ccd8ea8c52c22a899bb78e6cdceab906203897ba97e7b";
 
 export const ROLE = {
   REGISTER_FREELANCER: `${CONTRACT_ADDRESS}::role::register_freelancer`,
@@ -12,6 +12,15 @@ export const ROLE = {
   REGISTER_REVIEWER: `${CONTRACT_ADDRESS}::role::register_reviewer`,
   GET_POSTER_CID_BYTES: `${CONTRACT_ADDRESS}::role::get_poster_cid_bytes`,
   GET_FREELANCER_CID_BYTES: `${CONTRACT_ADDRESS}::role::get_freelancer_cid_bytes`,
+  HAS_FREELANCER: `${CONTRACT_ADDRESS}::role::has_freelancer`,
+  HAS_POSTER: `${CONTRACT_ADDRESS}::role::has_poster`,
+  GET_ROLE_INFO: `${CONTRACT_ADDRESS}::role::get_role_info`,
+} as const;
+
+export const ROLE_KIND = {
+  FREELANCER: 1,
+  POSTER: 2,
+  REVIEWER: 3
 } as const;
 
 export const ESCROW = {

@@ -117,8 +117,8 @@ export async function POST(request: NextRequest) {
       const encCid = await encryptCid(result.IpfsHash);
       return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata });
     } else if (type === 'profile') {
-      const { skills, about, roles } = body;
-      metadata = { ...metadata, type: 'profile', skills: skills || '', about: about || '', roles: Array.isArray(roles) ? roles : [] };
+      const { skills, about } = body;
+      metadata = { ...metadata, type: 'profile', skills: skills || '', about: about || '' };
       fileName = 'profile-metadata.json';
     } else {
       return NextResponse.json({ success: false, error: 'invalid type' }, { status: 400 });
