@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
+import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
 interface Milestone { amount: string; duration: string; unit: string; }
 
@@ -19,7 +20,7 @@ export const PostJobTab: React.FC = () => {
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
   const [jobResult, setJobResult] = useState('');
-  const [profileStatus, setProfileStatus] = useState('');
+  const [posterStatus, setPosterStatus] = useState('');
   const [canPostJobs, setCanPostJobs] = useState(false);
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<Milestone[]>([]);
@@ -27,58 +28,29 @@ export const PostJobTab: React.FC = () => {
   const [currentMilestone, setCurrentMilestone] = useState<Milestone>({amount: '', duration: '', unit: 'ngày'});
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
-  const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 };
+  const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
   const APT_TO_UNITS = 100_000_000;
   const MIN_MILESTONE = 0.001;
   const convertTimeToSeconds = (duration: string, unit: string) => (parseFloat(duration) || 0) * (TIME_MULTIPLIERS[unit as keyof typeof TIME_MULTIPLIERS] || 1);
   const convertAptToUnits = (apt: string) => Math.floor((parseFloat(apt) || 0) * APT_TO_UNITS);
 
-  const checkProfile = useCallback(async () => {
+  const checkPosterRole = useCallback(async () => {
     if (!account) return;
     try {
-      const getUserCommitment = async () => sha256Hex(account!);
-      setProfileStatus('Đang kiểm tra profile...');
-      const profileData = await fetch(`/api/ipfs/get?type=profile&commitment=${await getUserCommitment()}`).then(r => r.json());
-      
-      console.log('Dashboard: API response:', profileData);
-      
-      if (!profileData.success) {
-        setProfileStatus('Profile chưa được verify! Vào /auth/did-verification để tạo profile.');
-        setCanPostJobs(false);
-        return;
-      }
-      
-      const hasProfile = profileData.data && Object.keys(profileData.data).length > 0;
-      const hasPosterRole = profileData.data?.blockchain_roles?.includes(2);
-      
-      console.log('Dashboard: Profile check:', {
-        success: profileData.success,
-        hasData: !!profileData.data,
-        dataKeys: profileData.data ? Object.keys(profileData.data) : [],
-        hasProfileData: !!profileData.profile_data, 
-        profileDataKeys: profileData.profile_data ? Object.keys(profileData.profile_data) : [],
-        blockchain_roles: profileData.data?.blockchain_roles,
-        hasProfile,
-        hasPosterRole
-      });
-      
-      if (hasProfile && hasPosterRole) {
-        setProfileStatus('Profile đã được verify với role Poster! Bạn có thể đăng job.');
-        setCanPostJobs(true);
-      } else {
-        const message = hasProfile 
-          ? 'Profile đã verify nhưng không có role Poster! Vào /auth/did-verification để cập nhật role.'
-          : 'Profile chưa được verify! Vào /auth/did-verification để tạo profile.';
-        setProfileStatus(message);
-        setCanPostJobs(false);
-      }
+      setPosterStatus('Đang kiểm tra role Poster...');
+      const fn = `${CONTRACT_ADDRESS}::role::has_poster`;
+      const res = await fetch(`/v1/view`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ function: fn, type_arguments: [], arguments: [account] }) });
+      const ok = res.ok ? await res.json() : [];
+      const hasPoster = Array.isArray(ok) ? !!ok[0] : !!ok;
+      setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
+      setCanPostJobs(hasPoster);
     } catch (e: unknown) {
-      setProfileStatus(`Lỗi kiểm tra profile: ${(e as Error)?.message || 'thất bại'}`);
+      setPosterStatus(`Lỗi kiểm tra role: ${(e as Error)?.message || 'thất bại'}`);
       setCanPostJobs(false);
     }
   }, [account]);
 
-  useEffect(() => { if (account) checkProfile(); }, [account, checkProfile]);
+  useEffect(() => { if (account) checkPosterRole(); }, [account, checkPosterRole]);
 
   const addSkill = () => {
     const trimmed = currentSkill.trim();
@@ -100,30 +72,19 @@ export const PostJobTab: React.FC = () => {
     if (!account) return;
     try {
       setJobResult('Đang tạo job...');
-      
-      const hasInvalidMilestones = milestonesList.some(milestone => {
-        const amount = parseFloat(milestone.amount);
-        return amount <= 0 || amount < MIN_MILESTONE;
-      });
-      
-      if (hasInvalidMilestones) {
-        setJobResult(`Có milestone không hợp lệ. Số tiền phải >= ${MIN_MILESTONE} APT`);
-        return;
-      }
-      
-      const getUserCommitment = async () => sha256Hex(account!);
-      const userCommitment = await getUserCommitment();
       const ipfsData = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList, user_commitment: userCommitment })
+        body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList })
       }).then(r => r.json());
       
       if (!ipfsData.success) throw new Error(ipfsData.error);
-      
+      const encCid = ipfsData.encCid || ipfsData.ipfsHash;
+
       const contractMilestones = milestonesList.map(milestone => convertAptToUnits(milestone.amount));
       const contractMilestoneDurations = milestonesList.map(milestone => convertTimeToSeconds(milestone.duration, milestone.unit));
 
+      const userCommitment = await sha256Hex(account);
       const data = await fetch('/api/job/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,19 +92,17 @@ export const PostJobTab: React.FC = () => {
           action: 'post',
           user_address: account,
           user_commitment: userCommitment,
-          job_details_cid: ipfsData.ipfsHash,
+          job_details_cid: encCid,
           milestones: contractMilestones,
           milestone_durations: contractMilestoneDurations,
           application_deadline: Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 24 * 60 * 60)
         })
       }).then(r => r.json());
-      
+
       if (!data.success) throw new Error(data.error);
-      
       setJobResult('Đang ký transaction...');
       const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction(data.payload);
       const hash = tx?.hash;
-      
       setJobResult(hash ? `Job đã được tạo thành công! TX: ${hash}` : 'Job đã được gửi transaction!');
       
     } catch (e: unknown) {
@@ -158,9 +117,9 @@ export const PostJobTab: React.FC = () => {
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Đăng Dự Án</h2>
           <p className="text-gray-700">Tạo dự án mới và tìm freelancer phù hợp</p>
           
-          {profileStatus && (
+          {posterStatus && (
             <div className="p-4 border-2 bg-blue-800 text-black border-blue-800 text-sm font-bold mt-4">
-              {profileStatus}
+              {posterStatus}
             </div>
           )}
         </div>
@@ -386,15 +345,6 @@ export const PostJobTab: React.FC = () => {
               )}
             </div>
           </div>
-
-          {milestonesList.length > 0 && (
-            <div className="p-4 bg-blue-800 text-black border-2 border-blue-800">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold">Tổng ngân sách:</span>
-                <span className="text-lg font-bold">{calculateTotalBudget().toFixed(3)} APT</span>
-              </div>
-            </div>
-          )}
 
           <Button
             type="submit"

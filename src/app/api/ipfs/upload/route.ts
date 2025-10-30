@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DID, JOB, APTOS_NODE_URL } from '@/constants/contracts';
+import { randomBytes } from 'crypto';
 
 const PINATA_JWT = process.env.PINATA_JWT;
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
 
-const callView = async (fn: string, args: unknown[]) => {
-  const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ function: fn, type_arguments: [], arguments: args })
-  });
-  if (!res.ok) throw new Error(`View failed: ${res.statusText}`);
-  return res.json();
-};
-
-const getRoles = async (commitment: string): Promise<number[]> => {
+async function getAesKey(): Promise<CryptoKey | null> {
+  const secret = process.env.CID_SECRET_B64;
+  if (!secret) return null;
   try {
-    const result = await callView(DID.GET_ROLE_TYPES_BY_COMMITMENT, [commitment]);
-    return result.flatMap((item: unknown) => 
-      typeof item === 'number' ? [item] :
-      typeof item === 'string' && item.startsWith('0x') && item.length > 2 ? 
-        Array.from({ length: item.slice(2).length / 2 }, (_, i) => 
-          parseInt(item.slice(2).slice(i * 2, i * 2 + 2), 16)) : []
-    );
-  } catch { return []; }
-};
+    const raw = Buffer.from(secret, 'base64');
+    return await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt']);
+  } catch {
+    return null;
+  }
+}
+
+async function encryptCid(cid: string): Promise<string | null> {
+  const key = await getAesKey();
+  if (!key) return null;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(cid);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data));
+  const ivB64 = Buffer.from(iv).toString('base64');
+  const ctB64 = Buffer.from(ct).toString('base64');
+  return `enc:${ivB64}:${ctB64}`;
+}
 
 const uploadToPinata = async (metadata: Record<string, unknown>, fileName: string, type: string, title?: string) => {
   const formData = new FormData();
@@ -48,59 +48,86 @@ const uploadToPinata = async (metadata: Record<string, unknown>, fileName: strin
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, requirements, user_commitment, type = 'job' } = body;
-    
+    const { type, title, description } = body ?? {};
+
+    if (!type) return NextResponse.json({ success: false, error: 'type required' }, { status: 400 });
+
+    let metadata: Record<string, unknown> = { created_at: new Date().toISOString(), version: '1.0.0' };
+    let fileName = 'metadata.json';
+
     if (type === 'job') {
-      if (!user_commitment) return NextResponse.json({ success: false, error: 'User commitment required' }, { status: 400 });
-      
-      const hexCommitment = '0x' + Buffer.from(user_commitment, 'utf8').toString('hex');
-      const userRoles = await getRoles(hexCommitment);
-      
-      if (userRoles.length === 0) return NextResponse.json({ success: false, error: 'No DID profile found' }, { status: 403 });
-      if (!userRoles.includes(2)) return NextResponse.json({ success: false, error: 'Poster role required' }, { status: 403 });
-      
-      body.userRoles = userRoles;
-    } else if (type === 'profile') {
-      const { roleTypes } = body;
-      if (!roleTypes?.length) return NextResponse.json({ success: false, error: 'Role types required' }, { status: 400 });
-      body.userRoles = roleTypes;
-    }
-    
-    let metadata: Record<string, unknown>, fileName: string;
-    
-    if (type === 'job') {
-      metadata = { title, description, requirements: Array.isArray(requirements) ? requirements : [requirements], created_at: new Date().toISOString(), version: "1.0.0", type: "job" };
+      const { requirements } = body;
+      const poster_id_hash = '0x' + randomBytes(32).toString('hex');
+      const freelancer_id_hash = '0x' + randomBytes(32).toString('hex');
+      metadata = {
+        ...metadata,
+        type: 'job',
+        title,
+        description,
+        requirements: Array.isArray(requirements) ? requirements : [requirements],
+        poster_id_hash,
+        freelancer_id_hash,
+        applicants: []
+      };
       fileName = 'job-metadata.json';
-    } else if (type === 'profile') {
-      const { skills, about, experience, roleTypes, freelancerAbout, posterAbout } = body;
-      metadata = { created_at: new Date().toISOString(), version: "1.0.0", type: "profile" };
-      
-      if (roleTypes?.includes(1)) Object.assign(metadata, { skills: skills || '', freelancerAbout: freelancerAbout || about || '', experience: experience || '' });
-      if (roleTypes?.includes(2)) Object.assign(metadata, { posterAbout: posterAbout || about || '' });
-      
-      fileName = 'profile-metadata.json';
-    } else if (type === 'milestone') {
-      const { milestone_index, description, timestamp, worker_commitment } = body;
-      metadata = { milestone_index, description, timestamp, worker_commitment, created_at: new Date().toISOString(), version: "1.0.0", type: "milestone" };
-      fileName = 'milestone-metadata.json';
-    } else {
-      return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 });
-    }
-    
-    const result = await uploadToPinata(metadata, fileName, type, title);
-    
-    return NextResponse.json({
-      success: true,
-      ipfsHash: result.IpfsHash,
-      ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`,
-      metadata,
-      type,
-      contractInfo: {
-        didRegistry: { createProfile: DID.CREATE_PROFILE, updateProfile: DID.UPDATE_PROFILE, getProfileData: DID.GET_PROFILE_DATA_BY_COMMITMENT },
-        escrow: { executeJobAction: JOB.EXECUTE_JOB_ACTION, getJobById: JOB.GET_JOB_BY_ID, getJobLatest: JOB.GET_JOB_LATEST, hasNoActiveJobs: JOB.HAS_NO_ACTIVE_JOBS }
+    } else if (type === 'dispute') {
+      const { escrow_id, milestone_index, reason, poster_evidence, freelancer_evidence } = body;
+      metadata = {
+        ...metadata,
+        type: 'dispute',
+        escrow_id,
+        milestone_index,
+        reason,
+        poster_evidence: poster_evidence ?? '',
+        freelancer_evidence: freelancer_evidence ?? ''
+      };
+      fileName = 'dispute-evidence.json';
+    } else if (type === 'apply') {
+      const { job_cid, freelancer_address } = body;
+      if (!job_cid || !freelancer_address) {
+        return NextResponse.json({ success: false, error: 'job_cid and freelancer_address required' }, { status: 400 });
       }
-    });
+      const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+      const res = await fetch(`${gateway}/${job_cid}`);
+      if (!res.ok) return NextResponse.json({ success: false, error: 'Invalid job cid' }, { status: 400 });
+      const jobMeta = await res.json();
+      const apply_id_hash = '0x' + randomBytes(32).toString('hex');
+      const applicants = Array.isArray(jobMeta?.applicants) ? jobMeta.applicants : [];
+      applicants.push({ freelancer_address, freelancer_id_hash: apply_id_hash, applied_at: new Date().toISOString(), status: 'pending' });
+      metadata = { ...jobMeta, applicants };
+      fileName = 'job-metadata.json';
+      const result = await uploadToPinata(metadata, fileName, 'job', jobMeta?.title || 'job');
+      const encCid = await encryptCid(result.IpfsHash);
+      return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, freelancer_id_hash: apply_id_hash, metadata });
+    } else if (type === 'finalize') {
+      const { job_cid, freelancer_id_hash } = body;
+      if (!job_cid || !freelancer_id_hash) {
+        return NextResponse.json({ success: false, error: 'job_cid and freelancer_id_hash required' }, { status: 400 });
+      }
+      const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+      const res = await fetch(`${gateway}/${job_cid}`);
+      if (!res.ok) return NextResponse.json({ success: false, error: 'Invalid job cid' }, { status: 400 });
+      const jobMeta = await res.json();
+      const applicants = Array.isArray(jobMeta?.applicants) ? jobMeta.applicants : [];
+      const chosen = applicants.find((a: any) => (a?.freelancer_id_hash || '').toLowerCase() === (freelancer_id_hash as string).toLowerCase());
+      const accepted = chosen ? { ...chosen, status: 'accepted' } : { freelancer_address: '', freelancer_id_hash, applied_at: new Date().toISOString(), status: 'accepted' };
+      metadata = { ...jobMeta, applicants: [accepted], freelancer_id_hash: freelancer_id_hash };
+      fileName = 'job-metadata.json';
+      const result = await uploadToPinata(metadata, fileName, 'job', jobMeta?.title || 'job');
+      const encCid = await encryptCid(result.IpfsHash);
+      return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata });
+    } else if (type === 'profile') {
+      const { skills, about, roles } = body;
+      metadata = { ...metadata, type: 'profile', skills: skills || '', about: about || '', roles: Array.isArray(roles) ? roles : [] };
+      fileName = 'profile-metadata.json';
+    } else {
+      return NextResponse.json({ success: false, error: 'invalid type' }, { status: 400 });
+    }
+
+    const result = await uploadToPinata(metadata, fileName, type, title);
+    const encCid = await encryptCid(result.IpfsHash);
+    return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata, type });
   } catch (error: unknown) {
-    return NextResponse.json({ success: false, error: (error as Error).message || 'Upload failed' }, { status: 500 });
+    return NextResponse.json({ success: false, error: (error as Error).message || 'upload failed' }, { status: 500 });
   }
 }

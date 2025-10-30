@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWallet } from '@/contexts/WalletContext';
 import { PostJobTab } from './PostJobTab';
-import { ManageJobsTab } from './ManageJobsTab';
-import { ApplicantsTab } from './ApplicantsTab';
+import { ProjectsTab } from './ProjectsTab';
 
-type TabType = 'post' | 'manage' | 'applicants';
+type TabType = 'post' | 'projects';
 
 export const DashboardContent: React.FC = () => {
   const { account, connectWallet, isConnecting } = useWallet();
@@ -52,20 +51,15 @@ export const DashboardContent: React.FC = () => {
           setActiveTab={(value) => setActiveTab(value as TabType)}
         >
           <TabsTrigger value="post">Đăng Dự Án</TabsTrigger>
-          <TabsTrigger value="manage">Quản Lý Dự Án</TabsTrigger>
-          <TabsTrigger value="applicants">Ứng Viên</TabsTrigger>
+          <TabsTrigger value="projects">Dự Án</TabsTrigger>
         </TabsList>
 
         <TabsContent value="post">
           <PostJobTab />
         </TabsContent>
 
-        <TabsContent value="manage">
-          <ManageJobsTab />
-        </TabsContent>
-
-        <TabsContent value="applicants">
-          <ApplicantsTab />
+        <TabsContent value="projects">
+          <ProjectsTab />
         </TabsContent>
       </Tabs>
     </>

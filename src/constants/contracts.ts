@@ -1,48 +1,53 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
-export const APTOS_FAUCET_URL =  "https://faucet.testnet.aptoslabs.com";
+export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
 export const APTOS_API_KEY = process.env.APTOS_API_KEY;
 
 
-export const CONTRACT_ADDRESS ="0xe7b20cd398ea0b505ba19987b89cf4d0dbf456e82bee5a87ba0ee3f05e635f55";
+export const CONTRACT_ADDRESS = "0x51832f05e99b301c5947837edfa98754d6291c274b58a34f14cedc5a90563050";
 
-export const DID = {
-  BURN_DID: `${CONTRACT_ADDRESS}::did_registry::burn_did`,
-  CREATE_PROFILE: `${CONTRACT_ADDRESS}::did_registry::create_profile`,
-  UPDATE_PROFILE: `${CONTRACT_ADDRESS}::did_registry::update_profile`,
-  IS_PROFILE_VERIFIED: `${CONTRACT_ADDRESS}::did_registry::is_profile_verified`,
-  GET_ROLE_TYPES_BY_COMMITMENT: `${CONTRACT_ADDRESS}::did_registry::get_role_types_by_commitment`,
-  GET_PROFILE_DATA_BY_COMMITMENT: `${CONTRACT_ADDRESS}::did_registry::get_profile_data_by_commitment`,
-  GET_ADDRESS_BY_COMMITMENT: `${CONTRACT_ADDRESS}::did_registry::get_address_by_commitment`,
-  GET_ALL_COMMITMENTS: `${CONTRACT_ADDRESS}::did_registry::get_all_commitments`,
+export const ROLE = {
+  REGISTER_FREELANCER: `${CONTRACT_ADDRESS}::role::register_freelancer`,
+  REGISTER_POSTER: `${CONTRACT_ADDRESS}::role::register_poster`,
+  REGISTER_REVIEWER: `${CONTRACT_ADDRESS}::role::register_reviewer`,
+  GET_POSTER_CID_BYTES: `${CONTRACT_ADDRESS}::role::get_poster_cid_bytes`,
+  GET_FREELANCER_CID_BYTES: `${CONTRACT_ADDRESS}::role::get_freelancer_cid_bytes`,
+} as const;
+
+export const ESCROW = {
+  CREATE_JOB: `${CONTRACT_ADDRESS}::escrow::create_job`,
+  JOIN_AS_FREELANCER: `${CONTRACT_ADDRESS}::escrow::join_as_freelancer`,
+  SUBMIT_MILESTONE: `${CONTRACT_ADDRESS}::escrow::submit_milestone`,
+  APPROVE_MILESTONE: `${CONTRACT_ADDRESS}::escrow::approve_milestone`,
+  AUTO_APPROVE_IF_POSTER_INACTIVE: `${CONTRACT_ADDRESS}::escrow::auto_approve_if_poster_inactive`,
+  CLAIM_STAKE_ON_MISS_DEADLINE: `${CONTRACT_ADDRESS}::escrow::claim_stake_on_miss_deadline`,
+  OPEN_DISPUTE: `${CONTRACT_ADDRESS}::escrow::open_dispute`,
+  UNLOCK_NON_DISPUTED_TO_POSTER: `${CONTRACT_ADDRESS}::escrow::unlock_non_disputed_to_poster`,
+  POSTER_REQUEST_CANCEL: `${CONTRACT_ADDRESS}::escrow::poster_request_cancel`,
+  FREELANCER_REQUEST_CANCEL: `${CONTRACT_ADDRESS}::escrow::freelancer_request_cancel`,
+  WITHDRAW_DISPUTE_FEES: `${CONTRACT_ADDRESS}::escrow::withdraw_dispute_fees`,
+  WITHDRAW_ALL_DISPUTE_FEES: `${CONTRACT_ADDRESS}::escrow::withdraw_all_dispute_fees`,
+} as const;
+
+export const DISPUTE = {
+  OPEN: `${CONTRACT_ADDRESS}::dispute::open`,
+  SET_MILESTONE_INDEX: `${CONTRACT_ADDRESS}::dispute::set_milestone_index`,
+  FREELANCER_RESPONSE: `${CONTRACT_ADDRESS}::dispute::freelancer_response`,
+  REVIEWER_STAKE_AND_VOTE: `${CONTRACT_ADDRESS}::dispute::reviewer_stake_and_vote`,
+} as const;
+
+export const REPUTATION = {
+  CLAIM_REVIEWER_BONUS: `${CONTRACT_ADDRESS}::reputation::claim_reviewer_bonus`,
+  CLAIM_FREELANCER_BONUS: `${CONTRACT_ADDRESS}::reputation::claim_freelancer_bonus`,
+  CLAIM_POSTER_BONUS: `${CONTRACT_ADDRESS}::reputation::claim_poster_bonus`,
 } as const;
 
 export const JOB = {
-  EXECUTE_JOB_ACTION: `${CONTRACT_ADDRESS}::escrow::execute_job_action`,
-  
-  ACTION_POST: 1,
-  ACTION_APPLY: 2,
-  ACTION_APPROVE: 3,
-  ACTION_SUBMIT: 4,
-  ACTION_ACCEPT: 5,
-  ACTION_COMPLETE: 6,
-  ACTION_CLAIM: 7,
-  ACTION_CANCEL: 8,
-  ACTION_AUTO_RETURN_STAKE: 9,
-  
-  GET_JOB_BY_ID: `${CONTRACT_ADDRESS}::escrow::get_job_by_id`,
-  GET_JOB_LATEST: `${CONTRACT_ADDRESS}::escrow::get_job_latest`,
-  HAS_NO_ACTIVE_JOBS: `${CONTRACT_ADDRESS}::escrow::has_no_active_jobs`,
-  GET_APPLICATION_DEADLINE: `${CONTRACT_ADDRESS}::escrow::get_application_deadline`,
-  GET_MILESTONE_DEADLINE: `${CONTRACT_ADDRESS}::escrow::get_milestone_deadline`,
-  IS_MILESTONE_EXPIRED: `${CONTRACT_ADDRESS}::escrow::is_milestone_expired`,
-  IS_WORKER_BANNED: `${CONTRACT_ADDRESS}::escrow::is_worker_banned`,
+  CREATE: `${CONTRACT_ADDRESS}::job::create`,
+  JOIN: `${CONTRACT_ADDRESS}::job::join`,
+  SUBMIT: `${CONTRACT_ADDRESS}::job::submit`,
+  APPROVE: `${CONTRACT_ADDRESS}::job::approve`,
+  AUTO_APPROVE_AFTER_TIMEOUT: `${CONTRACT_ADDRESS}::job::auto_approve_after_timeout`,
+  MISS_DEADLINE_CLAIM: `${CONTRACT_ADDRESS}::job::miss_deadline_claim`,
+  OPEN_DISPUTE: `${CONTRACT_ADDRESS}::job::open_dispute`,
 } as const;
-
-export const ZKP = {
-  ADD_ZKP_PROOF: `${CONTRACT_ADDRESS}::zkp_lookup::add_zkp_proof`,
-  ADD_ZKP_PROOF_INTERNAL: `${CONTRACT_ADDRESS}::zkp_lookup::add_zkp_proof_internal`,
-  ADD_LOOKUP_TABLE: `${CONTRACT_ADDRESS}::zkp_lookup::add_lookup_table`,
-  VERIFY_ZKP_PROOF_EXISTS: `${CONTRACT_ADDRESS}::zkp_lookup::verify_zkp_proof_exists`,
-} as const;
-

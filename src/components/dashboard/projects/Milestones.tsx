@@ -1,0 +1,95 @@
+"use client";
+
+import React from 'react';
+import { Button } from '@/components/ui/button';
+
+type RoleState = 'unknown' | 'poster' | 'freelancer' | 'none';
+
+export interface MilestoneState {
+  submitted?: boolean;
+  approved?: boolean;
+  disputed?: boolean;
+}
+
+export interface MilestonesProps {
+  roleState: RoleState;
+  jobId: number;
+  posterIdHash?: string;
+  freelancerIdHash?: string;
+  acceptedIdHash?: string | null;
+  milestoneCount?: number;
+  milestones?: MilestoneState[];
+  submittingMilestone: string | null;
+  approvingMilestone: string | null;
+  disputingMilestone: string | null;
+  onSubmit: (jobId: number, index: number) => void;
+  onApprove: (jobId: number, index: number) => void;
+  onDispute: (jobId: number, index: number) => void;
+}
+
+export const Milestones: React.FC<MilestonesProps> = ({ roleState, jobId, posterIdHash, freelancerIdHash, acceptedIdHash, milestoneCount = 0, milestones = [], submittingMilestone, approvingMilestone, disputingMilestone, onSubmit, onApprove, onDispute }) => {
+  if (!milestoneCount || milestoneCount <= 0) return null;
+  const isPoster = roleState === 'poster' && !!posterIdHash;
+  const isAcceptedFreelancer = roleState === 'freelancer' && acceptedIdHash === freelancerIdHash;
+
+  return (
+    <div className="mt-4">
+      <h4 className="text-md font-bold text-blue-800 mb-2">Milestones</h4>
+      <div className="space-y-2">
+        {Array.from({ length: milestoneCount }, (_, index) => {
+          const st = milestones[index] || {};
+          return (
+            <div key={index} className="flex items-center justify-between p-3 border border-gray-300 bg-white">
+              <div className="flex-1">
+                <div className="text-sm font-bold">Milestone {index + 1}</div>
+                <div className="text-xs text-gray-600">
+                  Status: {st.submitted ? 'Submitted' : 'Pending'} | {st.approved ? 'Approved' : 'Not Approved'} | {st.disputed ? 'Disputed' : 'No Dispute'}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {isAcceptedFreelancer && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="!bg-white !text-black !border-2 !border-black"
+                    disabled={submittingMilestone === `${jobId}:${index}` || !!st.submitted}
+                    onClick={() => onSubmit(jobId, index)}
+                  >
+                    {submittingMilestone === `${jobId}:${index}` ? 'Submitting...' : 'Submit'}
+                  </Button>
+                )}
+                {isPoster && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="!bg-white !text-black !border-2 !border-black"
+                    disabled={approvingMilestone === `${jobId}:${index}` || !st.submitted || !!st.approved}
+                    onClick={() => onApprove(jobId, index)}
+                  >
+                    {approvingMilestone === `${jobId}:${index}` ? 'Approving...' : 'Approve'}
+                  </Button>
+                )}
+                {(isPoster || isAcceptedFreelancer) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="!bg-red-100 !text-red-800 !border-2 !border-red-300"
+                    disabled={disputingMilestone === `${jobId}:${index}` || !!st.disputed}
+                    onClick={() => onDispute(jobId, index)}
+                  >
+                    {disputingMilestone === `${jobId}:${index}` ? 'Disputing...' : 'Dispute'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+

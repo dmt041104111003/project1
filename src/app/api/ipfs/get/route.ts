@@ -1,97 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DID, JOB, APTOS_NODE_URL } from '@/constants/contracts';
+import { APTOS_NODE_URL } from '@/constants/contracts';
 
-const callView = async (fn: string, args: unknown[]) => {
-  const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ function: fn, type_arguments: [], arguments: args })
-  });
-  if (!res.ok) throw new Error(`View failed: ${res.statusText}`);
-  return res.json();
+const getIPFSJson = async (cid: string): Promise<Record<string, unknown> | null> => {
+	if (!cid) return null;
+	try {
+		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+		const res = await fetch(`${gateway}/${cid}`);
+		return res.ok ? await res.json() : null;
+	} catch { return null; }
 };
 
-const convertToString = (data: unknown): string => {
-  if (Array.isArray(data)) return Buffer.from(data).toString('utf8');
-  if (typeof data === 'string') return data.startsWith('0x') ? Buffer.from(data.slice(2), 'hex').toString('utf8') : data;
-  return '';
-};
-
-const getRoles = async (commitment: string): Promise<number[]> => {
+const maybeDecryptCid = async (value: string): Promise<string> => {
+  if (!value || !value.startsWith('enc:')) return value;
+  const secret = process.env.CID_SECRET_B64;
+  if (!secret) return value;
   try {
-    const result = await callView(DID.GET_ROLE_TYPES_BY_COMMITMENT, [commitment]);
-    return result.flatMap((item: unknown) => 
-      typeof item === 'number' ? [item] :
-      typeof item === 'string' && item.startsWith('0x') ? 
-        Array.from({ length: item.slice(2).length / 2 }, (_, i) => 
-          parseInt(item.slice(2).slice(i * 2, i * 2 + 2), 16)) : []
-    );
-  } catch { return []; }
-};
-
-const getIPFSData = async (cid: string): Promise<Record<string, unknown> | null> => {
-  if (!cid) return null;
-  try {
-    const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-    const res = await fetch(`${gateway}/${cid}`);
-    return res.ok ? await res.json() : null;
-  } catch { return null; }
+    const [, ivB64, ctB64] = value.split(':');
+    const iv = Buffer.from(ivB64, 'base64');
+    const ct = Buffer.from(ctB64, 'base64');
+    const key = await crypto.subtle.importKey('raw', Buffer.from(secret, 'base64'), { name: 'AES-GCM' }, false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, key, ct);
+    return new TextDecoder().decode(pt);
+  } catch {
+    return value;
+  }
 };
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const commitment = searchParams.get('commitment');
-    const jobId = searchParams.get('jobId');
-
-    if (!type) return NextResponse.json({ success: false, error: 'Type required' }, { status: 400 });
-    
-    if (type === 'profile') {
-      if (!commitment) return NextResponse.json({ success: false, error: 'Commitment required' }, { status: 400 });
-      
-      const hexEncodedCommitment = '0x' + Buffer.from(commitment, 'utf8').toString('hex');
-      console.log('API: Original commitment:', commitment);
-      console.log('API: Hex encoded commitment:', hexEncodedCommitment);
-      console.log('API: Commitment length:', hexEncodedCommitment.length);
-      
-      console.log('API: Skipping address check, going directly to profile data');
-      
-      const result = await callView(DID.GET_PROFILE_DATA_BY_COMMITMENT, [hexEncodedCommitment]);
-      console.log('API: Contract result:', result);
-      
-      if (Array.isArray(result) && result.length === 2 && result[0] === '0x' && result[1] === '0x') {
-        console.log('API: No profile found - empty result');
-        return NextResponse.json({ success: false, error: 'No profile found' }, { status: 404 });
-      }
-      
-      const [didCommitment, profileCid] = result;
-      const cidString = convertToString(profileCid);
-      console.log('API: Profile CID:', cidString);
-      
-      const [roles, profileData] = await Promise.all([getRoles(hexEncodedCommitment), getIPFSData(cidString)]);
-      console.log('API: Roles:', roles, 'Profile data:', profileData);
-      
-      return NextResponse.json({
-        success: true,
-        data: { type: 'profile', commitment, did_commitment: didCommitment, profile_cid: cidString, blockchain_roles: roles, profile_data: profileData, ...profileData }
-      });
-    }
-    
-    if (type === 'job') {
-      if (!jobId) return NextResponse.json({ success: false, error: 'Job ID required' }, { status: 400 });
-      
-      const jobData = await callView(JOB.GET_JOB_BY_ID, [jobId]);
-      const cidString = convertToString(jobData.cid || []);
-      
-      return NextResponse.json({
-        success: true,
-        data: { type: 'job', job_id: jobId, cid: cidString, ...jobData }
-      });
-    }
-    
-    return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 });
-  } catch (error: unknown) {
-    return NextResponse.json({ success: false, error: (error as Error).message || 'Failed' }, { status: 500 });
-  }
+	try {
+		const { searchParams } = new URL(request.url);
+		const cid = searchParams.get('cid') || searchParams.get('jobId');
+		const freelancersOnly = searchParams.get('freelancers') === 'true';
+		const viewFn = searchParams.get('viewFn');
+		let resolvedCid = cid ? await maybeDecryptCid(cid) : null;
+		if (!resolvedCid && viewFn) {
+			const jobId = searchParams.get('jobId');
+			if (!jobId) return NextResponse.json({ success: false, error: 'jobId required for viewFn' }, { status: 400 });
+			const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ function: viewFn, type_arguments: [], arguments: [jobId] })
+			});
+			if (!res.ok) return NextResponse.json({ success: false, error: `view failed: ${res.status}` }, { status: res.status });
+			const out = await res.json();
+			const pick = Array.isArray(out) ? (out.find((x: any) => typeof x === 'string') ?? out[0]) : out;
+			const toUtf8 = (val: any) => {
+				if (typeof val === 'string') return val.startsWith('0x') ? Buffer.from(val.slice(2), 'hex').toString('utf8') : val;
+				if (Array.isArray(val)) return Buffer.from(val).toString('utf8');
+				return '';
+			};
+			resolvedCid = await maybeDecryptCid(toUtf8(pick));
+		}
+		if (!resolvedCid) return NextResponse.json({ success: false, error: 'cid required' }, { status: 400 });
+		const data = await getIPFSJson(resolvedCid);
+		if (!data) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+		if (freelancersOnly) {
+			const applicants = Array.isArray((data as any)?.applicants) ? (data as any).applicants : [];
+			return NextResponse.json({ success: true, cid: resolvedCid, applicants });
+		}
+		return NextResponse.json({ success: true, cid: resolvedCid, data });
+	} catch (error: unknown) {
+		return NextResponse.json({ success: false, error: (error as Error).message || 'Failed' }, { status: 500 });
+	}
 }

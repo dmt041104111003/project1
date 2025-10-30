@@ -14,8 +14,8 @@ type DIDVerificationLayoutProps = {
 
 export default function DIDVerificationLayout({ 
   children, 
-  title = "",
-  subtitle = ""
+  title = "Role registration",
+  subtitle = "Register your roles to use marketplace features"
 }: DIDVerificationLayoutProps) {
   const { account, connectWallet, isConnecting } = useWallet();
 
@@ -38,9 +38,7 @@ export default function DIDVerificationLayout({
               <div className="space-y-6">
                 <Wallet className="w-16 h-16 mx-auto text-gray-600" />
                 <h2 className="text-3xl font-bold text-blue-800">Wallet connection required</h2>
-                <p className="text-lg text-gray-700">
-                  Please connect your Petra wallet to continue DID verification
-                </p>
+                <p className="text-lg text-gray-700">Please connect your Petra wallet to continue</p>
                 <div className="flex justify-center gap-4">
                   <Button variant="primary" size="lg" onClick={connectWallet} disabled={isConnecting}>
                     {isConnecting ? 'Connecting...' : 'Connect Petra wallet'}

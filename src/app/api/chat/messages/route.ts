@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, push, onValue, off, serverTimestamp, update, remove } from 'firebase/database';
-import { APTOS_NODE_URL, DID, APTOS_API_KEY } from '@/constants/contracts';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -116,48 +115,35 @@ export async function POST(request: NextRequest) {
       sender, 
       senderId,
       replyTo,
-      // Room creation fields
       name,
-      commitment,
       creatorId,
       creatorAddress,
+      jobCid,
+      idHash,
       acceptRoom,
       roomIdToAccept
     } = await request.json();
 
-    if (name && commitment && creatorId) {
+    if (name && creatorId && creatorAddress && jobCid && idHash) {
       
       const roomsRef = ref(database, 'chatRooms');
       
-      // Get address from commitment to store both
-      let participantAddress = '';
-      try {
-        const addressResponse = await fetch(`${APTOS_NODE_URL}/view`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${APTOS_API_KEY}`
-          },
-          body: JSON.stringify({
-            function: DID.GET_ADDRESS_BY_COMMITMENT, 
-            arguments: [commitment], 
-            type_arguments: [] 
-          })
-        });
-        
-        const addressData = await addressResponse.json();
-        if (addressData && addressData.length > 0) {
-          participantAddress = addressData[0];
-        }
-      } catch (error) {
-        console.error('Error getting address from commitment:', error);
+      const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+      const res = await fetch(`${gateway}/${jobCid}`);
+      if (!res.ok) return NextResponse.json({ success: false, error: 'Invalid job cid' }, { status: 400 });
+      const jobMeta = await res.json();
+      const posterHash = (jobMeta?.poster_id_hash as string) || '';
+      const freelancerHash = (jobMeta?.freelancer_id_hash as string) || '';
+      const provided = (idHash as string).toLowerCase();
+      if (provided !== posterHash.toLowerCase() && provided !== freelancerHash.toLowerCase()) {
+        return NextResponse.json({ success: false, error: 'ID hash không khớp metadata' }, { status: 403 });
       }
 
       const newRoom = {
         name,
-        participantId: commitment,
-        participantCommitment: commitment,
-        participantAddress: participantAddress,
+        jobCid,
+        idHash,
+        participantAddress: '',
         creatorId,
         creatorAddress,
         chatAccepted: false,
@@ -172,10 +158,10 @@ export async function POST(request: NextRequest) {
           let existingRoom = null;
           
           if (data) {
-            existingRoom = Object.values(data).find((room) => 
-              (room as Record<string, unknown>).creatorAddress === creatorId && (room as Record<string, unknown>).participantCommitment === commitment ||
-              (room as Record<string, unknown>).creatorAddress === commitment && (room as Record<string, unknown>).participantCommitment === creatorId
-            );
+            existingRoom = Object.values(data).find((room) => {
+              const r = room as Record<string, unknown>;
+              return r.jobCid === jobCid && r.creatorAddress === creatorAddress;
+            });
           }
           
           off(roomsRef, 'value');
