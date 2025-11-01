@@ -41,14 +41,8 @@ const uploadToPinata = async (metadata: Record<string, unknown>, fileName: strin
     body: formData
   });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error('Pinata upload failed:', res.status, errorText);
-    throw new Error(`Pinata upload failed: ${res.statusText} - ${errorText}`);
-  }
-  const result = await res.json();
-  console.log('Pinata upload success:', { IpfsHash: result.IpfsHash, PinSize: result.PinSize });
-  return result;
+  if (!res.ok) throw new Error(`Pinata upload failed: ${res.statusText}`);
+  return res.json();
 };
 
 export async function POST(request: NextRequest) {
@@ -132,16 +126,6 @@ export async function POST(request: NextRequest) {
 
     const result = await uploadToPinata(metadata, fileName, type, title);
     const encCid = await encryptCid(result.IpfsHash);
-    console.log('Upload result:', { type, ipfsHash: result.IpfsHash, encCid: encCid?.substring(0, 50) + '...' });
-    if (result.IpfsHash) {
-      const verifyUrl = `${IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs'}/${result.IpfsHash}`;
-      try {
-        const verifyRes = await fetch(verifyUrl, { cache: 'no-store' });
-        console.log('Verification fetch status:', verifyRes.status);
-      } catch (e) {
-        console.log('Verification fetch failed (may need time to propagate):', e);
-      }
-    }
     return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata, type });
   } catch (error: unknown) {
     return NextResponse.json({ success: false, error: (error as Error).message || 'upload failed' }, { status: 500 });

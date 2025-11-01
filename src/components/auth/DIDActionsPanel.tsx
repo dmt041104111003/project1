@@ -86,7 +86,6 @@ export default function DIDActionsPanel() {
   const selectedRole = inputs['role'] || '';
   const isSelectedRegistered = !!roles.find(r => r.name === selectedRole);
   const actionLabel = selectedRole ? (isSelectedRegistered ? 'Update Role' : 'Register Role') : 'Register Role';
-  const isReviewer = selectedRole === 'reviewer';
 
   return (
     <Card variant="outlined" className="space-y-4 mt-6 bg-white p-4">
@@ -96,7 +95,7 @@ export default function DIDActionsPanel() {
         {roles.map(r => (
           <div key={r.name} className={`rounded p-2 text-xs mb-1 bg-blue-50 text-blue-900`}>
             Bạn đã là <b>{r.name}</b> 
-            {r.name !== 'reviewer' && <><br />Description: {r.desc || <i>No profile data</i>}</>}
+            <br />Description: {r.desc || <i>No profile data</i>}
           </div>
         ))}
       </div>
@@ -114,17 +113,15 @@ export default function DIDActionsPanel() {
             ))}
           </select>
         </div>
-        {!isReviewer && (
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-900">Description</label>
-            <textarea className="w-full px-3 py-2 border border-gray-400 bg-white text-sm" rows={3}
-              value={inputs['desc'] || ''}
-              onChange={e => setInputs(i => ({ ...i, desc: e.target.value }))}
-              placeholder="About you / skills or project..."
-            />
-          </div>
-        )}
-        <Button className="w-full" size="sm" variant="outline" onClick={()=>callRole(inputs.role, isReviewer ? undefined : inputs.desc)} disabled={loading!==null || !inputs.role}>{actionLabel}</Button>
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-900">Description</label>
+          <textarea className="w-full px-3 py-2 border border-gray-400 bg-white text-sm" rows={3}
+            value={inputs['desc'] || ''}
+            onChange={e => setInputs(i => ({ ...i, desc: e.target.value }))}
+            placeholder="About you / skills or project..."
+          />
+        </div>
+        <Button className="w-full" size="sm" variant="outline" onClick={()=>callRole(inputs.role, inputs.desc)} disabled={loading!==null || !inputs.role}>{actionLabel}</Button>
       </div>
       {message && <div className="text-xs text-gray-700">{message}</div>}
     </Card>

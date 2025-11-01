@@ -5,34 +5,9 @@ const getIPFSJson = async (cid: string): Promise<Record<string, unknown> | null>
 	if (!cid) return null;
 	try {
 		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-		const url = `${gateway}/${cid}`;
-		console.log('GET /api/ipfs/get - Fetching from IPFS gateway:', url);
-		const res = await fetch(url, { 
-			method: 'GET',
-			headers: { 'Accept': 'application/json' },
-			cache: 'no-store'
-		});
-		console.log('GET /api/ipfs/get - Gateway response status:', res.status);
-		if (!res.ok) {
-			console.log('GET /api/ipfs/get - Gateway response error:', res.statusText);
-			const altGateway = 'https://ipfs.io/ipfs';
-			const altUrl = `${altGateway}/${cid}`;
-			console.log('GET /api/ipfs/get - Trying alternative gateway:', altUrl);
-			const altRes = await fetch(altUrl, { 
-				method: 'GET',
-				headers: { 'Accept': 'application/json' },
-				cache: 'no-store'
-			});
-			if (altRes.ok) {
-				return await altRes.json();
-			}
-			return null;
-		}
-		return await res.json();
-	} catch (err) {
-		console.log('GET /api/ipfs/get - Fetch error:', err);
-		return null;
-	}
+		const res = await fetch(`${gateway}/${cid}`);
+		return res.ok ? await res.json() : null;
+	} catch { return null; }
 };
 
 const maybeDecryptCid = async (value: string): Promise<string> => {

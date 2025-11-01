@@ -40,13 +40,13 @@ export const ProjectsTab: React.FC = () => {
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Dự Án</h2>
           <p className="text-gray-700">Xem và quản lý dự án từ CID on-chain</p>
           {checkingRole ? (
-            <div className="p-3 bg-blue-800 text-black border-2 border-blue-800 text-sm font-bold mt-4">Đang kiểm tra role...</div>
+            <div className="p-3 bg-blue-800 text-white border-2 border-blue-800 text-sm font-bold mt-4 rounded">Đang kiểm tra role...</div>
           ) : roleState === 'poster' ? (
-            <div className="p-3 bg-blue-800 text-black border-2 border-blue-800 text-sm font-bold mt-4">Bạn đang ở chế độ Poster</div>
+            <div className="p-3 bg-blue-800 text-white border-2 border-blue-800 text-sm font-bold mt-4 rounded">Bạn đang ở chế độ Poster</div>
           ) : roleState === 'freelancer' ? (
-            <div className="p-3 bg-blue-800 text-black border-2 border-blue-800 text-sm font-bold mt-4">Bạn đang ở chế độ Freelancer</div>
+            <div className="p-3 bg-blue-800 text-white border-2 border-blue-800 text-sm font-bold mt-4 rounded">Bạn đang ở chế độ Freelancer</div>
           ) : (
-            <div className="p-3 bg-red-100 text-red-800 border border-red-300 text-sm font-bold mt-4">Chỉ Poster hoặc Freelancer mới truy cập được</div>
+            <div className="p-3 bg-red-100 text-red-800 border border-red-300 text-sm font-bold mt-4 rounded">Chỉ Poster hoặc Freelancer mới truy cập được</div>
           )}
         </div>
 

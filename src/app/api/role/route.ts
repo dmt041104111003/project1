@@ -37,6 +37,21 @@ export async function POST(req: Request) {
 			return NextResponse.json({ args: [role, cids] });
 		}
 
+		if (action === "has_poster" || action === "has_freelancer") {
+			const [address] = args;
+			if (!address) return NextResponse.json(false);
+			const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${address}/resource/${CONTRACT_ADDRESS}::role::Roles`);
+			if (!res.ok) {
+				return NextResponse.json(false);
+			}
+			const data = await res.json();
+			const entries = Array.isArray(data?.data?.entries) ? data.data.entries : [];
+			
+			const targetKind = action === "has_poster" ? 2 : 1;
+			const hasRole = entries.some((e: any) => e?.kind === targetKind);
+			return NextResponse.json(hasRole);
+		}
+
 		if (action === "get_all_roles") {
 			const [address] = args;
 			const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${address}/resource/${CONTRACT_ADDRESS}::role::Roles`);

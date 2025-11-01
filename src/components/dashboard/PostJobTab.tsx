@@ -38,12 +38,19 @@ export const PostJobTab: React.FC = () => {
     if (!account) return;
     try {
       setPosterStatus('Đang kiểm tra role Poster...');
-      const fn = `${CONTRACT_ADDRESS}::role::has_poster`;
-      const res = await fetch(`/v1/view`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ function: fn, type_arguments: [], arguments: [account] }) });
-      const ok = res.ok ? await res.json() : [];
-      const hasPoster = Array.isArray(ok) ? !!ok[0] : !!ok;
+      const res = await fetch('/api/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'has_poster', args: [account], typeArgs: [] })
+      });
+      if (!res.ok) {
+        setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
+        setCanPostJobs(false);
+        return;
+      }
+      const hasPoster = await res.json();
       setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-      setCanPostJobs(hasPoster);
+      setCanPostJobs(!!hasPoster);
     } catch (e: unknown) {
       setPosterStatus(`Lỗi kiểm tra role: ${(e as Error)?.message || 'thất bại'}`);
       setCanPostJobs(false);
@@ -118,7 +125,7 @@ export const PostJobTab: React.FC = () => {
           <p className="text-gray-700">Tạo dự án mới và tìm freelancer phù hợp</p>
           
           {posterStatus && (
-            <div className="p-4 border-2 bg-blue-800 text-black border-blue-800 text-sm font-bold mt-4">
+            <div className="p-4 border-2 bg-blue-800 text-white border-blue-800 text-sm font-bold mt-4 rounded">
               {posterStatus}
             </div>
           )}
@@ -357,7 +364,7 @@ export const PostJobTab: React.FC = () => {
           </Button>
 
           {jobResult && (
-            <div className="p-4 border-2 bg-blue-800 text-black border-blue-800 text-sm font-bold">
+            <div className="p-4 border-2 bg-blue-800 text-white border-blue-800 text-sm font-bold rounded">
               {jobResult}
             </div>
           )}
