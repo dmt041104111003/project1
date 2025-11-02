@@ -214,6 +214,18 @@ export async function GET(req: Request) {
 			}
 		}
 
+		// Parse freelancer_withdraw_requested_by: Option<address>
+		let freelancerWithdrawRequestedBy = null;
+		if (jobData?.freelancer_withdraw_requested_by) {
+			if (typeof jobData.freelancer_withdraw_requested_by === 'object' && jobData.freelancer_withdraw_requested_by?.vec) {
+				if (jobData.freelancer_withdraw_requested_by.vec.length > 0) {
+					freelancerWithdrawRequestedBy = jobData.freelancer_withdraw_requested_by.vec[0];
+				}
+			} else if (typeof jobData.freelancer_withdraw_requested_by === 'string') {
+				freelancerWithdrawRequestedBy = jobData.freelancer_withdraw_requested_by;
+			}
+		}
+
 		// Parse milestones with their status
 		const milestones = (jobData?.milestones || []).map((m: any) => {
 			// Parse milestone status enum
@@ -256,7 +268,8 @@ export async function GET(req: Request) {
 			poster: jobData?.poster,
 			freelancer,
 			apply_deadline: applyDeadline,
-			mutual_cancel_requested_by: mutualCancelRequestedBy
+			mutual_cancel_requested_by: mutualCancelRequestedBy,
+			freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy
 		};
 
 		return NextResponse.json({ job });
@@ -329,16 +342,44 @@ export async function POST(req: Request) {
 					args: [params.job_id]
 				});
 
-			case "mutual_cancel": // mutual_cancel
+			case "mutual_cancel": // Poster requests mutual cancel
 				return NextResponse.json({
 					function: ESCROW.MUTUAL_CANCEL,
 					type_args: [],
 					args: [params.job_id]
 				});
 
-			case "freelancer_withdraw": // freelancer_withdraw
+			case "accept_mutual_cancel": // Freelancer accepts mutual cancel
+				return NextResponse.json({
+					function: ESCROW.ACCEPT_MUTUAL_CANCEL,
+					type_args: [],
+					args: [params.job_id]
+				});
+
+			case "reject_mutual_cancel": // Freelancer rejects mutual cancel
+				return NextResponse.json({
+					function: ESCROW.REJECT_MUTUAL_CANCEL,
+					type_args: [],
+					args: [params.job_id]
+				});
+
+			case "freelancer_withdraw": // Freelancer requests to withdraw
 				return NextResponse.json({
 					function: ESCROW.FREELANCER_WITHDRAW,
+					type_args: [],
+					args: [params.job_id]
+				});
+
+			case "accept_freelancer_withdraw": // Poster accepts freelancer withdraw
+				return NextResponse.json({
+					function: ESCROW.ACCEPT_FREELANCER_WITHDRAW,
+					type_args: [],
+					args: [params.job_id]
+				});
+
+			case "reject_freelancer_withdraw": // Poster rejects freelancer withdraw
+				return NextResponse.json({
+					function: ESCROW.REJECT_FREELANCER_WITHDRAW,
 					type_args: [],
 					args: [params.job_id]
 				});

@@ -2,7 +2,7 @@ export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
 
-export const CONTRACT_ADDRESS = "0xe98ac1dd8f56ae2750a6b867be91ffb4f16cf62cc4a73229fb6f35a06f16b290";
+export const CONTRACT_ADDRESS = "0x7b4527999354aaac0936790b74a1ca53b04584b2ea2399eb819305f37799b1b7";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
@@ -26,7 +26,11 @@ export const ESCROW = {
   REJECT_MILESTONE: `${CONTRACT_ADDRESS}::escrow::reject_milestone`,
   CLAIM_TIMEOUT: `${CONTRACT_ADDRESS}::escrow::claim_timeout`,
   MUTUAL_CANCEL: `${CONTRACT_ADDRESS}::escrow::mutual_cancel`,
+  ACCEPT_MUTUAL_CANCEL: `${CONTRACT_ADDRESS}::escrow::accept_mutual_cancel`,
+  REJECT_MUTUAL_CANCEL: `${CONTRACT_ADDRESS}::escrow::reject_mutual_cancel`,
   FREELANCER_WITHDRAW: `${CONTRACT_ADDRESS}::escrow::freelancer_withdraw`,
+  ACCEPT_FREELANCER_WITHDRAW: `${CONTRACT_ADDRESS}::escrow::accept_freelancer_withdraw`,
+  REJECT_FREELANCER_WITHDRAW: `${CONTRACT_ADDRESS}::escrow::reject_freelancer_withdraw`,
   POSTER_WITHDRAW_UNFILLED: `${CONTRACT_ADDRESS}::escrow::poster_withdraw_unfilled_job`,
   UNLOCK_NON_DISPUTED_MILESTONES: `${CONTRACT_ADDRESS}::escrow::unlock_non_disputed_milestones`,
   CLAIM_DISPUTE_PAYMENT: `${CONTRACT_ADDRESS}::escrow::claim_dispute_payment`,

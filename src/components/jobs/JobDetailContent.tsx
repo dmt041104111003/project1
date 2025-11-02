@@ -227,26 +227,57 @@ export const JobDetailContent: React.FC = () => {
                   </div>
                 </div>
               )}
-              {jobData?.state && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Trạng thái</div>
+              {jobData?.state && (() => {
+                // Parse state similar to apply button logic
+                let stateStr = 'Posted';
+                if (typeof jobData.state === 'string') {
+                  stateStr = jobData.state;
+                } else if (jobData.state && typeof jobData.state === 'object') {
+                  if (jobData.state.vec && Array.isArray(jobData.state.vec) && jobData.state.vec.length > 0) {
+                    stateStr = String(jobData.state.vec[0]);
+                  } else if (jobData.state.__variant__) {
+                    stateStr = String(jobData.state.__variant__);
+                  }
+                }
+                
+                // Check if user is freelancer of this job
+                let isFreelancerOfJob = false;
+                if (account && jobData.freelancer) {
+                  const freelancerAddr = typeof jobData.freelancer === 'string' 
+                    ? jobData.freelancer 
+                    : (jobData.freelancer?.vec && jobData.freelancer.vec[0]) || null;
+                  if (freelancerAddr) {
+                    isFreelancerOfJob = account.toLowerCase() === freelancerAddr.toLowerCase();
+                  }
+                }
+                
+                // Only show "Cancelled" to the freelancer, others see "Open"
+                const displayState = (stateStr === 'Cancelled' && !isFreelancerOfJob) ? 'Posted' : stateStr;
+                const displayText = displayState === 'Posted' ? 'Open' :
+                                    displayState === 'InProgress' ? 'In Progress' :
+                                    displayState === 'Completed' ? 'Completed' :
+                                    displayState === 'Disputed' ? 'Disputed' :
+                                    displayState === 'Cancelled' ? 'Cancelled' :
+                                    displayState || 'Active';
+                
+                return (
                   <div>
-                    <span className={`px-2 py-1 text-xs font-bold border-2 ${
-                      (typeof jobData.state === 'string' && jobData.state === 'Posted') ? 'bg-green-100 text-green-800 border-green-300' :
-                      (typeof jobData.state === 'string' && jobData.state === 'InProgress') ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                      (typeof jobData.state === 'string' && jobData.state === 'Completed') ? 'bg-gray-100 text-gray-800 border-gray-300' :
-                      (typeof jobData.state === 'string' && jobData.state === 'Disputed') ? 'bg-red-100 text-red-800 border-red-300' :
-                      'bg-gray-100 text-gray-800 border-gray-300'
-                    }`}>
-                      {(typeof jobData.state === 'string' && jobData.state === 'Posted') ? 'Open' :
-                       (typeof jobData.state === 'string' && jobData.state === 'InProgress') ? 'In Progress' :
-                       (typeof jobData.state === 'string' && jobData.state === 'Completed') ? 'Completed' :
-                       (typeof jobData.state === 'string' && jobData.state === 'Disputed') ? 'Disputed' :
-                       (typeof jobData.state === 'string' ? jobData.state : 'Active')}
-                    </span>
+                    <div className="text-xs text-gray-600 mb-1">Trạng thái</div>
+                    <div>
+                      <span className={`px-2 py-1 text-xs font-bold border-2 ${
+                        displayState === 'Cancelled' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                        displayState === 'Posted' ? 'bg-green-100 text-green-800 border-green-300' :
+                        displayState === 'InProgress' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                        displayState === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                        displayState === 'Disputed' ? 'bg-red-100 text-red-800 border-red-300' :
+                        'bg-gray-100 text-gray-800 border-gray-300'
+                      }`}>
+                        {displayText}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               {jobData?.poster && (
                 <div>
                   <div className="text-xs text-gray-600 mb-1">Người đăng</div>
@@ -337,18 +368,15 @@ export const JobDetailContent: React.FC = () => {
                 }
                 
                 const isPosted = stateStr === 'Posted';
-                const isCancelled = stateStr === 'Cancelled';
                 const isExpired = jobData.apply_deadline && Number(jobData.apply_deadline) * 1000 < Date.now();
                 
-                console.log('[JobDetailContent] Apply button check:', { stateStr, isPosted, isCancelled, hasFreelancer, isExpired, applyDeadline: jobData.apply_deadline });
-                
-                if (isCancelled) {
-                  return (
-                    <div className="text-center">
-                      <p className="text-sm text-red-700 font-bold">Job đã bị hủy, không thể apply</p>
-                    </div>
-                  );
-                }
+                console.log('[JobDetailContent] Apply button check:', { 
+                  stateStr, 
+                  isPosted, 
+                  hasFreelancer, 
+                  isExpired, 
+                  applyDeadline: jobData.apply_deadline
+                });
                 
                 if (!isPosted) {
                   return (
@@ -377,7 +405,7 @@ export const JobDetailContent: React.FC = () => {
                 return (
                   <Button
                     onClick={handleApply}
-                    disabled={applying || isCancelled}
+                    disabled={applying}
                     size="lg"
                     className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
                   >

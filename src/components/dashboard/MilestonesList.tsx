@@ -21,6 +21,7 @@ interface MilestonesListProps {
   freelancer: string | null;
   jobState: string;
   mutualCancelRequestedBy?: string | null;
+  freelancerWithdrawRequestedBy?: string | null;
   onUpdate?: () => void;
 }
 
@@ -31,6 +32,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   freelancer,
   jobState,
   mutualCancelRequestedBy,
+  freelancerWithdrawRequestedBy,
   onUpdate
 }) => {
   const { account } = useWallet();
@@ -40,6 +42,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [acceptingCancel, setAcceptingCancel] = useState(false);
+  const [rejectingCancel, setRejectingCancel] = useState(false);
+  const [acceptingWithdraw, setAcceptingWithdraw] = useState(false);
+  const [rejectingWithdraw, setRejectingWithdraw] = useState(false);
   const [evidenceCids, setEvidenceCids] = useState<Record<number, string>>({});
   const [uploadingFiles, setUploadingFiles] = useState<Record<number, boolean>>({});
   const [selectedFiles, setSelectedFiles] = useState<Record<number, File | null>>({});
@@ -326,11 +332,11 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     });
   };
 
+  // Poster requests mutual cancel
   const handleMutualCancel = async () => {
-    if (!account || !freelancer) return;
-    if (!isPoster && !isFreelancer) return;
+    if (!account || !isPoster) return;
 
-    toast.warning('Bạn có chắc muốn đồng thuận hủy job? Poster sẽ nhận escrow, cả 2 stake sẽ về freelancer.', {
+    toast.warning('Bạn có chắc muốn yêu cầu hủy job? Freelancer sẽ được thông báo để xác nhận.', {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
@@ -359,7 +365,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               arguments: payload.args
             });
 
-            toast.success(`Mutual cancel transaction đã được gửi! TX: ${tx?.hash || 'N/A'}`);
+            toast.success(`Đã gửi yêu cầu hủy job! TX: ${tx?.hash || 'N/A'}`);
             setTimeout(() => {
               if (onUpdate) onUpdate();
             }, 2000);
@@ -379,10 +385,117 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     });
   };
 
+  // Freelancer accepts mutual cancel (when poster requested)
+  const handleAcceptMutualCancel = async () => {
+    if (!account || !isFreelancer) return;
+
+    toast.warning('Bạn có chắc muốn chấp nhận hủy job? Poster sẽ nhận escrow, cả 2 stake sẽ về bạn.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setAcceptingCancel(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'accept_mutual_cancel',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Chấp nhận hủy job thành công! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Accept mutual cancel error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setAcceptingCancel(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
+  // Freelancer rejects mutual cancel (when poster requested)
+  const handleRejectMutualCancel = async () => {
+    if (!account || !isFreelancer) return;
+
+    toast.warning('Bạn có chắc muốn từ chối hủy job? Job sẽ tiếp tục bình thường.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setRejectingCancel(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'reject_mutual_cancel',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Đã từ chối hủy job. Job sẽ tiếp tục! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Reject mutual cancel error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setRejectingCancel(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
+  // Freelancer requests to withdraw
   const handleFreelancerWithdraw = async () => {
     if (!account || !isFreelancer) return;
 
-    toast.warning('Bạn có chắc muốn rút? Bạn sẽ mất stake (1 APT) và job sẽ mở lại cho freelancer khác.', {
+    toast.warning('Bạn có chắc muốn yêu cầu rút? Poster sẽ được thông báo để xác nhận. Nếu được chấp nhận, bạn sẽ mất stake (1 APT) và job sẽ mở lại.', {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
@@ -411,7 +524,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               arguments: payload.args
             });
 
-            toast.success(`Freelancer withdraw transaction đã được gửi! TX: ${tx?.hash || 'N/A'}`);
+            toast.success(`Đã gửi yêu cầu rút! Đang chờ poster xác nhận. TX: ${tx?.hash || 'N/A'}`);
             setTimeout(() => {
               if (onUpdate) onUpdate();
             }, 2000);
@@ -420,6 +533,112 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
           } finally {
             setWithdrawing(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
+  // Poster accepts freelancer withdraw request
+  const handleAcceptFreelancerWithdraw = async () => {
+    if (!account || !isPoster) return;
+
+    toast.warning('Bạn có chắc muốn chấp nhận freelancer rút? Freelancer sẽ mất stake (1 APT) về bạn và job sẽ mở lại.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setAcceptingWithdraw(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'accept_freelancer_withdraw',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Chấp nhận freelancer rút thành công! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Accept freelancer withdraw error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setAcceptingWithdraw(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
+  // Poster rejects freelancer withdraw request
+  const handleRejectFreelancerWithdraw = async () => {
+    if (!account || !isPoster) return;
+
+    toast.warning('Bạn có chắc muốn từ chối freelancer rút? Job sẽ tiếp tục bình thường.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setRejectingWithdraw(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'reject_freelancer_withdraw',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Đã từ chối freelancer rút. Job sẽ tiếp tục! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Reject freelancer withdraw error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setRejectingWithdraw(false);
           }
         }
       },
@@ -611,62 +830,104 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           <div className="mt-4 p-3 border-2 border-orange-300 bg-orange-50 rounded">
             <h5 className="text-sm font-bold text-orange-800 mb-2">Dừng dự án</h5>
             
-            {/* Mutual Cancel Status */}
-            {mutualCancelRequestedBy && (
+            {/* Mutual Cancel Status - Only show if poster requested */}
+            {mutualCancelRequestedBy && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
               <div className="mb-2 p-2 bg-blue-100 border border-blue-300 rounded">
-                {mutualCancelRequestedBy.toLowerCase() === account?.toLowerCase() ? (
+                {isPoster ? (
                   <p className="text-xs text-blue-800 font-bold">
-                    ✓ Bạn đã yêu cầu hủy. Đang chờ bên kia xác nhận...
+                    ✓ Bạn đã yêu cầu hủy. Đang chờ freelancer xác nhận...
                   </p>
                 ) : (
                   <p className="text-xs text-blue-800 font-bold">
-                    ⚠ {mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() ? 'Poster' : 'Freelancer'} đã yêu cầu hủy. Bạn có muốn đồng ý không?
+                    ⚠ Poster đã yêu cầu hủy. Bạn có muốn chấp nhận không?
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Freelancer Withdraw Status - Only show if freelancer requested */}
+            {freelancerWithdrawRequestedBy && freelancerWithdrawRequestedBy.toLowerCase() === freelancer?.toLowerCase() && (
+              <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded">
+                {isFreelancer ? (
+                  <p className="text-xs text-red-800 font-bold">
+                    ✓ Bạn đã yêu cầu rút. Đang chờ poster xác nhận...
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-800 font-bold">
+                    ⚠ Freelancer đã yêu cầu rút. Bạn có muốn chấp nhận không?
                   </p>
                 )}
               </div>
             )}
             
             <div className="flex gap-2 flex-wrap">
-              {isPoster && (
+              {/* Poster: Can request mutual cancel (if not already requested) */}
+              {isPoster && !mutualCancelRequestedBy && (
                 <Button
                   size="sm"
                   onClick={() => handleMutualCancel()}
-                  disabled={cancelling}
-                  className="bg-blue-600 text-black hover:bg-blue-700 text-xs px-3 py-1"
+                  disabled={cancelling || !!freelancerWithdrawRequestedBy}
+                  className="bg-blue-600 text-black hover:bg-blue-700 text-xs px-3 py-1 disabled:opacity-50"
+                  title={freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : ''}
                 >
-                  {cancelling ? 'Đang xử lý...' : 
-                   mutualCancelRequestedBy?.toLowerCase() === account?.toLowerCase() ? 
-                     'Đã yêu cầu (Chờ freelancer)' : 
-                   mutualCancelRequestedBy?.toLowerCase() === freelancer?.toLowerCase() ?
-                     'Xác nhận hủy (Freelancer đã yêu cầu)' :
-                     'Đồng thuận hủy (Mutual Cancel)'}
+                  {cancelling ? 'Đang xử lý...' : 'Yêu cầu hủy (Mutual Cancel)'}
                 </Button>
               )}
-              {isFreelancer && (
+
+              {/* Poster: Can accept/reject freelancer withdraw (if freelancer requested) */}
+              {isPoster && freelancerWithdrawRequestedBy && freelancerWithdrawRequestedBy.toLowerCase() === freelancer?.toLowerCase() && (
                 <>
                   <Button
                     size="sm"
-                    onClick={() => handleMutualCancel()}
-                    disabled={cancelling}
-                    className="bg-blue-600 text-black hover:bg-blue-700 text-xs px-3 py-1"
+                    onClick={() => handleAcceptFreelancerWithdraw()}
+                    disabled={acceptingWithdraw || rejectingWithdraw}
+                    className="bg-green-600 text-black hover:bg-green-700 text-xs px-3 py-1"
                   >
-                    {cancelling ? 'Đang xử lý...' : 
-                     mutualCancelRequestedBy?.toLowerCase() === account?.toLowerCase() ? 
-                       'Đã yêu cầu (Chờ poster)' : 
-                     mutualCancelRequestedBy?.toLowerCase() === poster?.toLowerCase() ?
-                       'Xác nhận hủy (Poster đã yêu cầu)' :
-                       'Đồng thuận hủy (Mutual Cancel)'}
+                    {acceptingWithdraw ? 'Đang xử lý...' : 'Chấp nhận rút'}
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleFreelancerWithdraw()}
-                    disabled={withdrawing || !!mutualCancelRequestedBy}
-                    className="bg-red-600 text-black hover:text-white hover:bg-red-700 text-xs px-3 py-1 disabled:opacity-50"
-                    title={mutualCancelRequestedBy ? 'Không thể rút khi đang có yêu cầu mutual cancel' : ''}
+                    onClick={() => handleRejectFreelancerWithdraw()}
+                    disabled={acceptingWithdraw || rejectingWithdraw}
+                    className="bg-red-600 text-black hover:bg-red-700 text-xs px-3 py-1"
                   >
-                    {withdrawing ? 'Đang xử lý...' : 'Xin rút (Mất stake)'}
+                    {rejectingWithdraw ? 'Đang xử lý...' : 'Từ chối rút'}
                   </Button>
                 </>
+              )}
+
+              {/* Freelancer: Can accept/reject mutual cancel (if poster requested) */}
+              {isFreelancer && mutualCancelRequestedBy && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAcceptMutualCancel()}
+                    disabled={acceptingCancel || rejectingCancel}
+                    className="bg-green-600 text-black hover:bg-green-700 text-xs px-3 py-1"
+                  >
+                    {acceptingCancel ? 'Đang xử lý...' : 'Chấp nhận hủy'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleRejectMutualCancel()}
+                    disabled={acceptingCancel || rejectingCancel}
+                    className="bg-red-600 text-black hover:bg-red-700 text-xs px-3 py-1"
+                  >
+                    {rejectingCancel ? 'Đang xử lý...' : 'Từ chối hủy'}
+                  </Button>
+                </>
+              )}
+
+              {/* Freelancer: Can request to withdraw (if not already requested and no mutual cancel request) */}
+              {isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy && (
+                <Button
+                  size="sm"
+                  onClick={() => handleFreelancerWithdraw()}
+                  disabled={withdrawing}
+                  className="bg-red-600 text-black hover:text-white hover:bg-red-700 text-xs px-3 py-1"
+                >
+                  {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất stake nếu được chấp nhận)'}
+                </Button>
               )}
             </div>
           </div>

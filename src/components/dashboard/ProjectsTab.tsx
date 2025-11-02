@@ -18,6 +18,7 @@ interface Job {
   has_freelancer: boolean;
   state: string;
   mutual_cancel_requested_by?: string | null;
+  freelancer_withdraw_requested_by?: string | null;
   apply_deadline?: number;
 }
 
@@ -330,6 +331,7 @@ export const ProjectsTab: React.FC = () => {
                       freelancer={job.freelancer}
                       jobState={job.state || 'Posted'}
                       mutualCancelRequestedBy={job.mutual_cancel_requested_by || null}
+                      freelancerWithdrawRequestedBy={job.freelancer_withdraw_requested_by || null}
                       onUpdate={fetchJobs}
                     />
                   )}

@@ -59,7 +59,8 @@ module job_work_board::escrow {
         job_funds: coin::Coin<AptosCoin>,
         stake_pool: coin::Coin<AptosCoin>,
         dispute_pool: coin::Coin<AptosCoin>,
-        mutual_cancel_requested_by: Option<address>,  // Track who requested mutual cancel (poster or freelancer)
+        mutual_cancel_requested_by: Option<address>,  // Track who requested mutual cancel (poster)
+        freelancer_withdraw_requested_by: Option<address>,  // Track if freelancer requested to withdraw
     }
 
     struct EscrowStore has key {
@@ -149,6 +150,7 @@ module job_work_board::escrow {
             stake_pool: stake,
             mutual_cancel_requested_by: option::none(),
             dispute_pool: fee,
+            freelancer_withdraw_requested_by: option::none(),
         });
     }
 
@@ -347,7 +349,7 @@ module job_work_board::escrow {
                 coin::deposit(caller, penalty);
                 job.freelancer_stake = 0;
             };
-            job.freelancer = option::none();
+            // Keep freelancer address to prevent them from reapplying (removed job.freelancer = option::none())
             job.state = JobState::Cancelled;
             
             // Emit event for history tracking
@@ -419,40 +421,65 @@ module job_work_board::escrow {
         let job = table::borrow_mut(&mut store.table, job_id);
 
         assert!(option::is_some(&job.freelancer), 1);
-        let freelancer_addr = *option::borrow(&job.freelancer);
         
-        // Only poster or freelancer can call this
-        assert!(caller == job.poster || caller == freelancer_addr, 1);
+        // Only poster can initiate mutual cancel request
+        assert!(caller == job.poster, 1);  // Only poster can initiate
         
-        // Check if the other party has already requested mutual cancel
+        // Check if poster has already requested mutual cancel
         if (option::is_some(&job.mutual_cancel_requested_by)) {
-            let requester = *option::borrow(&job.mutual_cancel_requested_by);
-            // If requester is different from caller, both parties have agreed -> execute cancel
-            if (requester != caller) {
-                // Execute mutual cancel
-                let refund = coin::extract_all(&mut job.job_funds);
-                coin::deposit(job.poster, refund);
-
-                if (job.poster_stake > 0) {
-                    let poster_stake_back = coin::extract(&mut job.stake_pool, job.poster_stake);
-                    coin::deposit(freelancer_addr, poster_stake_back);
-                    job.poster_stake = 0;
-                };
-                if (job.freelancer_stake > 0) {
-                    let freelancer_stake_back = coin::extract(&mut job.stake_pool, job.freelancer_stake);
-                    coin::deposit(freelancer_addr, freelancer_stake_back);
-                    job.freelancer_stake = 0;
-                };
-                
-                job.freelancer = option::none();
-                job.state = JobState::Cancelled;
-                job.mutual_cancel_requested_by = option::none();
-            };
-            // If same person calls again, do nothing (already requested)
-        } else {
-            // First request - just mark who requested it
-            job.mutual_cancel_requested_by = option::some(caller);
+            // Already requested, do nothing (waiting for freelancer to accept/reject)
+            return
         };
+        
+        // First request - poster initiates
+        job.mutual_cancel_requested_by = option::some(caller);
+    }
+
+    public entry fun accept_mutual_cancel(freelancer: &signer, job_id: u64) acquires EscrowStore {
+        let freelancer_addr = signer::address_of(freelancer);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == freelancer_addr, 1);
+        assert!(option::is_some(&job.mutual_cancel_requested_by), 1);
+        
+        let requester = *option::borrow(&job.mutual_cancel_requested_by);
+        assert!(requester == job.poster, 1);  // Ensure poster requested first
+        
+        // Both parties have agreed -> execute cancel
+        let refund = coin::extract_all(&mut job.job_funds);
+        coin::deposit(job.poster, refund);
+
+        if (job.poster_stake > 0) {
+            let poster_stake_back = coin::extract(&mut job.stake_pool, job.poster_stake);
+            coin::deposit(freelancer_addr, poster_stake_back);
+            job.poster_stake = 0;
+        };
+        if (job.freelancer_stake > 0) {
+            let freelancer_stake_back = coin::extract(&mut job.stake_pool, job.freelancer_stake);
+            coin::deposit(freelancer_addr, freelancer_stake_back);
+            job.freelancer_stake = 0;
+        };
+        
+        job.freelancer = option::none();
+        job.state = JobState::Cancelled;
+        job.mutual_cancel_requested_by = option::none();
+        job.freelancer_withdraw_requested_by = option::none();  // Clear withdraw request if any
+    }
+
+    public entry fun reject_mutual_cancel(freelancer: &signer, job_id: u64) acquires EscrowStore {
+        let freelancer_addr = signer::address_of(freelancer);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == freelancer_addr, 1);
+        assert!(option::is_some(&job.mutual_cancel_requested_by), 1);
+        
+        let requester = *option::borrow(&job.mutual_cancel_requested_by);
+        assert!(requester == job.poster, 1);  // Ensure poster requested first
+        
+        // Freelancer rejects -> clear request, continue job normally
+        job.mutual_cancel_requested_by = option::none();
     }
 
     // Poster can withdraw job funds and stake if:
@@ -487,13 +514,37 @@ module job_work_board::escrow {
         job.state = JobState::Cancelled;
     }
 
+    // Freelancer requests to withdraw (needs poster approval)
     public entry fun freelancer_withdraw(freelancer: &signer, job_id: u64) acquires EscrowStore {
         let freelancer_addr = signer::address_of(freelancer);
         let store = borrow_global_mut<EscrowStore>(@job_work_board);
         let job = table::borrow_mut(&mut store.table, job_id);
 
         assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == freelancer_addr, 1);
+        
+        // Check if freelancer has already requested withdraw
+        if (option::is_some(&job.freelancer_withdraw_requested_by)) {
+            // Already requested, do nothing (waiting for poster to accept/reject)
+            return
+        };
+        
+        // Freelancer initiates withdraw request
+        job.freelancer_withdraw_requested_by = option::some(freelancer_addr);
+    }
 
+    // Poster accepts freelancer withdraw request -> execute withdraw
+    public entry fun accept_freelancer_withdraw(poster: &signer, job_id: u64) acquires EscrowStore {
+        let poster_addr = signer::address_of(poster);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(job.poster == poster_addr, 1);
+        assert!(option::is_some(&job.freelancer_withdraw_requested_by), 1);
+        
+        let requester = *option::borrow(&job.freelancer_withdraw_requested_by);
+        assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == requester, 1);
+        
+        // Poster accepts -> execute withdraw
         if (job.freelancer_stake > 0) {
             let penalty = coin::extract(&mut job.stake_pool, job.freelancer_stake);
             coin::deposit(job.poster, penalty);
@@ -503,6 +554,7 @@ module job_work_board::escrow {
         job.state = JobState::Posted;
         job.started_at = option::none();
         job.mutual_cancel_requested_by = option::none();  // Clear mutual cancel request if any
+        job.freelancer_withdraw_requested_by = option::none();  // Clear withdraw request
         
         // Reset milestone deadlines and status
         let len = vector::length(&job.milestones);
@@ -516,6 +568,22 @@ module job_work_board::escrow {
             };
             i = i + 1;
         };
+    }
+
+    // Poster rejects freelancer withdraw request -> continue job normally
+    public entry fun reject_freelancer_withdraw(poster: &signer, job_id: u64) acquires EscrowStore {
+        let poster_addr = signer::address_of(poster);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(job.poster == poster_addr, 1);
+        assert!(option::is_some(&job.freelancer_withdraw_requested_by), 1);
+        
+        let requester = *option::borrow(&job.freelancer_withdraw_requested_by);
+        assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == requester, 1);
+        
+        // Poster rejects -> clear request, continue job normally
+        job.freelancer_withdraw_requested_by = option::none();
     }
 
     public(friend) fun lock_for_dispute(job_id: u64, _milestone_id: u64, dispute_id: u64) acquires EscrowStore {
