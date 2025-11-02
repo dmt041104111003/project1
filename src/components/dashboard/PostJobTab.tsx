@@ -1,24 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
-import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 
 interface Milestone { amount: string; duration: string; unit: string; }
 
-const sha256Hex = async (s: string) => {
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return '0x' + Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-};
+const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
+const APT_TO_UNITS = 100_000_000;
 
 export const PostJobTab: React.FC = () => {
   const { account } = useWallet();
-  
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
@@ -32,36 +27,30 @@ export const PostJobTab: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
 
-  const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
-  const APT_TO_UNITS = 100_000_000;
-  const MIN_MILESTONE = 0.001;
-  const convertTimeToSeconds = (duration: string, unit: string) => (parseFloat(duration) || 0) * (TIME_MULTIPLIERS[unit as keyof typeof TIME_MULTIPLIERS] || 1);
-  const convertAptToUnits = (apt: string) => Math.floor((parseFloat(apt) || 0) * APT_TO_UNITS);
-
-  const checkPosterRole = useCallback(async () => {
-    if (!account) return;
+  const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
     try {
-      setPosterStatus('Đang kiểm tra role Poster...');
-      const res = await fetch('/api/role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'has_poster', args: [account], typeArgs: [] })
+      const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
       });
-      if (!res.ok) {
-        setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-        setCanPostJobs(false);
-        return;
-      }
-      const hasPoster = await res.json();
-      setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-      setCanPostJobs(!!hasPoster);
-    } catch (e: unknown) {
-      setPosterStatus(`Lỗi kiểm tra role: ${(e as Error)?.message || 'thất bại'}`);
-      setCanPostJobs(false);
+      if (!res.ok) return false;
+      const data = await res.json();
+      const rolesData = data.roles || [];
+      return rolesData.some((r: any) => r.name === 'poster');
+    } catch {
+      return false;
     }
-  }, [account]);
+  };
 
-  useEffect(() => { if (account) checkPosterRole(); }, [account, checkPosterRole]);
+  useEffect(() => {
+    if (!account) return;
+    const check = async () => {
+      const hasPoster = await checkPosterRoleFromTable(account);
+      setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
+      setCanPostJobs(hasPoster);
+    };
+    check();
+  }, [account]);
 
   const addSkill = () => {
     const trimmed = currentSkill.trim();
@@ -71,7 +60,6 @@ export const PostJobTab: React.FC = () => {
   const addMilestone = () => {
     if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim()) return;
     const amount = parseFloat(currentMilestone.amount);
-    if (amount < MIN_MILESTONE) return alert(`Số tiền tối thiểu là ${MIN_MILESTONE} APT`);
     if (amount <= 0) return alert('Số tiền phải lớn hơn 0');
     setMilestonesList(prev => [...prev, currentMilestone]);
     setCurrentMilestone({amount: '', duration: '', unit: 'ngày'});
@@ -89,43 +77,39 @@ export const PostJobTab: React.FC = () => {
     if (data.title) setJobTitle(data.title);
     if (data.description) setJobDescription(data.description);
     if (Array.isArray(data.requirements)) setSkillsList(data.requirements);
-    if (data.deadline) {
-      const days = data.deadline / (24 * 60 * 60);
-      setJobDuration(days.toString());
-    }
+    if (data.deadline) setJobDuration((data.deadline / (24 * 60 * 60)).toString());
     if (Array.isArray(data.milestones)) {
-      const parsed = data.milestones.map((m: any) => ({
-        amount: m.amount?.toString() || '',
-        duration: m.duration?.toString() || '',
-        unit: m.unit || 'ngày'
-      }));
-      setMilestonesList(parsed);
+      setMilestonesList(data.milestones.map((m: any) => ({ amount: m.amount?.toString() || '', duration: m.duration?.toString() || '', unit: m.unit || 'ngày' })));
     }
     setInputMode('manual');
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!account) {
+      setJobResult('Vui lòng kết nối ví!');
+      return;
+    }
+    
+    const hasPoster = await checkPosterRoleFromTable(account);
+    if (!hasPoster) {
+      setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
+      setCanPostJobs(false);
+      setJobResult('Bạn không có quyền đăng job. Vui lòng đăng ký role Poster trước!');
+      return;
+    }
+
     setValidationErrors({});
-    
     const errors: {[key: string]: string} = {};
-    
-    if (!jobTitle.trim()) {
-      errors.jobTitle = 'Tiêu đề dự án không được để trống!';
-    }
-    if (!jobDescription.trim()) {
-      errors.jobDescription = 'Mô tả dự án không được để trống!';
-    }
-    if (milestonesList.length === 0) {
-      errors.milestones = 'Vui lòng thêm ít nhất một cột mốc dự án!';
-    }
-    
+    if (!jobTitle.trim()) errors.jobTitle = 'Tiêu đề dự án không được để trống!';
+    if (!jobDescription.trim()) errors.jobDescription = 'Mô tả dự án không được để trống!';
+    if (milestonesList.length === 0) errors.milestones = 'Vui lòng thêm ít nhất một cột mốc dự án!';
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setJobResult('Vui lòng kiểm tra lại thông tin!');
       return;
     }
-    
     createJob();
   };
 
@@ -138,34 +122,24 @@ export const PostJobTab: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList })
       }).then(r => r.json());
-      
       if (!ipfsData.success) throw new Error(ipfsData.error);
       const encCid = ipfsData.encCid || ipfsData.ipfsHash;
-
-      const contractMilestones = milestonesList.map(milestone => convertAptToUnits(milestone.amount));
-      const contractMilestoneDurations = milestonesList.map(milestone => convertTimeToSeconds(milestone.duration, milestone.unit));
-
-      const userCommitment = await sha256Hex(account);
-      const data = await fetch('/api/job/actions', {
+      const contractMilestones = milestonesList.map(m => Math.floor(parseFloat(m.amount) * APT_TO_UNITS));
+      const contractMilestoneDurations = milestonesList.map(m => (parseFloat(m.duration) || 0) * (TIME_MULTIPLIERS[m.unit as keyof typeof TIME_MULTIPLIERS] || 1));
+      const data = await fetch('/api/job/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'post',
-          user_address: account,
-          user_commitment: userCommitment,
-          job_details_cid: encCid,
-          milestones: contractMilestones,
-          milestone_durations: contractMilestoneDurations,
-          application_deadline: Math.floor(Date.now() / 1000) + (parseInt(jobDuration) * 24 * 60 * 60)
-        })
+        body: JSON.stringify({ job_details_cid: encCid, milestones: contractMilestones, milestone_durations: contractMilestoneDurations })
       }).then(r => r.json());
-
-      if (!data.success) throw new Error(data.error);
+      if (data.error) throw new Error(data.error);
       setJobResult('Đang ký transaction...');
-      const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction(data.payload);
-      const hash = tx?.hash;
-      setJobResult(hash ? `Job đã được tạo thành công! TX: ${hash}` : 'Job đã được gửi transaction!');
-      
+      const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction({
+        type: "entry_function_payload",
+        function: data.function,
+        type_arguments: data.type_args,
+        arguments: data.args
+      });
+      setJobResult(tx?.hash ? `Job đã được tạo thành công! TX: ${tx.hash}` : 'Job đã được gửi transaction!');
     } catch (e: unknown) {
       setJobResult(`Lỗi: ${(e as Error)?.message || 'thất bại'}`);
     }
@@ -177,28 +151,20 @@ export const PostJobTab: React.FC = () => {
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Đăng Dự Án</h2>
           <p className="text-gray-700">Tạo dự án mới và tìm freelancer phù hợp</p>
-          
           {posterStatus && (
             <div className="p-4 border-2 bg-blue-800 text-white border-blue-800 text-sm font-bold mt-4 rounded">
               {posterStatus}
             </div>
           )}
         </div>
-
         <Tabs className="mb-6" defaultValue={inputMode}>
-          <TabsList 
-            className="flex w-full"
-            activeTab={inputMode}
-            setActiveTab={(v) => setInputMode(v as 'manual' | 'json')}
-          >
+          <TabsList className="flex w-full" activeTab={inputMode} setActiveTab={(v) => setInputMode(v as 'manual' | 'json')}>
             <TabsTrigger value="manual" className="flex-1">Nhập thủ công</TabsTrigger>
             <TabsTrigger value="json" className="flex-1">Paste JSON</TabsTrigger>
           </TabsList>
-
           <TabsContent value="json">
             <JsonJobInput onParse={handleJsonParse} canPostJobs={canPostJobs} />
           </TabsContent>
-
           <TabsContent value="manual">
             <ManualJobForm
               jobTitle={jobTitle}

@@ -1,109 +1,115 @@
 module job_work_board::reputation {
-    use aptos_framework::signer;
+    use std::signer;
+    use aptos_std::table::{Self, Table};
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
 
-    const E_INSUFFICIENT_REP: u64 = 1;
-    const E_ALREADY_CLAIMED: u64 = 2;
+    friend job_work_board::escrow;
+    friend job_work_board::dispute;
+
+    const OCTA: u64 = 100_000_000;
+    const REVIEWER_REWARD: u64 = 5 * OCTA / 10; // 0.5 APT
+    const FREELANCER_REWARD: u64 = 3 * OCTA / 10; // 0.3 APT
+    const POSTER_REWARD: u64 = 1 * OCTA / 10; // 0.1 APT
 
     struct Rep has store {
-        utr: u64, // reviewer, scaled x2 (1.0 point == 2)
-        utf: u64, // freelancer, scaled x2
-        utp: u64, // poster, scaled x2
-        claimed_reviewer_bonus: bool,
-        claimed_freelancer_bonus: bool,
-        claimed_poster_bonus: bool,
+        utr_x10: u64,
+        utf: u64,
+        utp: u64,
+        claimed_reviewer: bool,
+        claimed_freelancer: bool,
+        claimed_poster: bool,
     }
 
-    struct Store has key {
-        table: aptos_std::table::Table<address, Rep>,
+    struct RepStore has key {
+        table: Table<address, Rep>
     }
 
-    public fun init(admin: &signer) {
-        if (!exists<Store>(signer::address_of(admin))) {
-            move_to(admin, Store { table: aptos_std::table::new<address, Rep>() });
-        }
+    fun init_module(admin: &signer) {
+        move_to(admin, RepStore { table: table::new() });
     }
 
-    fun ensure_entry(s: &mut Store, addr: address) {
-        if (!aptos_std::table::contains(&s.table, addr)) {
-            aptos_std::table::add(&mut s.table, addr, Rep { utr: 0, utf: 0, utp: 0, claimed_reviewer_bonus: false, claimed_freelancer_bonus: false, claimed_poster_bonus: false });
-        }
+    public(friend) fun inc_utf(who: address, delta: u64) acquires RepStore {
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        rep.utf = rep.utf + delta;
     }
 
-    public fun inc_reviewer(store_addr: address, addr: address, delta_x2: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, addr);
-        r.utr = r.utr + delta_x2;
+    public(friend) fun inc_utp(who: address, delta: u64) acquires RepStore {
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        rep.utp = rep.utp + delta;
     }
 
-    public fun dec_reviewer(store_addr: address, addr: address, delta_x2: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, addr);
-        if (r.utr >= delta_x2) r.utr = r.utr - delta_x2 else r.utr = 0;
+    public(friend) fun inc_utr(who: address, delta_x10: u64) acquires RepStore {
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        rep.utr_x10 = rep.utr_x10 + delta_x10;
     }
 
-    public fun inc_freelancer(store_addr: address, addr: address, delta_x2: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, addr);
-        r.utf = r.utf + delta_x2;
+    public(friend) fun change_utr(who: address, delta_x10: u64) acquires RepStore {
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        if (delta_x10 > rep.utr_x10) {
+            rep.utr_x10 = 0;
+        } else {
+            rep.utr_x10 = rep.utr_x10 - delta_x10;
+        };
     }
 
-    public fun inc_poster(store_addr: address, addr: address, delta_x2: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, addr);
-        r.utp = r.utp + delta_x2;
+    public fun get(addr: address): (u64, u64, u64) acquires RepStore {
+        if (!exists<RepStore>(@job_work_board)) return (0, 0, 0);
+        let store = borrow_global<RepStore>(@job_work_board);
+        if (!table::contains(&store.table, addr)) return (0, 0, 0);
+        let rep = table::borrow(&store.table, addr);
+        (rep.utr_x10, rep.utf, rep.utp)
     }
 
-    public fun get(store_addr: address, addr: address): (u64, u64, u64) acquires Store {
-        if (!exists<Store>(store_addr)) return (0, 0, 0);
-        let s = borrow_global<Store>(store_addr);
-        if (!aptos_std::table::contains(&s.table, addr)) return (0, 0, 0);
-        let r = aptos_std::table::borrow(&s.table, addr);
-        (r.utr, r.utf, r.utp)
+    public entry fun claim_reviewer_reward(s: &signer, treasury: &signer) acquires RepStore {
+        let who = signer::address_of(s);
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        assert!(rep.utr_x10 >= 10 && !rep.claimed_reviewer, 1);
+        rep.claimed_reviewer = true;
+        coin::transfer<AptosCoin>(treasury, who, REVIEWER_REWARD);
     }
 
-    /// Claim one-time bonuses when rep >= 1.0 (>=2 in x2 scaling)
-    public fun claim_reviewer_bonus(store_addr: address, claimant_addr: address, treasury: &signer, amount_octas: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, claimant_addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, claimant_addr);
-        assert!(r.utr >= 2, E_INSUFFICIENT_REP);
-        assert!(!r.claimed_reviewer_bonus, E_ALREADY_CLAIMED);
-        r.claimed_reviewer_bonus = true;
-        coin::transfer<AptosCoin>(treasury, claimant_addr, amount_octas);
+    public entry fun claim_freelancer_reward(s: &signer, treasury: &signer) acquires RepStore {
+        let who = signer::address_of(s);
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        assert!(rep.utf >= 1 && !rep.claimed_freelancer, 1);
+        rep.claimed_freelancer = true;
+        coin::transfer<AptosCoin>(treasury, who, FREELANCER_REWARD);
     }
 
-    public fun claim_freelancer_bonus(store_addr: address, claimant_addr: address, treasury: &signer, amount_octas: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, claimant_addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, claimant_addr);
-        assert!(r.utf >= 2, E_INSUFFICIENT_REP);
-        assert!(!r.claimed_freelancer_bonus, E_ALREADY_CLAIMED);
-        r.claimed_freelancer_bonus = true;
-        coin::transfer<AptosCoin>(treasury, claimant_addr, amount_octas);
+    public entry fun claim_poster_reward(s: &signer, treasury: &signer) acquires RepStore {
+        let who = signer::address_of(s);
+        ensure_user(who);
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        let rep = table::borrow_mut(&mut store.table, who);
+        assert!(rep.utp >= 1 && !rep.claimed_poster, 1);
+        rep.claimed_poster = true;
+        coin::transfer<AptosCoin>(treasury, who, POSTER_REWARD);
     }
 
-    public fun claim_poster_bonus(store_addr: address, claimant_addr: address, treasury: &signer, amount_octas: u64) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, claimant_addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, claimant_addr);
-        assert!(r.utp >= 2, E_INSUFFICIENT_REP);
-        assert!(!r.claimed_poster_bonus, E_ALREADY_CLAIMED);
-        r.claimed_poster_bonus = true;
-        coin::transfer<AptosCoin>(treasury, claimant_addr, amount_octas);
-    }
-
-    public fun dec_reviewer_half(store_addr: address, addr: address) acquires Store {
-        let s = borrow_global_mut<Store>(store_addr);
-        ensure_entry(s, addr);
-        let r = aptos_std::table::borrow_mut(&mut s.table, addr);
-        if (r.utr >= 1) r.utr = r.utr - 1 else r.utr = 0;
+    fun ensure_user(addr: address) acquires RepStore {
+        let store = borrow_global_mut<RepStore>(@job_work_board);
+        if (!table::contains(&store.table, addr)) {
+            table::add(&mut store.table, addr, Rep {
+                utr_x10: 0,
+                utf: 0,
+                utp: 0,
+                claimed_reviewer: false,
+                claimed_freelancer: false,
+                claimed_poster: false,
+            });
+        };
     }
 }
-
-

@@ -1,115 +1,187 @@
 module job_work_board::dispute {
     use std::vector;
+    use std::option;
+    use std::string::String;
     use aptos_framework::signer;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_std::table::{Self, Table};
     use job_work_board::role;
     use job_work_board::reputation;
+    use job_work_board::escrow;
 
-    const E_NOT_PARTY: u64 = 1;
-    const E_ALREADY_DECIDED: u64 = 2;
-    const E_NOT_REVIEWER: u64 = 3;
-    const E_DUPLICATE_VOTE: u64 = 4;
+    const OCTA: u64 = 100_000_000;
+    const MIN_REVIEWERS: u64 = 3;
+    const REVIEWER_STAKE: u64 = 1 * OCTA;
 
-    struct Vote has store { reviewer: address, support: bool }
+    enum DisputeStatus has copy, drop, store {
+        Open,
+        Voting,
+        Resolved
+    }
 
-    struct Dispute has store {
-        escrow_id: u64,
+    struct Vote has store {
+        reviewer: address,
+        choice: bool
+    }
+
+    struct Dispute has key, store {
+        id: u64,
+        job_id: u64,
+        milestone_id: u64,
         poster: address,
         freelancer: address,
-        evidence_cid: vector<u8>,
-        milestone_index: u64,
-        open: bool,
-        result: u8, // 0 undecided, 1 poster true, 2 freelancer true
+        evidence_cid: String,
+        status: DisputeStatus,
         votes: vector<Vote>,
-        reviewer_stakes: u64,
-        allowed_reviewers: vector<address>,
+        reviewer_stakes: coin::Coin<AptosCoin>,
     }
 
     struct DisputeStore has key {
-        table: aptos_std::table::Table<u64, Dispute>,
+        table: Table<u64, Dispute>,
+        next_dispute_id: u64
     }
 
-    public fun init(admin: &signer) {
-        if (!exists<DisputeStore>(signer::address_of(admin))) {
-            move_to(admin, DisputeStore { table: aptos_std::table::new<u64, Dispute>() });
-        }
+    fun init_module(admin: &signer) {
+        move_to(admin, DisputeStore {
+            table: table::new(),
+            next_dispute_id: 1
+        });
     }
 
-    public fun open(store_addr: address, poster: &signer, escrow_id: u64, freelancer: address, evidence_cid: vector<u8>) acquires DisputeStore {
-        let a = signer::address_of(poster);
-        let s = borrow_global_mut<DisputeStore>(store_addr);
-        // default milestone_index 0; the escrow will pass real index via a setter before voting
-        // choose top-3 reviewers by UTR (x2 scale), exclude poster/freelancer
-        let pool_addr = signer::address_of(poster);
-        let allowed = job_work_board::role::top_three_reviewers(store_addr, pool_addr, a, freelancer);
-        aptos_std::table::add(&mut s.table, escrow_id, Dispute { escrow_id, poster: a, freelancer, evidence_cid, milestone_index: 0, open: true, result: 0, votes: vector::empty<Vote>(), reviewer_stakes: 0, allowed_reviewers: allowed });
+    public entry fun open_dispute(
+        s: &signer,
+        job_id: u64,
+        milestone_id: u64,
+        evidence_cid: String
+    ) acquires DisputeStore {
+        let caller = signer::address_of(s);
+        let (poster_addr, freelancer_opt) = escrow::get_job_parties(job_id);
+        
+        assert!(caller == poster_addr, 1);
+        assert!(option::is_some(&freelancer_opt), 1);
+        let freelancer_addr = *option::borrow(&freelancer_opt);
+        
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute_id = store.next_dispute_id;
+        store.next_dispute_id = store.next_dispute_id + 1;
+
+        table::add(&mut store.table, dispute_id, Dispute {
+            id: dispute_id,
+            job_id,
+            milestone_id,
+            poster: poster_addr,
+            freelancer: freelancer_addr,
+            evidence_cid,
+            status: DisputeStatus::Open,
+            votes: vector::empty<Vote>(),
+            reviewer_stakes: coin::zero<AptosCoin>(),
+        });
+
+        escrow::lock_for_dispute(job_id, milestone_id, dispute_id);
     }
 
-    public fun set_milestone_index(store_addr: address, poster: &signer, escrow_id: u64, index: u64) acquires DisputeStore {
-        let a = signer::address_of(poster);
-        let s = borrow_global_mut<DisputeStore>(store_addr);
-        let d = aptos_std::table::borrow_mut(&mut s.table, escrow_id);
-        assert!(d.poster == a && d.open, E_ALREADY_DECIDED);
-        d.milestone_index = index;
+    public entry fun freelancer_accept(s: &signer, dispute_id: u64) acquires DisputeStore {
+        let freelancer_addr = signer::address_of(s);
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute = table::borrow_mut(&mut store.table, dispute_id);
+        
+        assert!(dispute.freelancer == freelancer_addr, 1);
+        assert!(dispute.status == DisputeStatus::Open, 1);
+        
+        dispute.status = DisputeStatus::Resolved;
+        escrow::resolve_dispute(dispute.job_id, dispute.milestone_id, false);
     }
 
-    public fun freelancer_response(store_addr: address, freelancer: &signer, escrow_id: u64, agree: bool) acquires DisputeStore {
-        let b = signer::address_of(freelancer);
-        let s = borrow_global_mut<DisputeStore>(store_addr);
-        let d = aptos_std::table::borrow_mut(&mut s.table, escrow_id);
-        assert!(d.freelancer == b, E_NOT_PARTY);
-        assert!(d.open && d.result == 0, E_ALREADY_DECIDED);
-        if (agree) {
-            // Poster wins immediately; escrow finalization will be called externally using this result
-            d.result = 1;
-            d.open = false;
-        } else {
-            // escalate to community review (no selection constraint here)
-        }
+    public entry fun freelancer_reject(s: &signer, dispute_id: u64) acquires DisputeStore {
+        let freelancer_addr = signer::address_of(s);
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute = table::borrow_mut(&mut store.table, dispute_id);
+        
+        assert!(dispute.freelancer == freelancer_addr, 1);
+        assert!(dispute.status == DisputeStatus::Open, 1);
+        
+        dispute.status = DisputeStatus::Voting;
     }
 
-    public fun reviewer_stake_and_vote(store_addr: address, reviewer: &signer, escrow_id: u64, support_poster: bool) acquires DisputeStore {
-        let r = signer::address_of(reviewer);
-        assert!(role::has_reviewer(r), E_NOT_REVIEWER);
-        let s = borrow_global_mut<DisputeStore>(store_addr);
-        let d = aptos_std::table::borrow_mut(&mut s.table, escrow_id);
-        assert!(d.open && d.result == 0, E_ALREADY_DECIDED);
-        // must be in allowed top-3
-        let ok = contains(&d.allowed_reviewers, r);
-        assert!(ok, E_NOT_REVIEWER);
-        // must have at least 1 UTR to participate
-        let (utr, _utf, _utp) = reputation::get(store_addr, r);
-        assert!(utr >= 1, E_NOT_REVIEWER);
-        // prevent duplicate vote
-        let n = vector::length(&d.votes);
+    public entry fun reviewer_stake_and_vote(
+        reviewer: &signer,
+        dispute_id: u64,
+        vote_choice: bool
+    ) acquires DisputeStore {
+        let reviewer_addr = signer::address_of(reviewer);
+        
+        assert!(role::has_reviewer(reviewer_addr), 1);
+        
+        let (utr_x10, _, _) = reputation::get(reviewer_addr);
+        assert!(utr_x10 >= 10, 1);
+
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute = table::borrow_mut(&mut store.table, dispute_id);
+        
+        assert!(dispute.status == DisputeStatus::Voting, 1);
+        assert!(reviewer_addr != dispute.poster && reviewer_addr != dispute.freelancer, 1);
+        
+        let votes_len = vector::length(&dispute.votes);
         let i = 0;
-        while (i < n) { let v = vector::borrow(&d.votes, i); if (v.reviewer == r) { abort E_DUPLICATE_VOTE; }; i = i + 1; };
-        // stake 1 APT
-        let c = coin::withdraw<AptosCoin>(reviewer, 100_000_000);
-        coin::deposit<AptosCoin>(r, c);
-        d.reviewer_stakes = d.reviewer_stakes + 100_000_000;
-        vector::push_back(&mut d.votes, Vote { reviewer: r, support: support_poster });
-        // finalize if 3 votes reached
-        if (vector::length(&d.votes) >= 3) {
-            let yes = 0; let total = 0; let m = vector::length(&d.votes); let j = 0;
-            while (j < m) { let v2 = vector::borrow(&d.votes, j); if (v2.support) yes = yes + 1; total = total + 1; j = j + 1; };
-            if (yes * 3 > total * 2) { d.result = 1; d.open = false; apply_reviewer_rewards(store_addr, &d.votes, true); }
-            else if ((total - yes) * 3 > total * 2) { d.result = 2; d.open = false; apply_reviewer_rewards(store_addr, &d.votes, false); };
-        }
-    }
-
-    fun contains(v: &vector<address>, a: address): bool { let n = vector::length(v); let i = 0; while (i < n) { if (*vector::borrow(v, i) == a) return true; i = i + 1; }; false }
-
-    fun apply_reviewer_rewards(store_addr: address, votes: &vector<Vote>, poster_won: bool) {
-        let n = vector::length(votes); let i = 0;
-        while (i < n) {
-            let v = vector::borrow(votes, i);
-            let on_winner = if (poster_won) { v.support } else { !v.support };
-            if (on_winner) { reputation::inc_reviewer(store_addr, v.reviewer, 2); } else { reputation::dec_reviewer_half(store_addr, v.reviewer); };
+        while (i < votes_len) {
+            let vote = vector::borrow(&dispute.votes, i);
+            if (vote.reviewer == reviewer_addr) {
+                abort 1
+            };
             i = i + 1;
         };
+
+        let stake = coin::withdraw<AptosCoin>(reviewer, REVIEWER_STAKE);
+        coin::merge(&mut dispute.reviewer_stakes, stake);
+
+        vector::push_back(&mut dispute.votes, Vote {
+            reviewer: reviewer_addr,
+            choice: vote_choice
+        });
+
+        dispute.status = DisputeStatus::Voting;
+
+        if (vector::length(&dispute.votes) >= MIN_REVIEWERS) {
+            tally_votes(dispute_id);
+        };
+    }
+
+    public fun tally_votes(dispute_id: u64) acquires DisputeStore {
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute = table::borrow_mut(&mut store.table, dispute_id);
+        
+        assert!(dispute.status != DisputeStatus::Resolved, 1);
+        
+        let total_votes = vector::length(&dispute.votes);
+        assert!(total_votes >= MIN_REVIEWERS, 1);
+
+        let freelancer_votes = 0;
+        let i = 0;
+        while (i < total_votes) {
+            if (vector::borrow(&dispute.votes, i).choice) {
+                freelancer_votes = freelancer_votes + 1;
+            };
+            i = i + 1;
+        };
+
+        let winner_is_freelancer = freelancer_votes * 3 > total_votes * 2;
+
+        i = 0;
+        while (i < total_votes) {
+            let vote = vector::borrow(&dispute.votes, i);
+            let reviewer = vote.reviewer;
+            let voted_for_freelancer = vote.choice;
+            
+            if (winner_is_freelancer == voted_for_freelancer) {
+                reputation::inc_utr(reviewer, 10);
+            } else {
+                reputation::change_utr(reviewer, 5);
+            };
+            i = i + 1;
+        };
+
+        escrow::resolve_dispute(dispute.job_id, dispute.milestone_id, winner_is_freelancer);
+        dispute.status = DisputeStatus::Resolved;
     }
 }
-
-
