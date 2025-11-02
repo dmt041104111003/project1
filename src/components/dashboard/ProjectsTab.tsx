@@ -20,35 +20,52 @@ export const ProjectsTab: React.FC = () => {
   const { account } = useWallet();
   const [loading, setLoading] = useState(false);
   const [hasPosterRole, setHasPosterRole] = useState(false);
+  const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeTab, setActiveTab] = useState<'posted' | 'applied'>('posted');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  // Check if user has poster role
+  // Check user roles
   useEffect(() => {
-    if (!account) return;
-    const checkRole = async () => {
+    if (!account) {
+      setHasPosterRole(false);
+      setHasFreelancerRole(false);
+      return;
+    }
+    const checkRoles = async () => {
       try {
         const res = await fetch(`/api/role?address=${encodeURIComponent(account)}`);
         if (!res.ok) {
           setHasPosterRole(false);
+          setHasFreelancerRole(false);
           return;
         }
         const data = await res.json();
         const rolesData = data.roles || [];
-        const hasPoster = rolesData.some((r: any) => r.name === 'poster');
-        setHasPosterRole(hasPoster);
+        setHasPosterRole(rolesData.some((r: any) => r.name === 'poster'));
+        setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
       } catch {
         setHasPosterRole(false);
+        setHasFreelancerRole(false);
       }
     };
-    checkRole();
+    checkRoles();
   }, [account]);
 
   // Fetch jobs from table
   const fetchJobs = async () => {
-    if (!account || !hasPosterRole) {
+    if (!account) {
+      setJobs([]);
+      return;
+    }
+
+    // Check role for current tab
+    if (activeTab === 'posted' && !hasPosterRole) {
+      setJobs([]);
+      return;
+    }
+    if (activeTab === 'applied' && !hasFreelancerRole) {
       setJobs([]);
       return;
     }
@@ -83,10 +100,10 @@ export const ProjectsTab: React.FC = () => {
   };
 
   useEffect(() => {
-    if (account && hasPosterRole) {
+    if (account) {
       fetchJobs();
     }
-  }, [account, hasPosterRole, activeTab]);
+  }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
   if (!account) {
     return (
@@ -96,17 +113,8 @@ export const ProjectsTab: React.FC = () => {
     );
   }
 
-  if (!hasPosterRole) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-20">
-        <Card variant="outlined" className="p-8">
-          <h2 className="text-2xl font-bold text-blue-800 mb-4">Dự Án</h2>
-          <p className="text-gray-700 mb-4">Bạn cần có role Poster để xem dự án của mình.</p>
-          <p className="text-sm text-gray-600">Vui lòng đăng ký role Poster trong trang Role.</p>
-        </Card>
-      </div>
-    );
-  }
+  // Show tabs if user has at least one role
+  const hasAnyRole = hasPosterRole || hasFreelancerRole;
 
   const displayedJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
@@ -130,7 +138,9 @@ export const ProjectsTab: React.FC = () => {
               activeTab === 'posted'
                 ? 'bg-blue-800 text-white border-b-2 border-blue-800'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            } ${!hasPosterRole ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!hasPosterRole}
+            title={!hasPosterRole ? 'Bạn cần có role Poster' : ''}
           >
             Jobs Đã Đăng ({jobs.filter(j => j.poster?.toLowerCase() === account?.toLowerCase()).length})
           </button>
@@ -143,7 +153,9 @@ export const ProjectsTab: React.FC = () => {
               activeTab === 'applied'
                 ? 'bg-blue-800 text-white border-b-2 border-blue-800'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            } ${!hasFreelancerRole ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!hasFreelancerRole}
+            title={!hasFreelancerRole ? 'Bạn cần có role Freelancer' : ''}
           >
             Jobs Đã Apply ({jobs.filter(j => j.freelancer?.toLowerCase() === account?.toLowerCase()).length})
           </button>
@@ -166,6 +178,16 @@ export const ProjectsTab: React.FC = () => {
           {loading && jobs.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-700">Đang tải dự án...</p>
+            </div>
+          ) : (activeTab === 'posted' && !hasPosterRole) ? (
+            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
+              <p className="text-gray-700 mb-2">Bạn cần có role Poster để xem jobs đã đăng.</p>
+              <p className="text-sm text-gray-600">Vui lòng đăng ký role Poster trong trang Role.</p>
+            </div>
+          ) : (activeTab === 'applied' && !hasFreelancerRole) ? (
+            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
+              <p className="text-gray-700 mb-2">Bạn cần có role Freelancer để xem jobs đã apply.</p>
+              <p className="text-sm text-gray-600">Vui lòng đăng ký role Freelancer trong trang Role.</p>
             </div>
           ) : displayedJobs.length === 0 ? (
             <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">

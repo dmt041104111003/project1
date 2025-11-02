@@ -139,6 +139,9 @@ module job_work_board::escrow {
         let store = borrow_global_mut<EscrowStore>(@job_work_board);
         let job = table::borrow_mut(&mut store.table, job_id);
         
+        // Cannot apply to own job
+        assert!(freelancer_addr != job.poster, 3);
+        
         let now = timestamp::now_seconds();
         assert!(now <= job.apply_deadline, 2);  // E_APPLY_DEADLINE_PASSED
         assert!(option::is_none(&job.freelancer), 1);
