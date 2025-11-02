@@ -337,9 +337,18 @@ export const JobDetailContent: React.FC = () => {
                 }
                 
                 const isPosted = stateStr === 'Posted';
+                const isCancelled = stateStr === 'Cancelled';
                 const isExpired = jobData.apply_deadline && Number(jobData.apply_deadline) * 1000 < Date.now();
                 
-                console.log('[JobDetailContent] Apply button check:', { stateStr, isPosted, hasFreelancer, isExpired, applyDeadline: jobData.apply_deadline });
+                console.log('[JobDetailContent] Apply button check:', { stateStr, isPosted, isCancelled, hasFreelancer, isExpired, applyDeadline: jobData.apply_deadline });
+                
+                if (isCancelled) {
+                  return (
+                    <div className="text-center">
+                      <p className="text-sm text-red-700 font-bold">Job đã bị hủy, không thể apply</p>
+                    </div>
+                  );
+                }
                 
                 if (!isPosted) {
                   return (
@@ -368,7 +377,7 @@ export const JobDetailContent: React.FC = () => {
                 return (
                   <Button
                     onClick={handleApply}
-                    disabled={applying}
+                    disabled={applying || isCancelled}
                     size="lg"
                     className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
                   >

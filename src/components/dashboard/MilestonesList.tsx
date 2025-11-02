@@ -35,6 +35,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [evidenceCids, setEvidenceCids] = useState<Record<number, string>>({});
   const [uploadingFiles, setUploadingFiles] = useState<Record<number, boolean>>({});
   const [selectedFiles, setSelectedFiles] = useState<Record<number, File | null>>({});
@@ -42,6 +45,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const canInteract = jobState === 'InProgress' || jobState === 'Posted';
+  const isCancelled = jobState === 'Cancelled';
 
   // Parse milestone status from Move enum
   const parseStatus = (status: any): string => {
@@ -214,49 +218,222 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     }
   };
 
+  const handleClaimTimeout = async (milestoneId: number) => {
+    if (!account || !isPoster) return;
+
+    toast.warning('Bạn có chắc muốn claim timeout? Freelancer sẽ mất stake và job sẽ mở lại cho người khác apply.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setClaimingId(milestoneId);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'claim_timeout',
+                job_id: jobId,
+                milestone_id: milestoneId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Claim timeout thành công! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Claim timeout error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setClaimingId(null);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
   const handleRejectMilestone = async (milestoneId: number) => {
     if (!account || !isPoster) return;
 
-    if (!confirm('Bạn có chắc muốn reject milestone này? Việc này sẽ mở dispute.')) {
-      return;
-    }
+    toast.warning('Bạn có chắc muốn reject milestone này? Việc này sẽ mở dispute.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setRejectingId(milestoneId);
 
-    try {
-      setRejectingId(milestoneId);
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'reject_milestone',
+                job_id: jobId,
+                milestone_id: milestoneId
+              })
+            });
 
-      const res = await fetch('/api/job', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'reject_milestone',
-          job_id: jobId,
-          milestone_id: milestoneId
-        })
-      });
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
 
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
 
-      const wallet = (window as any).aptos;
-      if (!wallet) throw new Error('Wallet not found');
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
 
-      const tx = await wallet.signAndSubmitTransaction({
-        type: "entry_function_payload",
-        function: payload.function,
-        type_arguments: payload.type_args || [],
-        arguments: payload.args
-      });
+            toast.success(`Reject milestone thành công! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Reject error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setRejectingId(null);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
 
-      toast.success(`Reject milestone thành công! TX: ${tx?.hash || 'N/A'}`);
-      setTimeout(() => {
-        if (onUpdate) onUpdate();
-      }, 2000);
-    } catch (err: any) {
-      console.error('[MilestonesList] Reject error:', err);
-      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setRejectingId(null);
-    }
+  const handleMutualCancel = async () => {
+    if (!account || !isPoster || !freelancer) return;
+
+    toast.warning('Bạn có chắc muốn đồng thuận hủy job? Poster sẽ nhận escrow, cả 2 stake sẽ về freelancer.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setCancelling(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'mutual_cancel',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            toast.info('Freelancer cũng cần ký transaction này. Vui lòng thông báo cho freelancer.', {
+              duration: 5000
+            });
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Mutual cancel transaction đã được gửi! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Mutual cancel error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setCancelling(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
+  };
+
+  const handleFreelancerWithdraw = async () => {
+    if (!account || !isFreelancer) return;
+
+    toast.warning('Bạn có chắc muốn rút? Bạn sẽ mất stake (1 APT) và job sẽ mở lại cho freelancer khác.', {
+      action: {
+        label: 'Xác nhận',
+        onClick: async () => {
+          try {
+            setWithdrawing(true);
+
+            const res = await fetch('/api/job', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'freelancer_withdraw',
+                job_id: jobId
+              })
+            });
+
+            const payload = await res.json();
+            if (payload.error) throw new Error(payload.error);
+
+            const wallet = (window as any).aptos;
+            if (!wallet) throw new Error('Wallet not found');
+
+            toast.info('Poster cũng cần ký transaction này. Vui lòng thông báo cho poster.', {
+              duration: 5000
+            });
+
+            const tx = await wallet.signAndSubmitTransaction({
+              type: "entry_function_payload",
+              function: payload.function,
+              type_arguments: payload.type_args || [],
+              arguments: payload.args
+            });
+
+            toast.success(`Freelancer withdraw transaction đã được gửi! TX: ${tx?.hash || 'N/A'}`);
+            setTimeout(() => {
+              if (onUpdate) onUpdate();
+            }, 2000);
+          } catch (err: any) {
+            console.error('[MilestonesList] Freelancer withdraw error:', err);
+            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+          } finally {
+            setWithdrawing(false);
+          }
+        }
+      },
+      cancel: {
+        label: 'Hủy',
+        onClick: () => {}
+      },
+      duration: 10000
+    });
   };
 
   if (!milestones || milestones.length === 0) {
@@ -386,13 +563,27 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
                   </>
                 )}
 
+                {isPoster && isOverdue && isPending && canInteract && !isCancelled && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleClaimTimeout(Number(milestone.id))}
+                    disabled={claimingId === Number(milestone.id) || isCancelled}
+                    className="bg-orange-600 text-black hover:bg-orange-700 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {claimingId === Number(milestone.id) ? 'Đang claim...' : 'Claim Timeout (Nhận stake freelancer)'}
+                  </Button>
+                )}
+                {isPoster && isCancelled && (
+                  <span className="text-xs text-orange-700 font-bold">✓ Đã claim timeout, job đã bị hủy</span>
+                )}
+
                 {isPoster && isSubmitted && canInteract && (
                   <>
                     <Button
                       size="sm"
                       onClick={() => handleConfirmMilestone(Number(milestone.id))}
                       disabled={confirmingId === Number(milestone.id)}
-                      className="bg-green-600 text-white hover:bg-green-700 text-xs px-3 py-1"
+                      className="bg-green-600 text-black hover:bg-green-700 text-xs px-3 py-1"
                     >
                       {confirmingId === Number(milestone.id) ? 'Đang confirm...' : 'Confirm'}
                     </Button>
@@ -419,6 +610,35 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             </div>
           );
         })}
+        
+        {/* TH3: Cancel Job Actions */}
+        {canInteract && !isCancelled && freelancer && (
+          <div className="mt-4 p-3 border-2 border-orange-300 bg-orange-50 rounded">
+            <h5 className="text-sm font-bold text-orange-800 mb-2">Dừng dự án</h5>
+            <div className="flex gap-2 flex-wrap">
+              {isPoster && (
+                <Button
+                  size="sm"
+                  onClick={() => handleMutualCancel()}
+                  disabled={cancelling}
+                  className="bg-blue-600 text-black  hover:bg-blue-700 text-xs px-3 py-1"
+                >
+                  {cancelling ? 'Đang xử lý...' : 'Đồng thuận hủy (Mutual Cancel)'}
+                </Button>
+              )}
+              {isFreelancer && (
+                <Button
+                  size="sm"
+                  onClick={() => handleFreelancerWithdraw()}
+                  disabled={withdrawing}
+                  className="bg-red-600 text-black hover:text-white hover:bg-red-700 text-xs px-3 py-1"
+                >
+                  {withdrawing ? 'Đang xử lý...' : 'Xin rút (Mất stake)'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -6,6 +6,7 @@ module job_work_board::escrow {
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::timestamp;
+    use aptos_framework::account;
     use aptos_std::table::{Self, Table};
     use job_work_board::role;
     use job_work_board::reputation;
@@ -62,13 +63,23 @@ module job_work_board::escrow {
 
     struct EscrowStore has key {
         table: Table<u64, Job>,
-        next_job_id: u64
+        next_job_id: u64,
+        events: aptos_framework::event::EventHandle<ClaimTimeoutEvent>
+    }
+
+    struct ClaimTimeoutEvent has drop, store {
+        job_id: u64,
+        milestone_id: u64,
+        claimed_by: address,
+        claimed_at: u64,
+        freelancer_stake_claimed: u64
     }
 
     fun init_module(admin: &signer) {
         move_to(admin, EscrowStore {
             table: table::new(),
-            next_job_id: 1
+            next_job_id: 1,
+            events: account::new_event_handle<ClaimTimeoutEvent>(admin)
         });
     }
 
@@ -326,13 +337,28 @@ module job_work_board::escrow {
 
         if (milestone.status == MilestoneStatus::Pending) {
             assert!(job.poster == caller, 1);
+            assert!(job.state != JobState::Cancelled, 1);  // Prevent claiming again
+            
+            let stake_claimed = job.freelancer_stake;
             if (job.freelancer_stake > 0) {
                 let penalty = coin::extract(&mut job.stake_pool, job.freelancer_stake);
                 coin::deposit(caller, penalty);
                 job.freelancer_stake = 0;
             };
             job.freelancer = option::none();
-            job.state = JobState::Posted;
+            job.state = JobState::Cancelled;
+            
+            // Emit event for history tracking
+            aptos_framework::event::emit_event(
+                &mut store.events,
+                ClaimTimeoutEvent {
+                    job_id,
+                    milestone_id,
+                    claimed_by: caller,
+                    claimed_at: now,
+                    freelancer_stake_claimed: stake_claimed
+                }
+            );
         } else if (milestone.status == MilestoneStatus::Submitted) {
             assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == caller, 1);
             milestone.status = MilestoneStatus::Accepted;
@@ -396,7 +422,18 @@ module job_work_board::escrow {
 
         let refund = coin::extract_all(&mut job.job_funds);
         coin::deposit(poster_addr, refund);
-        return_stakes(job);
+
+        if (job.poster_stake > 0) {
+            let poster_stake_back = coin::extract(&mut job.stake_pool, job.poster_stake);
+            coin::deposit(freelancer_addr, poster_stake_back);
+            job.poster_stake = 0;
+        };
+        if (job.freelancer_stake > 0) {
+            let freelancer_stake_back = coin::extract(&mut job.stake_pool, job.freelancer_stake);
+            coin::deposit(freelancer_addr, freelancer_stake_back);
+            job.freelancer_stake = 0;
+        };
+        
         job.freelancer = option::none();
         job.state = JobState::Cancelled;
     }
@@ -417,6 +454,20 @@ module job_work_board::escrow {
         };
         job.freelancer = option::none();
         job.state = JobState::Posted;
+        job.started_at = option::none();
+        
+        // Reset milestone deadlines and status
+        let len = vector::length(&job.milestones);
+        let i = 0;
+        while (i < len) {
+            let milestone = vector::borrow_mut(&mut job.milestones, i);
+            if (milestone.status != MilestoneStatus::Accepted) {
+                milestone.status = MilestoneStatus::Pending;
+                milestone.deadline = 0;
+                milestone.evidence_cid = option::none();
+            };
+            i = i + 1;
+        };
     }
 
     public(friend) fun lock_for_dispute(job_id: u64, _milestone_id: u64, dispute_id: u64) acquires EscrowStore {
