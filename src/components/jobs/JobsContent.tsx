@@ -30,7 +30,7 @@ export const JobsContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const res = await fetch('/api/job?list=true');
+        const res = await fetch('/api/job/list');
         const data = await res.json();
         
         if (!res.ok) {

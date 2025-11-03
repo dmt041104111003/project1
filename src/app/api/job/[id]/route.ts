@@ -1,50 +1,13 @@
 import { NextResponse } from "next/server";
-import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress, parseMilestoneStatus } from "./utils";
+import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress, parseMilestoneStatus } from "../utils";
 
-// GET: Query job data from table
-export async function GET(req: Request) {
+export async function GET(
+	req: Request,
+	{ params }: { params: { id: string } }
+) {
 	try {
-		const url = new URL(req.url);
-		const jobId = url.searchParams.get("job_id");
-		const list = url.searchParams.get("list");
+		const jobId = params.id;
 		
-		// List all jobs
-		if (list === "true") {
-			console.log(`[API] Listing jobs`);
-			const store = await getTableHandle();
-			if (!store) {
-				return NextResponse.json({ error: "EscrowStore not found" }, { status: 404 });
-			}
-
-			const jobs = [];
-			const maxScan = Math.min(store.nextJobId, 200);
-			
-			for (let id = 1; id < maxScan; id++) {
-				const jobData = await queryJobFromTable(store.handle, id);
-				if (jobData) {
-					const stateStr = parseState(jobData?.state);
-					const freelancer = parseOptionAddress(jobData?.freelancer);
-					const milestones = jobData?.milestones || [];
-					
-					const job = {
-						id,
-						cid: jobData?.cid || "",
-						total_amount: Number(jobData?.total_escrow || 0),
-						milestones_count: milestones.length,
-						has_freelancer: !!freelancer,
-						state: stateStr,
-						poster: jobData?.poster,
-						freelancer,
-						apply_deadline: jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined
-					};
-					jobs.push(job);
-				}
-			}
-
-			return NextResponse.json({ jobs });
-		}
-
-		// Query single job
 		if (!jobId) {
 			return NextResponse.json({ error: "job_id required" }, { status: 400 });
 		}
@@ -65,14 +28,26 @@ export async function GET(req: Request) {
 		const mutualCancelRequestedBy = parseOptionAddress(jobData?.mutual_cancel_requested_by);
 		const freelancerWithdrawRequestedBy = parseOptionAddress(jobData?.freelancer_withdraw_requested_by);
 
+		const parseEvidenceCid = (evidence: any): string | null => {
+			if (!evidence) return null;
+			if (typeof evidence === 'string') return evidence;
+			if (evidence.vec && Array.isArray(evidence.vec) && evidence.vec.length > 0) {
+				return evidence.vec[0];
+			}
+			return null;
+		};
+
 		const milestones = (jobData?.milestones || []).map((m: any) => {
 			const statusStr = parseMilestoneStatus(m?.status);
 			return {
 				id: String(m?.id || 0),
 				amount: String(m?.amount || 0),
+				duration: String(m?.duration || 0),
 				deadline: String(m?.deadline || 0),
+				review_period: String(m?.review_period || 0),
+				review_deadline: String(m?.review_deadline || 0),
 				status: statusStr,
-				evidence_cid: m?.evidence_cid || null
+				evidence_cid: parseEvidenceCid(m?.evidence_cid)
 			};
 		});
 
@@ -96,3 +71,4 @@ export async function GET(req: Request) {
 		return NextResponse.json({ error: error?.message || "Failed to fetch job" }, { status: 500 });
 	}
 }
+

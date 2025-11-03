@@ -7,7 +7,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 
-interface Milestone { amount: string; duration: string; unit: string; }
+interface Milestone { 
+  amount: string; 
+  duration: string; 
+  unit: string;
+  reviewPeriod: string;
+  reviewUnit: string;
+}
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
@@ -38,7 +44,13 @@ export const PostJobTab: React.FC = () => {
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<Milestone[]>([]);
   const [currentSkill, setCurrentSkill] = useState('');
-  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({amount: '', duration: '', unit: 'ngày'});
+  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({
+    amount: '', 
+    duration: '', 
+    unit: 'ngày',
+    reviewPeriod: '7',
+    reviewUnit: 'ngày'
+  });
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
 
@@ -58,11 +70,19 @@ export const PostJobTab: React.FC = () => {
   };
   const removeSkill = (index: number) => setSkillsList(prev => prev.filter((_, i) => i !== index));
   const addMilestone = () => {
-    if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim()) return;
+    if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim() || !currentMilestone.reviewPeriod.trim()) return;
     const amount = parseFloat(currentMilestone.amount);
     if (amount <= 0) return alert('Số tiền phải lớn hơn 0');
+    const reviewPeriod = parseFloat(currentMilestone.reviewPeriod);
+    if (reviewPeriod <= 0) return alert('Thời gian review phải lớn hơn 0');
     setMilestonesList(prev => [...prev, currentMilestone]);
-    setCurrentMilestone({amount: '', duration: '', unit: 'ngày'});
+    setCurrentMilestone({
+      amount: '', 
+      duration: '', 
+      unit: 'ngày',
+      reviewPeriod: '7',
+      reviewUnit: 'ngày'
+    });
   };
   const removeMilestone = (index: number) => setMilestonesList(prev => prev.filter((_, i) => i !== index));
   const calculateTotalBudget = () => milestonesList.reduce((total, milestone) => total + (parseFloat(milestone.amount) || 0), 0);
@@ -79,7 +99,13 @@ export const PostJobTab: React.FC = () => {
     if (Array.isArray(data.requirements)) setSkillsList(data.requirements);
     if (data.deadline) setJobDuration((data.deadline / (24 * 60 * 60)).toString());
     if (Array.isArray(data.milestones)) {
-      setMilestonesList(data.milestones.map((m: any) => ({ amount: m.amount?.toString() || '', duration: m.duration?.toString() || '', unit: m.unit || 'ngày' })));
+      setMilestonesList(data.milestones.map((m: any) => ({ 
+        amount: m.amount?.toString() || '', 
+        duration: m.duration?.toString() || '', 
+        unit: m.unit || 'ngày',
+        reviewPeriod: m.reviewPeriod?.toString() || '7',
+        reviewUnit: m.reviewUnit || 'ngày'
+      })));
     }
     setInputMode('manual');
   };
@@ -118,7 +144,6 @@ export const PostJobTab: React.FC = () => {
     try {
       setJobResult('Đang tạo job...');
       
-      // Upload job details to IPFS
       const ipfsRes = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,17 +153,17 @@ export const PostJobTab: React.FC = () => {
       if (!ipfsData.success) throw new Error(ipfsData.error);
       const jobDetailsCid = ipfsData.encCid || ipfsData.ipfsHash;
       
-      // Convert milestones to contract format
       const contractMilestones = milestonesList.map(m => Math.floor(parseFloat(m.amount) * APT_TO_UNITS));
       const contractMilestoneDurations = milestonesList.map(m => 
         (parseFloat(m.duration) || 0) * (TIME_MULTIPLIERS[m.unit as keyof typeof TIME_MULTIPLIERS] || 1)
       );
+      const contractMilestoneReviewPeriods = milestonesList.map(m => 
+        (parseFloat(m.reviewPeriod) || 0) * (TIME_MULTIPLIERS[m.reviewUnit as keyof typeof TIME_MULTIPLIERS] || 1)
+      );
       
-      // Calculate apply deadline timestamp (days from now)
       const applyDeadlineDays = parseFloat(jobDuration) || 7;
       const applyDeadlineTimestamp = Math.floor(Date.now() / 1000) + (applyDeadlineDays * 24 * 60 * 60);
       
-      // Get transaction payload from API
       const apiRes = await fetch('/api/job/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,13 +171,13 @@ export const PostJobTab: React.FC = () => {
           job_details_cid: jobDetailsCid, 
           milestones: contractMilestones, 
           milestone_durations: contractMilestoneDurations,
+          milestone_review_periods: contractMilestoneReviewPeriods,
           apply_deadline: applyDeadlineTimestamp
         })
       });
       const payload = await apiRes.json();
       if (payload.error) throw new Error(payload.error);
       
-      // Sign and submit transaction
       setJobResult('Đang ký transaction...');
       const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction({
         type: "entry_function_payload",

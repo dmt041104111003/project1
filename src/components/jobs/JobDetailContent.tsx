@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
+import { JobIPFSContent } from './JobIPFSContent';
+import { JobSidebar } from './JobSidebar';
 
 export const JobDetailContent: React.FC = () => {
   const params = useParams();
@@ -27,8 +28,7 @@ export const JobDetailContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Get job from table first to get CID
-        const jobRes = await fetch(`/api/job?job_id=${jobId}`);
+        const jobRes = await fetch(`/api/job/${jobId}`);
         if (!jobRes.ok) {
           throw new Error('Job not found');
         }
@@ -40,10 +40,8 @@ export const JobDetailContent: React.FC = () => {
           throw new Error('Job CID not found');
         }
         
-        // Store job data (including apply_deadline)
         setJobData(jobResData.job);
         
-        // Fetch IPFS data using CID directly
         const res = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(cid)}`);
         const data = await res.json();
         
@@ -91,11 +89,10 @@ export const JobDetailContent: React.FC = () => {
       setApplying(true);
       
       // Get transaction payload from API
-      const res = await fetch('/api/job', {
+      const res = await fetch('/api/job/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'apply',
           job_id: Number(jobId)
         })
       });
@@ -168,254 +165,147 @@ export const JobDetailContent: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content - IPFS Data */}
-        <div className="lg:col-span-2">
-          <Card variant="outlined" className="p-8">
-            {jobDetails ? (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-blue-800 mb-2">
-                    {String(jobDetails.title || 'Untitled Job')}
-                  </h2>
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {String(jobDetails.description || 'No description provided')}
-                  </p>
-                </div>
-                {(jobDetails as any).requirements && (
-                  <div>
-                    <h3 className="text-lg font-bold text-blue-800 mb-2">Requirements</h3>
-                    <p className="text-gray-700 whitespace-pre-wrap">
-                      {Array.isArray((jobDetails as any).requirements)
-                        ? (jobDetails as any).requirements.join(', ')
-                        : String((jobDetails as any).requirements)}
-                    </p>
-                  </div>
-                )}
-                {(jobDetails as any).budget && (
-                  <div>
-                    <h3 className="text-lg font-bold text-blue-800 mb-2">Budget</h3>
-                    <p className="text-gray-700">{String((jobDetails as any).budget)}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600">Job details not available</p>
-              </div>
-            )}
-          </Card>
-        </div>
+        <div className="lg:col-span-2 space-y-6">
+          <JobIPFSContent jobDetails={jobDetails} />
+          {jobData?.milestones && Array.isArray(jobData.milestones) && jobData.milestones.length > 0 && (
+            <div className="bg-white border-2 border-gray-400 rounded-lg p-6">
+              <h2 className="text-xl font-bold text-blue-800 mb-4">Cột mốc dự án ({jobData.milestones.length})</h2>
+              <div className="space-y-4">
+                {jobData.milestones.map((milestone: any, index: number) => {
+                  const amount = Number(milestone.amount || 0) / 100_000_000;
+                  const duration = Number(milestone.duration || 0);
+                  const reviewPeriod = Number(milestone.review_period || 0);
+                  const deadline = Number(milestone.deadline || 0);
+                  const reviewDeadline = Number(milestone.review_deadline || 0);
+                  
+                  const formatSeconds = (seconds: number) => {
+                    if (!seconds) return 'N/A';
+                    const days = Math.floor(seconds / 86400);
+                    const hours = Math.floor((seconds % 86400) / 3600);
+                    if (days > 0) return `${days} ngày${hours > 0 ? ` ${hours} giờ` : ''}`;
+                    if (hours > 0) return `${hours} giờ`;
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    return minutes > 0 ? `${minutes} phút` : `${seconds} giây`;
+                  };
 
-        {/* Sidebar - Blockchain Data */}
-        <div className="space-y-6">
-          <Card variant="outlined" className="p-6">
-            <h3 className="text-lg font-bold text-blue-800 mb-4">Thông tin Job</h3>
-            <div className="space-y-4">
-              {jobData?.total_escrow && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Tổng giá trị</div>
-                  <div className="text-sm font-bold text-gray-900">
-                    {(Number(jobData.total_escrow) / 100_000_000).toFixed(2)} APT
-                  </div>
-                </div>
-              )}
-              {jobData?.milestones && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Số cột mốc</div>
-                  <div className="text-sm font-bold text-gray-900">
-                    {Array.isArray(jobData.milestones) ? jobData.milestones.length : 0}
-                  </div>
-                </div>
-              )}
-              {jobData?.state && (() => {
-                // Parse state similar to apply button logic
-                let stateStr = 'Posted';
-                if (typeof jobData.state === 'string') {
-                  stateStr = jobData.state;
-                } else if (jobData.state && typeof jobData.state === 'object') {
-                  if (jobData.state.vec && Array.isArray(jobData.state.vec) && jobData.state.vec.length > 0) {
-                    stateStr = String(jobData.state.vec[0]);
-                  } else if (jobData.state.__variant__) {
-                    stateStr = String(jobData.state.__variant__);
-                  }
-                }
-                
-                // Check if user is freelancer of this job
-                let isFreelancerOfJob = false;
-                if (account && jobData.freelancer) {
-                  const freelancerAddr = typeof jobData.freelancer === 'string' 
-                    ? jobData.freelancer 
-                    : (jobData.freelancer?.vec && jobData.freelancer.vec[0]) || null;
-                  if (freelancerAddr) {
-                    isFreelancerOfJob = account.toLowerCase() === freelancerAddr.toLowerCase();
-                  }
-                }
-                
-                // Only show "Cancelled" to the freelancer, others see "Open"
-                const displayState = (stateStr === 'Cancelled' && !isFreelancerOfJob) ? 'Posted' : stateStr;
-                const displayText = displayState === 'Posted' ? 'Open' :
-                                    displayState === 'InProgress' ? 'In Progress' :
-                                    displayState === 'Completed' ? 'Completed' :
-                                    displayState === 'Disputed' ? 'Disputed' :
-                                    displayState === 'Cancelled' ? 'Cancelled' :
-                                    displayState || 'Active';
-                
-                return (
-                  <div>
-                    <div className="text-xs text-gray-600 mb-1">Trạng thái</div>
-                    <div>
-                      <span className={`px-2 py-1 text-xs font-bold border-2 ${
-                        displayState === 'Cancelled' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                        displayState === 'Posted' ? 'bg-green-100 text-green-800 border-green-300' :
-                        displayState === 'InProgress' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                        displayState === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-300' :
-                        displayState === 'Disputed' ? 'bg-red-100 text-red-800 border-red-300' :
-                        'bg-gray-100 text-gray-800 border-gray-300'
-                      }`}>
-                        {displayText}
-                      </span>
+                  const formatDeadline = (timestamp: number) => {
+                    if (!timestamp) return 'Chưa set';
+                    const date = new Date(timestamp * 1000);
+                    return date.toLocaleString('vi-VN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  };
+
+                  const getStatusColor = (status: any) => {
+                    const statusStr = typeof status === 'string' ? status : 
+                      (status?.vec && Array.isArray(status.vec) && status.vec.length > 0 ? String(status.vec[0]) : 
+                      (status?.__variant__ ? String(status.__variant__) : 'Pending'));
+                    switch (statusStr) {
+                      case 'Accepted': return 'bg-green-100 text-green-800 border-green-300';
+                      case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-300';
+                      case 'Locked': return 'bg-red-100 text-red-800 border-red-300';
+                      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                    }
+                  };
+
+                  const parseEvidenceCid = (evidence: any): string | null => {
+                    if (!evidence) return null;
+                    if (typeof evidence === 'string') return evidence;
+                    if (evidence.vec && Array.isArray(evidence.vec) && evidence.vec.length > 0) {
+                      return evidence.vec[0];
+                    }
+                    return null;
+                  };
+
+                  const parseStatus = (status: any): string => {
+                    if (typeof status === 'string') return status;
+                    if (status?.vec && Array.isArray(status.vec) && status.vec.length > 0) {
+                      return String(status.vec[0]);
+                    }
+                    if (status?.__variant__) return String(status.__variant__);
+                    return 'Pending';
+                  };
+
+                  const statusStr = parseStatus(milestone.status);
+                  const evidenceCidStr = parseEvidenceCid(milestone.evidence_cid);
+
+                  return (
+                    <div key={index} className="border-2 border-gray-300 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-bold text-lg text-gray-900">
+                            Milestone {index + 1}
+                          </h3>
+                          <span className={`inline-block px-2 py-1 text-xs font-bold border-2 rounded ${getStatusColor(statusStr)}`}>
+                            {statusStr}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-blue-800">
+                            {amount.toFixed(3)} APT
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Thời gian hoàn thành</div>
+                          <div className="font-medium text-gray-900">
+                            {formatSeconds(duration)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Thời gian review</div>
+                          <div className="font-medium text-gray-900">
+                            {formatSeconds(reviewPeriod)}
+                          </div>
+                        </div>
+                        {deadline > 0 && (
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Deadline hoàn thành</div>
+                            <div className={`font-medium ${deadline * 1000 < Date.now() && statusStr !== 'Accepted' ? 'text-red-600' : 'text-gray-900'}`}>
+                              {formatDeadline(deadline)}
+                              {deadline * 1000 < Date.now() && statusStr !== 'Accepted' && ' (Quá hạn)'}
+                            </div>
+                          </div>
+                        )}
+                        {reviewDeadline > 0 && (
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Deadline review</div>
+                            <div className={`font-medium ${reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' ? 'text-orange-600' : 'text-gray-900'}`}>
+                              {formatDeadline(reviewDeadline)}
+                              {reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' && ' (Có thể claim timeout)'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {evidenceCidStr && (
+                        <div className="mt-3 pt-3 border-t border-gray-300">
+                          <div className="text-xs text-gray-600 mb-1">Evidence CID</div>
+                          <div className="text-xs font-mono text-gray-700 break-all">
+                            {evidenceCidStr}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })()}
-              {jobData?.poster && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Người đăng</div>
-                  <div className="text-xs font-mono text-gray-700 break-all">
-                    {jobData.poster}
-                  </div>
-                </div>
-              )}
-              {jobData?.freelancer && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Freelancer</div>
-                  <div className="text-xs font-mono text-gray-700 break-all">
-                    {typeof jobData.freelancer === 'string' 
-                      ? jobData.freelancer
-                      : (jobData.freelancer?.vec && jobData.freelancer.vec[0]) || 'Chưa có'}
-                  </div>
-                </div>
-              )}
-              {jobData?.apply_deadline && (
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Hạn đăng ký</div>
-                  <div className={`text-sm font-bold ${
-                    Number(jobData.apply_deadline) * 1000 < Date.now() ? 'text-red-600' : 'text-gray-900'
-                  }`}>
-                    {(() => {
-                      const deadline = Number(jobData.apply_deadline);
-                      const date = new Date(deadline * 1000);
-                      const isExpired = deadline * 1000 < Date.now();
-                      return (
-                        <>
-                          {date.toLocaleString('vi-VN', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                          {isExpired && ' (Hết hạn)'}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
-          </Card>
-
-          {/* Apply Button */}
-          {jobData && (
-            <Card variant="outlined" className="p-6 bg-white">
-              {!account ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-900 mb-2 font-medium">Vui lòng kết nối wallet để apply</p>
-                </div>
-              ) : !hasFreelancerRole ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-red-700 mb-2 font-bold">Bạn cần có role Freelancer để apply job</p>
-                  <Button
-                    onClick={() => window.location.href = '/auth/did-verification'}
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                  >
-                    Đăng ký role Freelancer
-                  </Button>
-                </div>
-              ) : (() => {
-                // Parse freelancer - API should already parse it, but check anyway
-                let hasFreelancer = false;
-                if (jobData.freelancer) {
-                  if (typeof jobData.freelancer === 'string') {
-                    hasFreelancer = true;
-                  } else if (jobData.freelancer.vec && Array.isArray(jobData.freelancer.vec) && jobData.freelancer.vec.length > 0) {
-                    hasFreelancer = true;
-                  }
-                }
-                
-                // Parse state - API should already parse it to string, but ensure it's a string
-                let stateStr = 'Posted';
-                if (typeof jobData.state === 'string') {
-                  stateStr = jobData.state;
-                } else if (jobData.state && typeof jobData.state === 'object') {
-                  if (jobData.state.vec && Array.isArray(jobData.state.vec) && jobData.state.vec.length > 0) {
-                    stateStr = String(jobData.state.vec[0]);
-                  } else if (jobData.state.__variant__) {
-                    stateStr = String(jobData.state.__variant__);
-                  }
-                }
-                
-                const isPosted = stateStr === 'Posted';
-                const isExpired = jobData.apply_deadline && Number(jobData.apply_deadline) * 1000 < Date.now();
-                
-                console.log('[JobDetailContent] Apply button check:', { 
-                  stateStr, 
-                  isPosted, 
-                  hasFreelancer, 
-                  isExpired, 
-                  applyDeadline: jobData.apply_deadline
-                });
-                
-                if (!isPosted) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-gray-900 font-medium">Job không còn ở trạng thái Open (state: {stateStr})</p>
-                    </div>
-                  );
-                }
-                
-                if (hasFreelancer) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-gray-900 font-medium">Job đã có freelancer</p>
-                    </div>
-                  );
-                }
-                
-                if (isExpired) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-red-700 font-bold">Đã hết hạn apply</p>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <Button
-                    onClick={handleApply}
-                    disabled={applying}
-                    size="lg"
-                    className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
-                  >
-                    {applying ? 'Đang apply...' : 'Apply Job'}
-                  </Button>
-                );
-              })()}
-            </Card>
           )}
         </div>
+        <JobSidebar
+          jobData={jobData}
+          account={account}
+          hasFreelancerRole={hasFreelancerRole}
+          applying={applying}
+          onApply={handleApply}
+        />
       </div>
     </>
   );
