@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress, parseMilestoneStatus } from "../utils";
 
 export async function GET(
-	req: Request,
-	{ params }: { params: { id: string } }
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const jobId = params.id;
+        const { id } = await params;
+        const jobId = id;
 		
 		if (!jobId) {
 			return NextResponse.json({ error: "job_id required" }, { status: 400 });
@@ -51,6 +52,15 @@ export async function GET(
 			};
 		});
 
+		const parseOptionBool = (data: any): boolean | null => {
+			if (!data) return null;
+			if (typeof data === 'boolean') return data;
+			if (data?.vec && Array.isArray(data.vec) && data.vec.length > 0) {
+				return Boolean(data.vec[0]);
+			}
+			return null;
+		};
+
 		const job = {
 			id: Number(jobId),
 			cid: jobData?.cid || "",
@@ -61,6 +71,8 @@ export async function GET(
 			state: stateStr,
 			poster: jobData?.poster,
 			freelancer,
+			dispute_id: jobData?.dispute_id,
+			dispute_winner: parseOptionBool(jobData?.dispute_winner),
 			apply_deadline: applyDeadline,
 			mutual_cancel_requested_by: mutualCancelRequestedBy,
 			freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy

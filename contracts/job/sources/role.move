@@ -2,7 +2,10 @@ module job_work_board::role {
     use std::signer;
     use std::option::{Self, Option};
     use std::string::String;
+    use std::vector;
     use aptos_std::table::{Self, Table};
+
+    friend job_work_board::dispute;
 
     const FREELANCER: u8 = 1;
     const POSTER: u8 = 2;
@@ -14,11 +17,12 @@ module job_work_board::role {
     }
 
     struct RoleStore has key {
-        users: Table<address, UserRoles>
+        users: Table<address, UserRoles>,
+        reviewers: vector<address>,
     }
 
     fun init_module(admin: &signer) {
-        move_to(admin, RoleStore { users: table::new() });
+        move_to(admin, RoleStore { users: table::new(), reviewers: vector::empty<address>() });
     }
 
     public entry fun register_role(s: &signer, role_kind: u8, cid_opt: Option<String>) acquires RoleStore {
@@ -35,7 +39,8 @@ module job_work_board::role {
         };
         
         let user = table::borrow_mut(&mut store.users, addr);
-        if (!table::contains(&user.roles, role_kind)) {
+        let is_new_role = !table::contains(&user.roles, role_kind);
+        if (is_new_role) {
             table::add(&mut user.roles, role_kind, true);
         };
         
@@ -46,6 +51,23 @@ module job_work_board::role {
                 *table::borrow_mut(&mut user.cids, role_kind) = cid;
             } else {
                 table::add(&mut user.cids, role_kind, cid);
+            };
+        };
+
+        if (role_kind == REVIEWER && is_new_role) {
+            let len = vector::length(&store.reviewers);
+            let i = 0;
+            let found = false;
+            while (i < len) {
+                if (*vector::borrow(&store.reviewers, i) == addr) {
+                    found = true;
+                    i = len; // break
+                } else {
+                    i = i + 1;
+                };
+            };
+            if (!found) {
+                vector::push_back(&mut store.reviewers, addr);
             };
         };
     }
@@ -72,4 +94,17 @@ module job_work_board::role {
     public fun has_freelancer(addr: address): bool acquires RoleStore { has_role(addr, FREELANCER) }
     public fun has_poster(addr: address): bool acquires RoleStore { has_role(addr, POSTER) }
     public fun has_reviewer(addr: address): bool acquires RoleStore { has_role(addr, REVIEWER) }
+
+    public(friend) fun get_reviewers(): vector<address> acquires RoleStore {
+        let store = borrow_global<RoleStore>(@job_work_board);
+        let len = vector::length(&store.reviewers);
+        let out = vector::empty<address>();
+        let i = 0;
+        while (i < len) {
+            let a = *vector::borrow(&store.reviewers, i);
+            vector::push_back(&mut out, a);
+            i = i + 1;
+        };
+        out
+    }
 }

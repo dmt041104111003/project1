@@ -15,19 +15,10 @@ export const DisputesContent: React.FC = () => {
     disputes,
     isReviewer,
     checkingRole,
-    jobId,
-    setJobId,
-    milestoneIndex,
-    setMilestoneIndex,
-    openReason,
-    setOpenReason,
-    openDispute,
     refresh,
     resolving,
-    withdrawing,
     resolveToPoster,
     resolveToFreelancer,
-    withdrawFees,
   } = useDisputes(account);
 
   if (checkingRole) {
@@ -60,26 +51,16 @@ export const DisputesContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-blue-800 mb-2">Disputes</h1>
-        <p className="text-lg text-gray-700">Review and resolve dispute events.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-blue-800 mb-2">Disputes</h1>
+          <p className="text-lg text-gray-700">Only assigned reviewers can see and vote.</p>
+        </div>
+        <Button variant="outline" className="!bg-white !text-black !border-2 !border-black" onClick={refresh} disabled={loading}>
+          {loading ? 'Loading...' : 'Refresh'}
+        </Button>
       </div>
-
-      <Card variant="outlined" className="p-6 space-y-4">
-        <div className="font-bold text-blue-800">Open Dispute</div>
-        <div className="grid md:grid-cols-3 gap-3">
-          <input className="w-full border border-gray-300 px-3 py-2" placeholder="Job ID" value={jobId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJobId(e.target.value)} />
-          <input className="w-full border border-gray-300 px-3 py-2" placeholder="Milestone Index" value={milestoneIndex} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMilestoneIndex(e.target.value)} />
-          <input className="w-full border border-gray-300 px-3 py-2" placeholder="Reason (optional)" value={openReason} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOpenReason(e.target.value)} />
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="!bg-white !text-black !border-2 !border-black" disabled={loading} onClick={openDispute}>
-            {loading ? 'Opening...' : 'Open Dispute'}
-          </Button>
-          <Button variant="outline" className="!bg-white !text-black !border-2 !border-black" onClick={refresh}>Refresh</Button>
-        </div>
-        {errorMsg && <div className="p-2 bg-red-100 text-red-800 text-sm border border-red-300">{errorMsg}</div>}
-      </Card>
+      {errorMsg && <div className="p-2 bg-red-100 text-red-800 text-sm border border-red-300">{errorMsg}</div>}
 
       <div className="space-y-3">
         {disputes.length === 0 ? (
@@ -90,10 +71,8 @@ export const DisputesContent: React.FC = () => {
               key={`${d.jobId}:${d.milestoneIndex}`}
               dispute={d}
               resolvingKey={resolving}
-              withdrawingKey={withdrawing}
-              onResolvePoster={() => resolveToPoster(d.jobId, d.milestoneIndex)}
-              onResolveFreelancer={() => resolveToFreelancer(d.jobId, d.milestoneIndex)}
-              onWithdrawFees={() => withdrawFees(d.jobId, d.milestoneIndex)}
+              onResolvePoster={() => resolveToPoster(d.disputeId)}
+              onResolveFreelancer={() => resolveToFreelancer(d.disputeId)}
             />
           ))
         )}

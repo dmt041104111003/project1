@@ -7,21 +7,24 @@ import { Button } from '@/components/ui/button';
 export interface DisputeData {
   jobId: number;
   milestoneIndex: number;
+  disputeId: number;
   status: 'open' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
   openedAt?: string;
   reason?: string;
+  posterEvidenceCid?: string;
+  freelancerEvidenceCid?: string;
+  hasVoted?: boolean;
+  votesCompleted?: boolean;
 }
 
 export interface DisputeItemProps {
   dispute: DisputeData;
   resolvingKey: string | null;
-  withdrawingKey: string | null;
   onResolvePoster: () => void;
   onResolveFreelancer: () => void;
-  onWithdrawFees: () => void;
 }
 
-export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, withdrawingKey, onResolvePoster, onResolveFreelancer, onWithdrawFees }) => {
+export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
   const key = `${dispute.jobId}:${dispute.milestoneIndex}`;
   return (
     <Card variant="outlined" className="p-4">
@@ -31,34 +34,44 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       </div>
       <div className="text-sm text-gray-700 mb-2">Status: {dispute.status}</div>
       {dispute.reason && <div className="text-sm text-gray-700 mb-3">Reason: {dispute.reason}</div>}
+      {(dispute.posterEvidenceCid || dispute.freelancerEvidenceCid) && (
+        <div className="mb-3 text-xs text-gray-700">
+          {dispute.posterEvidenceCid && (
+            <div>
+              Poster Evidence: <a className="text-blue-700 underline break-all" href={`https://ipfs.io/ipfs/${dispute.posterEvidenceCid.replace(/^enc:/,'')}`} target="_blank" rel="noreferrer">{dispute.posterEvidenceCid}</a>
+            </div>
+          )}
+          {dispute.freelancerEvidenceCid && (
+            <div>
+              Freelancer Evidence: <a className="text-blue-700 underline break-all" href={`https://ipfs.io/ipfs/${dispute.freelancerEvidenceCid.replace(/^enc:/,'')}`} target="_blank" rel="noreferrer">{dispute.freelancerEvidenceCid}</a>
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           className="!bg-white !text-black !border-2 !border-black"
           size="sm"
-          disabled={resolvingKey === key}
+          disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:poster`}
           onClick={onResolvePoster}
         >
-          {resolvingKey === key ? 'Resolving...' : 'Resolve to Poster'}
+          {resolvingKey === `${dispute.disputeId}:poster` ? 'Voting...' : 'Vote for Poster'}
         </Button>
         <Button
           variant="outline"
           className="!bg-white !text-black !border-2 !border-black"
           size="sm"
-          disabled={resolvingKey === key}
+          disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:freelancer`}
           onClick={onResolveFreelancer}
         >
-          {resolvingKey === key ? 'Resolving...' : 'Resolve to Freelancer'}
+          {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Voting...' : 'Vote for Freelancer'}
         </Button>
-        <Button
-          variant="outline"
-          className="!bg-white !text-black !border-2 !border-black"
-          size="sm"
-          disabled={withdrawingKey === key}
-          onClick={onWithdrawFees}
-        >
-          {withdrawingKey === key ? 'Withdrawing...' : 'Withdraw Fees'}
-        </Button>
+        {dispute.votesCompleted ? (
+          <span className="text-xs text-gray-600">Voting closed</span>
+        ) : dispute.hasVoted ? (
+          <span className="text-xs text-gray-600">You already voted</span>
+        ) : null}
       </div>
     </Card>
   );

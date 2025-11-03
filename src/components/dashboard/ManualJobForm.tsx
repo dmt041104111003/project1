@@ -3,13 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
-interface Milestone { 
-  amount: string; 
-  duration: string; 
-  unit: string;
-  reviewPeriod: string;
-  reviewUnit: string;
-}
+interface Milestone { amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string; }
 
 interface ManualJobFormProps {
   jobTitle: string;
@@ -191,76 +185,71 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
           <p className="text-red-500 text-sm">{validationErrors.milestones}</p>
         )}
         <div className="space-y-3">
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="0.001"
-                min="0.001"
-                value={currentMilestone.amount}
-                onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})}
-                placeholder="Số tiền (APT)"
-                disabled={!canPostJobs}
-                className={`flex-1 px-4 py-3 border border-gray-400 ${
-                  !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
-                }`}
-              />
-              <input
-                type="number"
-                value={currentMilestone.duration}
-                onChange={(e) => setCurrentMilestone({...currentMilestone, duration: e.target.value})}
-                placeholder="Thời gian"
-                disabled={!canPostJobs}
-                className={`w-32 px-4 py-3 border border-gray-400 ${
-                  !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
-                }`}
-              />
-              <select
-                value={currentMilestone.unit}
-                onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
-                disabled={!canPostJobs}
-                title="Chọn đơn vị thời gian cho milestone"
-                className={`px-4 py-3 border border-gray-400 ${
-                  !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
-                }`}
-              >
-                <option value="giây">giây</option>
-                <option value="phút">phút</option>
-                <option value="giờ">giờ</option>
-                <option value="ngày">ngày</option>
-                <option value="tuần">tuần</option>
-                <option value="tháng">tháng</option>
-              </select>
-            </div>
-            <div className="flex gap-2 items-center">
-              <label className="text-sm text-gray-700 whitespace-nowrap">Thời gian review:</label>
-              <input
-                type="number"
-                value={currentMilestone.reviewPeriod}
-                onChange={(e) => setCurrentMilestone({...currentMilestone, reviewPeriod: e.target.value})}
-                placeholder="7"
-                disabled={!canPostJobs}
-                className={`w-24 px-4 py-3 border border-gray-400 ${
-                  !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
-                }`}
-              />
-              <select
-                value={currentMilestone.reviewUnit}
-                onChange={(e) => setCurrentMilestone({...currentMilestone, reviewUnit: e.target.value})}
-                disabled={!canPostJobs}
-                title="Chọn đơn vị thời gian review"
-                className={`px-4 py-3 border border-gray-400 ${
-                  !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
-                }`}
-              >
-                <option value="giây">giây</option>
-                <option value="phút">phút</option>
-                <option value="giờ">giờ</option>
-                <option value="ngày">ngày</option>
-                <option value="tuần">tuần</option>
-                <option value="tháng">tháng</option>
-              </select>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={currentMilestone.amount}
+              onChange={(e) => setCurrentMilestone({...currentMilestone, amount: e.target.value})}
+              placeholder="Số tiền (APT)"
+              disabled={!canPostJobs}
+              className={`flex-1 min-w-[180px] px-4 py-3 border border-gray-400 ${
+                !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
+              }`}
+            />
+            <input
+              type="number"
+              value={currentMilestone.duration}
+              onChange={(e) => setCurrentMilestone({...currentMilestone, duration: e.target.value})}
+              placeholder="Thời gian"
+              disabled={!canPostJobs}
+              className={`w-28 px-4 py-3 border border-gray-400 ${
+                !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
+              }`}
+            />
+            <select
+              value={currentMilestone.unit}
+              onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
+              disabled={!canPostJobs}
+              title="Chọn đơn vị thời gian cho milestone"
+              className={`px-4 py-3 border border-gray-400 ${
+                !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
+              }`}
+            >
+              <option value="giây">giây</option>
+              <option value="phút">phút</option>
+              <option value="giờ">giờ</option>
+              <option value="ngày">ngày</option>
+              <option value="tuần">tuần</option>
+              <option value="tháng">tháng</option>
+            </select>
+            <input
+              type="number"
+              value={currentMilestone.reviewPeriod || ''}
+              onChange={(e) => setCurrentMilestone({...currentMilestone, reviewPeriod: e.target.value})}
+              placeholder="Review period"
+              disabled={!canPostJobs}
+              className={`w-full sm:w-36 px-4 py-3 border border-gray-400 ${
+                !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
+              }`}
+            />
+            <select
+              value={currentMilestone.reviewUnit || 'ngày'}
+              onChange={(e) => setCurrentMilestone({...currentMilestone, reviewUnit: e.target.value})}
+              disabled={!canPostJobs}
+              title="Chọn đơn vị cho review period"
+              className={`px-4 py-3 border border-gray-400 w-full sm:w-auto ${
+                !canPostJobs ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
+              }`}
+            >
+              <option value="giây">giây</option>
+              <option value="phút">phút</option>
+              <option value="giờ">giờ</option>
+              <option value="ngày">ngày</option>
+              <option value="tuần">tuần</option>
+              <option value="tháng">tháng</option>
+            </select>
           </div>
           <Button type="button" onClick={addMilestone} variant="outline" className="w-full" disabled={!canPostJobs}>
             + Thêm cột mốc
@@ -270,7 +259,12 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
               {milestonesList.map((milestone, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-100 border border-gray-400 rounded">
                   <span className="text-sm text-gray-700">
-                    {milestone.amount} APT - {milestone.duration} {milestone.unit} (Review: {milestone.reviewPeriod} {milestone.reviewUnit})
+                    {milestone.amount} APT - {milestone.duration} {milestone.unit}
+                    {typeof milestone.reviewPeriod !== 'undefined' && (
+                      <>
+                        {` · review: ${milestone.reviewPeriod || milestone.duration} ${milestone.reviewUnit || milestone.unit}`}
+                      </>
+                    )}
                   </span>
                   <button
                     type="button"

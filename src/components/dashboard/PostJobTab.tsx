@@ -7,13 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 
-interface Milestone { 
-  amount: string; 
-  duration: string; 
-  unit: string;
-  reviewPeriod: string;
-  reviewUnit: string;
-}
+interface Milestone { amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string; }
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
@@ -44,13 +38,7 @@ export const PostJobTab: React.FC = () => {
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<Milestone[]>([]);
   const [currentSkill, setCurrentSkill] = useState('');
-  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({
-    amount: '', 
-    duration: '', 
-    unit: 'ngày',
-    reviewPeriod: '7',
-    reviewUnit: 'ngày'
-  });
+  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
 
@@ -70,19 +58,11 @@ export const PostJobTab: React.FC = () => {
   };
   const removeSkill = (index: number) => setSkillsList(prev => prev.filter((_, i) => i !== index));
   const addMilestone = () => {
-    if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim() || !currentMilestone.reviewPeriod.trim()) return;
+    if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim()) return;
     const amount = parseFloat(currentMilestone.amount);
     if (amount <= 0) return alert('Số tiền phải lớn hơn 0');
-    const reviewPeriod = parseFloat(currentMilestone.reviewPeriod);
-    if (reviewPeriod <= 0) return alert('Thời gian review phải lớn hơn 0');
     setMilestonesList(prev => [...prev, currentMilestone]);
-    setCurrentMilestone({
-      amount: '', 
-      duration: '', 
-      unit: 'ngày',
-      reviewPeriod: '7',
-      reviewUnit: 'ngày'
-    });
+    setCurrentMilestone({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
   };
   const removeMilestone = (index: number) => setMilestonesList(prev => prev.filter((_, i) => i !== index));
   const calculateTotalBudget = () => milestonesList.reduce((total, milestone) => total + (parseFloat(milestone.amount) || 0), 0);
@@ -92,20 +72,22 @@ export const PostJobTab: React.FC = () => {
     description?: string;
     requirements?: string[];
     deadline?: number;
-    milestones?: Array<{ amount: string; duration: string; unit: string }>;
+    milestones?: Array<{ amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string }>;
   }) => {
     if (data.title) setJobTitle(data.title);
     if (data.description) setJobDescription(data.description);
     if (Array.isArray(data.requirements)) setSkillsList(data.requirements);
     if (data.deadline) setJobDuration((data.deadline / (24 * 60 * 60)).toString());
     if (Array.isArray(data.milestones)) {
-      setMilestonesList(data.milestones.map((m: any) => ({ 
-        amount: m.amount?.toString() || '', 
-        duration: m.duration?.toString() || '', 
-        unit: m.unit || 'ngày',
-        reviewPeriod: m.reviewPeriod?.toString() || '7',
-        reviewUnit: m.reviewUnit || 'ngày'
-      })));
+      setMilestonesList(
+        data.milestones.map((m: any) => ({
+          amount: m.amount?.toString() || '',
+          duration: m.duration?.toString() || '',
+          unit: m.unit || 'ngày',
+          reviewPeriod: m.reviewPeriod?.toString() || m.duration?.toString() || '',
+          reviewUnit: m.reviewUnit || m.unit || 'ngày'
+        }))
+      );
     }
     setInputMode('manual');
   };
@@ -157,9 +139,11 @@ export const PostJobTab: React.FC = () => {
       const contractMilestoneDurations = milestonesList.map(m => 
         (parseFloat(m.duration) || 0) * (TIME_MULTIPLIERS[m.unit as keyof typeof TIME_MULTIPLIERS] || 1)
       );
-      const contractMilestoneReviewPeriods = milestonesList.map(m => 
-        (parseFloat(m.reviewPeriod) || 0) * (TIME_MULTIPLIERS[m.reviewUnit as keyof typeof TIME_MULTIPLIERS] || 1)
-      );
+      const contractMilestoneReviewPeriods = milestonesList.map(m => {
+        const rp = (m.reviewPeriod && m.reviewPeriod.trim().length > 0) ? parseFloat(m.reviewPeriod) : parseFloat(m.duration);
+        const ru = (m.reviewUnit && m.reviewUnit.trim().length > 0) ? m.reviewUnit : m.unit;
+        return (rp || 0) * (TIME_MULTIPLIERS[ru as keyof typeof TIME_MULTIPLIERS] || 1);
+      });
       
       const applyDeadlineDays = parseFloat(jobDuration) || 7;
       const applyDeadlineTimestamp = Math.floor(Date.now() / 1000) + (applyDeadlineDays * 24 * 60 * 60);

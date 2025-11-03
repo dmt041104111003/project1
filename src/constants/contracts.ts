@@ -1,8 +1,8 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
-
-export const CONTRACT_ADDRESS = "0xa452e79b35dacd12cfaf126535413b25fefdabb52e5e99a61934de850d516c7e";
+export const APTOS_API_KEY = "aptoslabs_Y2EfW2Yac23_NBduCDuMf7QRqVdARDFFYQquo2mJi9HYA";
+export const CONTRACT_ADDRESS = "0x6504356fe0930e906dd99e2d481e56c859c2b98f671f3791cf3325e4fe85f5ea";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
@@ -39,8 +39,7 @@ export const ESCROW = {
 
 export const DISPUTE = {
   OPEN_DISPUTE: `${CONTRACT_ADDRESS}::dispute::open_dispute`,
-  FREELANCER_ACCEPT: `${CONTRACT_ADDRESS}::dispute::freelancer_accept`,
-  FREELANCER_REJECT: `${CONTRACT_ADDRESS}::dispute::freelancer_reject`,
+  ADD_EVIDENCE: `${CONTRACT_ADDRESS}::dispute::add_evidence`,
   REVIEWER_VOTE: `${CONTRACT_ADDRESS}::dispute::reviewer_vote`,
 } as const;
 

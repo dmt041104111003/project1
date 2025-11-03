@@ -9,13 +9,7 @@ interface JsonJobInputProps {
     description?: string;
     requirements?: string[];
     deadline?: number;
-    milestones?: Array<{ 
-      amount: string; 
-      duration: string; 
-      unit: string;
-      reviewPeriod?: string;
-      reviewUnit?: string;
-    }>;
+    milestones?: Array<{ amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string }>;
   }) => void;
   canPostJobs: boolean;
 }
@@ -44,7 +38,7 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
         <textarea
           value={jsonInput}
           onChange={(e) => setJsonInput(e.target.value)}
-          placeholder={`{\n  "title": "Phát triển smart contract cho DeFi platform",\n  "description": "Cần phát triển một smart contract trên Aptos blockchain...",\n  "requirements": ["Move", "Aptos", "Smart Contract", "DeFi"],\n  "deadline": 86400,\n  "milestones": [\n    { "amount": "0.5", "duration": "30", "unit": "giây", "reviewPeriod": "7", "reviewUnit": "ngày" },\n    { "amount": "0.8", "duration": "60", "unit": "giây", "reviewPeriod": "7", "reviewUnit": "ngày" }\n  ]\n}`}
+          placeholder={`{\n  "title": "Phát triển smart contract",\n  "description": "Mô tả dự án...",\n  "requirements": ["Solidity", "Move"],\n  "deadline": 604800,\n  "milestones": [\n    { "amount": "0.1", "duration": "300", "unit": "giây", "reviewPeriod": "300", "reviewUnit": "giây" },\n    { "amount": "0.1", "duration": "600", "unit": "giây", "reviewPeriod": "600", "reviewUnit": "giây" }\n  ]\n}`}
           rows={15}
           disabled={!canPostJobs}
           className={`w-full px-4 py-3 border-2 font-mono text-sm resize-none ${

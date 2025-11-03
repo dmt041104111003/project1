@@ -6,9 +6,14 @@ import { CONTRACT_ADDRESS } from '@/constants/contracts';
 export interface DisputeData {
   jobId: number;
   milestoneIndex: number;
+  disputeId: number;
   status: 'open' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
   openedAt?: string;
   reason?: string;
+  posterEvidenceCid?: string;
+  freelancerEvidenceCid?: string;
+  hasVoted?: boolean;
+  votesCompleted?: boolean; // true when 3 votes reached
 }
 
 export function useDisputes(account?: string | null) {
@@ -38,17 +43,14 @@ export function useDisputes(account?: string | null) {
     if (!account) return;
     try {
       setCheckingRole(true);
-      const res = await fetch('/v1/view', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          function: `${CONTRACT_ADDRESS}::role::has_reviewer`,
-          type_arguments: [],
-          arguments: [account]
-        })
-      });
+      const res = await fetch(`/api/role?address=${account}`);
+      if (!res.ok) {
+        setIsReviewer(false);
+        return;
+      }
       const data = await res.json();
-      const hasReviewer = Array.isArray(data) ? !!data[0] : !!data;
+      const rolesArr = Array.isArray(data?.roles) ? data.roles : [];
+      const hasReviewer = rolesArr.some((r: any) => String(r?.name).toLowerCase() === 'reviewer');
       setIsReviewer(hasReviewer);
     } catch (e: any) {
       setIsReviewer(false);
@@ -58,34 +60,109 @@ export function useDisputes(account?: string | null) {
   }, [account]);
 
   const refresh = useCallback(async () => {
-    if (!isReviewer) {
+    if (!isReviewer || !account) {
       setDisputes([]);
       return;
     }
-    
     try {
       setLoading(true);
       setErrorMsg('');
 
-      const raw = localStorage.getItem('disputes_list');
-      const list = raw ? JSON.parse(raw) as any[] : [];
-      const normalized: DisputeData[] = (Array.isArray(list) ? list : []).map((d: any) => ({
-        jobId: Number(d?.jobId ?? d?.job_id ?? 0),
-        milestoneIndex: Number(d?.milestoneIndex ?? d?.milestone_index ?? 0),
-        status: ((): DisputeData['status'] => {
-          const s = String(d?.status || 'open');
-          return s === 'resolved_poster' || s === 'resolved_freelancer' || s === 'withdrawn' ? s : 'open';
-        })(),
-        openedAt: d?.openedAt || d?.opened_at,
-        reason: d?.reason || '',
-      }));
-      setDisputes(normalized);
+      const normalizeAddress = (addr?: string | null): string => {
+        if (!addr) return '';
+        const s = String(addr).toLowerCase();
+        const noPrefix = s.startsWith('0x') ? s.slice(2) : s;
+        const trimmed = noPrefix.replace(/^0+/, '');
+        return '0x' + (trimmed.length === 0 ? '0' : trimmed);
+      };
+
+      const myAddr = normalizeAddress(account);
+
+      // 1) Get all jobs
+      console.log('[Disputes][refresh] fetching jobs list');
+      const jobsRes = await fetch('/api/job/list');
+      const jobs = await jobsRes.json();
+      const jobItems = Array.isArray(jobs) ? jobs : (Array.isArray(jobs?.jobs) ? jobs.jobs : []);
+      console.log('[Disputes][refresh] jobs count', jobItems.length);
+
+      const results: DisputeData[] = [];
+
+      // 2) For each job, fetch full details to get dispute_id and find locked milestone
+      for (const j of jobItems) {
+        const id = Number(j?.id ?? j?.job_id ?? j?.jobId ?? 0);
+        if (!id) continue;
+        console.log('[Disputes][refresh] fetch job detail', id);
+        const detailRes = await fetch(`/api/job/${id}`);
+        if (!detailRes.ok) continue;
+        const detail = await detailRes.json();
+        const disputeId = detail?.job?.dispute_id ?? detail?.dispute_id;
+        console.log('[Disputes][refresh] job', id, 'dispute_id raw =', disputeId);
+        if (!disputeId || (Array.isArray(disputeId?.vec) && disputeId.vec.length === 0)) continue;
+
+        // 3) Get reviewers and votes for this dispute
+        const did = Array.isArray(disputeId?.vec) ? Number(disputeId.vec[0]) : Number(disputeId);
+        if (!did) continue;
+        console.log('[Disputes][refresh] query reviewers for dispute', did);
+        const revRes = await fetch(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
+        if (!revRes.ok) continue;
+        const rev = await revRes.json();
+        const selected: string[] = Array.isArray(rev?.selected_reviewers) ? rev.selected_reviewers : [];
+        console.log('[Disputes][refresh] selected_reviewers for', did, selected);
+        const isAssigned = selected
+          .map((a) => normalizeAddress(a))
+          .some((a) => a === myAddr);
+        if (!isAssigned) continue;
+
+        // Votes & summary
+        let hasVoted = false;
+        let votesCompleted = false;
+        const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
+        if (sumRes.ok) {
+          const sum = await sumRes.json();
+          const voted: string[] = Array.isArray(sum?.voted_reviewers) ? sum.voted_reviewers : [];
+          hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
+          votesCompleted = Number(sum?.counts?.total || 0) >= 3;
+        } else {
+          const votesRes = await fetch(`/api/dispute?action=get_votes&dispute_id=${did}`);
+          if (votesRes.ok) {
+            const vjson = await votesRes.json();
+            const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
+            hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
+            votesCompleted = voted.length >= 3;
+          }
+        }
+
+        // 4) Find the locked milestone index
+        const milestones: any[] = Array.isArray(detail?.job?.milestones) ? detail.job.milestones : [];
+        let lockedIndex = -1;
+        for (let i = 0; i < milestones.length; i++) {
+          const st = String(milestones[i]?.status || '');
+          if (st.toLowerCase().includes('locked')) { lockedIndex = i; break; }
+        }
+        console.log('[Disputes][refresh] lockedIndex', lockedIndex);
+        if (lockedIndex < 0) continue;
+
+        // 5) Fetch evidence
+        const evRes = await fetch(`/api/dispute?action=get_evidence&dispute_id=${did}`);
+        let posterEvidenceCid = '';
+        let freelancerEvidenceCid = '';
+        if (evRes.ok) {
+          const ev = await evRes.json();
+          posterEvidenceCid = String(ev?.poster_evidence_cid || '');
+          freelancerEvidenceCid = String(ev?.freelancer_evidence_cid || '');
+        }
+
+        results.push({ jobId: id, milestoneIndex: lockedIndex, disputeId: did, status: 'open', posterEvidenceCid, freelancerEvidenceCid, hasVoted, votesCompleted });
+      }
+
+      setDisputes(results);
+      console.log('[Disputes][refresh] results', results);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Failed to load disputes');
     } finally {
       setLoading(false);
     }
-  }, [isReviewer]);
+  }, [isReviewer, account]);
 
   useEffect(() => { 
     if (account) checkReviewerRole(); 
@@ -113,7 +190,7 @@ export function useDisputes(account?: string | null) {
       const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
       await wallet.signAndSubmitTransaction(payload as any);
       // optimistic add
-      const newItem: DisputeData = { jobId: Number(jobId), milestoneIndex: Number(milestoneIndex), status: 'open', reason: openReason, openedAt: new Date().toISOString() };
+      const newItem: DisputeData = { jobId: Number(jobId), milestoneIndex: Number(milestoneIndex), disputeId: 0, status: 'open', reason: openReason, openedAt: new Date().toISOString() };
       const list = [newItem, ...disputes];
       setDisputes(list);
       localStorage.setItem('disputes_list', JSON.stringify(list));
@@ -124,68 +201,47 @@ export function useDisputes(account?: string | null) {
     }
   }, [jobId, milestoneIndex, openReason, disputes]);
 
-  const resolveToPoster = useCallback(async (jobIdNum: number, index: number) => {
+  const resolveToPoster = useCallback(async (disputeIdNum: number) => {
     try {
-      setResolving(`${jobIdNum}:${index}`);
+      setResolving(`${disputeIdNum}:poster`);
       const { wallet } = await getWallet();
-      const res = await fetch('/api/escrow', {
+      const res = await fetch('/api/dispute', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'unlock_non_disputed_to_poster', args: [CONTRACT_ADDRESS, jobIdNum, index], typeArgs: [] })
+        body: JSON.stringify({ action: 'reviewer_vote', dispute_id: disputeIdNum, vote_choice: false })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
       await wallet.signAndSubmitTransaction(payload as any);
-      const updated: DisputeData[] = disputes.map(d => (d.jobId === jobIdNum && d.milestoneIndex === index ? { ...d, status: 'resolved_poster' } : d));
-      setDisputes(updated);
-      localStorage.setItem('disputes_list', JSON.stringify(updated));
+      // keep list; backend resolves automatically when sufficient votes
     } catch (e: any) {
       setErrorMsg(e?.message || 'Failed to resolve');
     } finally {
       setResolving(null);
-    }
-  }, [disputes]);
-
-  const resolveToFreelancer = useCallback(async (jobIdNum: number, index: number) => {
-    try {
-      setResolving(`${jobIdNum}:${index}`);
-      const { wallet } = await getWallet();
-      const res = await fetch('/api/escrow', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'auto_approve_if_poster_inactive', args: [CONTRACT_ADDRESS, jobIdNum, index], typeArgs: [] })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
-      await wallet.signAndSubmitTransaction(payload as any);
-      const updated: DisputeData[] = disputes.map(d => (d.jobId === jobIdNum && d.milestoneIndex === index ? { ...d, status: 'resolved_freelancer' } : d));
-      setDisputes(updated);
-      localStorage.setItem('disputes_list', JSON.stringify(updated));
-    } catch (e: any) {
-      setErrorMsg(e?.message || 'Failed to resolve');
-    } finally {
-      setResolving(null);
-    }
-  }, [disputes]);
-
-  const withdrawFees = useCallback(async (jobIdNum: number, index: number) => {
-    try {
-      setWithdrawing(`${jobIdNum}:${index}`);
-      const { wallet } = await getWallet();
-      const res = await fetch('/api/escrow', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'withdraw_dispute_fees', args: [CONTRACT_ADDRESS, jobIdNum, index], typeArgs: [] })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
-      await wallet.signAndSubmitTransaction(payload as any);
-    } catch (e: any) {
-      setErrorMsg(e?.message || 'Failed to withdraw');
-    } finally {
-      setWithdrawing(null);
     }
   }, []);
+
+  const resolveToFreelancer = useCallback(async (disputeIdNum: number) => {
+    try {
+      setResolving(`${disputeIdNum}:freelancer`);
+      const { wallet } = await getWallet();
+      const res = await fetch('/api/dispute', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reviewer_vote', dispute_id: disputeIdNum, vote_choice: true })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
+      await wallet.signAndSubmitTransaction(payload as any);
+      // keep list; backend resolves automatically when sufficient votes
+    } catch (e: any) {
+      setErrorMsg(e?.message || 'Failed to resolve');
+    } finally {
+      setResolving(null);
+    }
+  }, []);
+
+  // withdrawFees removed in new dispute flow
 
   return {
     loading,
@@ -205,7 +261,6 @@ export function useDisputes(account?: string | null) {
     withdrawing,
     resolveToPoster,
     resolveToFreelancer,
-    withdrawFees,
   } as const;
 }
 

@@ -65,15 +65,59 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [acceptingWithdraw, setAcceptingWithdraw] = useState(false);
   const [rejectingWithdraw, setRejectingWithdraw] = useState(false);
   const [evidenceCids, setEvidenceCids] = useState<Record<number, string>>({});
+  const [disputeEvidenceCids, setDisputeEvidenceCids] = useState<Record<number, string>>({});
+  const [openingDisputeId, setOpeningDisputeId] = useState<number | null>(null);
+  const [submittingEvidenceId, setSubmittingEvidenceId] = useState<number | null>(null);
+  const [hasDisputeId, setHasDisputeId] = useState<boolean>(false);
+  const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); // true=freelancer, false=poster
+  const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); // true when all 3 reviewers voted
 
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
-  const canInteract = jobState === 'InProgress' || jobState === 'Posted';
+  const canInteract = jobState === 'InProgress' || jobState === 'Posted' || jobState === 'Disputed';
   const isCancelled = jobState === 'Cancelled';
 
   const handleFileUploaded = (milestoneId: number, cid: string) => {
     setEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
   };
+
+  const handleDisputeFileUploaded = (milestoneId: number, cid: string) => {
+    setDisputeEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
+  };
+
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/job/${jobId}`);
+        const data = await res.json();
+        const opt = data?.job?.dispute_id || data?.dispute_id;
+        const exists = Array.isArray(opt?.vec) ? opt.vec.length > 0 : Boolean(opt);
+        setHasDisputeId(!!exists);
+        const did = exists ? (Array.isArray(opt?.vec) ? Number(opt.vec[0]) : Number(opt)) : 0;
+        let finalWinner: boolean | null = null;
+        // Prefer derived majority from summary if available
+        if (did) {
+          const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
+          if (sumRes.ok) {
+            const sum = await sumRes.json();
+            if (typeof sum?.winner === 'boolean') finalWinner = sum.winner;
+            setDisputeVotesDone(Number(sum?.counts?.total || 0) >= 3);
+          }
+        }
+        // Fallback to on-chain dispute_winner if summary didn't yield
+        if (finalWinner === null) {
+          const winner = (data?.job?.dispute_winner ?? null);
+          if (typeof winner === 'boolean') finalWinner = winner;
+        }
+        // If on-chain already has a winner, consider voting completed
+        if (typeof finalWinner === 'boolean') {
+          setDisputeVotesDone(true);
+        }
+        setDisputeWinner(finalWinner);
+      } catch {}
+    };
+    load();
+  }, [jobId]);
 
   const handleSubmitMilestone = async (milestoneId: number) => {
     const evidenceCid = evidenceCids[milestoneId] || '';
@@ -125,12 +169,20 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         })
       });
       const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to prepare transaction');
+      }
       const txHash = await executeTransaction(payload);
       toast.success(`Confirm milestone thành công! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 2000);
     } catch (err: any) {
       console.error('[MilestonesList] Confirm error:', err);
-      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+      const errorMsg = err?.message || 'Unknown error';
+      if (errorMsg.includes('Review deadline has passed')) {
+        toast.error('Đã hết thời gian review. Bạn không thể confirm milestone này nữa. Freelancer có thể claim timeout.');
+      } else {
+        toast.error(`Lỗi: ${errorMsg}`);
+      }
     } finally {
       setConfirmingId(null);
     }
@@ -154,12 +206,20 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               })
             });
             const payload = await res.json();
+            if (!res.ok) {
+              throw new Error(payload.error || 'Failed to prepare transaction');
+            }
             const txHash = await executeTransaction(payload);
             toast.success(`Reject milestone thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
           } catch (err: any) {
             console.error('[MilestonesList] Reject error:', err);
-            toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+            const errorMsg = err?.message || 'Unknown error';
+            if (errorMsg.includes('Review deadline has passed')) {
+              toast.error('Đã hết thời gian review. Bạn không thể reject milestone này nữa. Freelancer có thể claim timeout.');
+            } else {
+              toast.error(`Lỗi: ${errorMsg}`);
+            }
           } finally {
             setRejectingId(null);
           }
@@ -168,6 +228,100 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       cancel: { label: 'Hủy', onClick: () => {} },
       duration: 10000
     });
+  };
+
+  const handleOpenDispute = async (milestoneId: number) => {
+    if (!account || !isPoster) return;
+    const evidenceCid = (disputeEvidenceCids[milestoneId] || '').trim();
+    if (!evidenceCid) {
+      toast.error('Vui lòng upload CID evidence trước khi mở dispute');
+      return;
+    }
+    try {
+      setOpeningDisputeId(milestoneId);
+      const res = await fetch('/api/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'open_dispute',
+          job_id: jobId,
+          milestone_id: milestoneId,
+          evidence_cid: evidenceCid,
+        })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const txHash = await executeTransaction(payload);
+      toast.success(`Mở dispute thành công! TX: ${txHash}`);
+      setHasDisputeId(true);
+      setTimeout(() => onUpdate?.(), 2000);
+    } catch (err: any) {
+      console.error('[MilestonesList] Open dispute error:', err);
+      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setOpeningDisputeId(null);
+    }
+  };
+
+  const handleSubmitEvidence = async (milestoneId: number) => {
+    if (!account) return;
+    const evidenceCid = (disputeEvidenceCids[milestoneId] || '').trim();
+    if (!evidenceCid) {
+      toast.error('Vui lòng upload CID evidence trước khi gửi');
+      return;
+    }
+    try {
+      setSubmittingEvidenceId(milestoneId);
+      // fetch dispute_id from job detail
+      const jobRes = await fetch(`/api/job/${jobId}`);
+      const jobData = await jobRes.json();
+      const disputeOpt = jobData?.job?.dispute_id || jobData?.dispute_id;
+      const disputeId = Array.isArray(disputeOpt?.vec) ? Number(disputeOpt.vec[0]) : Number(disputeOpt);
+      if (!disputeId) throw new Error('Không tìm thấy dispute_id cho job này');
+
+      const res = await fetch('/api/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_evidence',
+          dispute_id: disputeId,
+          evidence_cid: evidenceCid,
+        })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const txHash = await executeTransaction(payload);
+      toast.success(`Đã gửi evidence cho dispute! TX: ${txHash}`);
+      setTimeout(() => onUpdate?.(), 1500);
+    } catch (err: any) {
+      console.error('[MilestonesList] Add evidence error:', err);
+      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setSubmittingEvidenceId(null);
+    }
+  };
+
+  const handleClaimDispute = async (milestoneId: number) => {
+    if (!account) return;
+    if (disputeWinner === null) return;
+    const isWinnerFreelancer = disputeWinner === true;
+    if (isWinnerFreelancer && !isFreelancer) return;
+    if (!isWinnerFreelancer && !isPoster) return;
+    try {
+      const action = isWinnerFreelancer ? 'claim_dispute_payment' : 'claim_dispute_refund';
+      const res = await fetch('/api/escrow', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, args: [jobId, milestoneId], typeArgs: [] })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const txHash = await executeTransaction(payload);
+      toast.success(`Đã claim dispute ${isWinnerFreelancer ? 'payment' : 'refund'}! TX: ${txHash}`);
+      setTimeout(() => onUpdate?.(), 1500);
+    } catch (err: any) {
+      console.error('[MilestonesList] Claim dispute error:', err);
+      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+    }
   };
 
   const handleClaimTimeout = async (milestoneId: number, isFreelancerClaiming?: boolean) => {
@@ -476,11 +630,21 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               rejecting={rejectingId === Number(milestone.id)}
               claiming={claimingId === Number(milestone.id)}
               evidenceCid={evidenceCids[Number(milestone.id)]}
+              disputeEvidenceCid={disputeEvidenceCids[Number(milestone.id)]}
+              openingDispute={openingDisputeId === Number(milestone.id)}
+              submittingEvidence={submittingEvidenceId === Number(milestone.id)}
+              hasDisputeId={hasDisputeId}
+              votesCompleted={disputeVotesDone}
               onFileUploaded={handleFileUploaded}
+              onDisputeFileUploaded={handleDisputeFileUploaded}
               onSubmitMilestone={handleSubmitMilestone}
               onConfirmMilestone={handleConfirmMilestone}
               onRejectMilestone={handleRejectMilestone}
               onClaimTimeout={(milestoneId: number) => handleClaimTimeout(milestoneId)}
+              onOpenDispute={handleOpenDispute}
+              onSubmitEvidence={handleSubmitEvidence}
+              onClaimDispute={handleClaimDispute}
+              disputeWinner={disputeWinner}
             />
           );
         })}

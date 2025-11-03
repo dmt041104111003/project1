@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
@@ -33,11 +33,21 @@ interface MilestoneItemProps {
   rejecting: boolean;
   claiming: boolean;
   evidenceCid?: string;
+  disputeEvidenceCid?: string;
+  openingDispute?: boolean;
+  submittingEvidence?: boolean;
+  hasDisputeId?: boolean;
+  votesCompleted?: boolean;
   onFileUploaded: (milestoneId: number, cid: string) => void;
+  onDisputeFileUploaded?: (milestoneId: number, cid: string) => void;
   onSubmitMilestone: (milestoneId: number) => void;
   onConfirmMilestone: (milestoneId: number) => void;
   onRejectMilestone: (milestoneId: number) => void;
   onClaimTimeout: (milestoneId: number) => void;
+  onOpenDispute?: (milestoneId: number) => void;
+  onSubmitEvidence?: (milestoneId: number) => void;
+  onClaimDispute?: (milestoneId: number) => void;
+  disputeWinner?: boolean | null;
 }
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
@@ -57,12 +67,24 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   rejecting,
   claiming,
   evidenceCid,
+  disputeEvidenceCid,
+  openingDispute,
+  submittingEvidence,
+  hasDisputeId,
+  votesCompleted,
   onFileUploaded,
+  onDisputeFileUploaded,
   onSubmitMilestone,
   onConfirmMilestone,
   onRejectMilestone,
   onClaimTimeout,
+  onOpenDispute,
+  onSubmitEvidence,
+  onClaimDispute,
+  disputeWinner,
 }) => {
+  const [disputeUploading, setDisputeUploading] = useState(false);
+  const [disputeSelectedFile, setDisputeSelectedFile] = useState<File | null>(null);
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const statusStr = parseStatus(milestone.status);
@@ -73,7 +95,9 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const isLocked = statusStr === 'Locked';
   const deadline = Number(milestone.deadline);
   const deadlineDate = deadline ? new Date(deadline * 1000) : null;
-  const isOverdue = Boolean(deadlineDate && deadlineDate.getTime() < Date.now() && !isAccepted);
+  const rawOverdue = Boolean(deadlineDate && deadlineDate.getTime() < Date.now() && !isAccepted);
+  const timersStopped = isLocked; // stop timers when in dispute
+  const isOverdue = timersStopped ? false : rawOverdue;
   const canSubmit = (isFirstMilestone || prevMilestoneAccepted) && !isOverdue;
   
   // Review period info
@@ -81,7 +105,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const reviewPeriod = Number(milestone.review_period || 0);
   const reviewDeadline = Number(milestone.review_deadline || 0);
   const reviewDeadlineDate = reviewDeadline ? new Date(reviewDeadline * 1000) : null;
-  const reviewTimeout = Boolean(reviewDeadlineDate && reviewDeadlineDate.getTime() < Date.now() && isSubmitted);
+  const reviewTimeout = timersStopped ? false : Boolean(reviewDeadlineDate && reviewDeadlineDate.getTime() < Date.now() && isSubmitted);
 
   const formatSeconds = (seconds: number) => {
     if (!seconds) return null;
@@ -110,6 +134,31 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
   };
 
+  const handleDisputeFileChange = async (file: File | null) => {
+    if (!file) {
+      setDisputeSelectedFile(null);
+      return;
+    }
+    setDisputeSelectedFile(file);
+    try {
+      setDisputeUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'dispute_evidence');
+      const uploadRes = await fetch('/api/ipfs/upload-file', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
+      if (!uploadRes.ok || !uploadData.success) {
+        throw new Error(uploadData.error || 'Upload failed');
+      }
+      const finalCid = uploadData.encCid || uploadData.ipfsHash;
+      onDisputeFileUploaded && onDisputeFileUploaded(Number(milestone.id), String(finalCid || ''));
+    } catch (e: any) {
+      setDisputeSelectedFile(null);
+    } finally {
+      setDisputeUploading(false);
+    }
+  };
+
   return (
     <div className={`border-2 rounded p-3 ${getCardClasses()}`}>
       <div className="flex items-center justify-between mb-2">
@@ -131,7 +180,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           {deadlineDate && (
             <p className={`text-xs ${isOverdue && !isAccepted ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
               Deadline: {deadlineDate.toLocaleString('vi-VN')}
-              {isOverdue && !isAccepted && ' (Quá hạn)'}
+              {timersStopped ? ' (Đã dừng - đang dispute)' : (isOverdue && !isAccepted ? ' (Quá hạn)' : '')}
             </p>
           )}
           {reviewDeadlineDate && isSubmitted && (
@@ -170,7 +219,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           <button
             onClick={() => onClaimTimeout(Number(milestone.id))}
             disabled={claiming}
-            className="bg-orange-600 text-white hover:bg-orange-700 text-xs px-3 py-2 rounded border-2 border-orange-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-orange-600 text-black hover:bg-orange-700 text-xs px-3 py-2 rounded border-2 border-orange-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {claiming ? 'Đang claim...' : 'Claim Timeout (Poster không phản hồi)'}
           </button>
@@ -186,6 +235,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             isSubmitted={isSubmitted}
             isCancelled={isCancelled}
             canInteract={canInteract}
+            reviewTimeout={reviewTimeout}
             confirming={confirming}
             rejecting={rejecting}
             claiming={claiming}
@@ -196,11 +246,69 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
         )}
 
         {isAccepted && (
-          <span className="text-xs text-green-700 font-bold">✓ Đã hoàn thành và thanh toán</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-700 font-bold">✓ Đã hoàn thành</span>
+            {votesCompleted && typeof disputeWinner === 'boolean' && (
+              (disputeWinner && isFreelancer) || (!disputeWinner && isPoster) ? (
+                <button
+                  onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
+                  className="bg-purple-600 text-black hover:bg-purple-700 text-xs px-3 py-2 rounded border-2 border-purple-700 font-bold"
+                >
+                  Claim dispute {disputeWinner ? 'payment' : 'refund'}
+                </button>
+              ) : (
+                <span className="text-xs text-gray-600">(Chờ bên thắng claim)</span>
+              )
+            )}
+            {!votesCompleted && (
+              <span className="text-xs text-gray-600">(Chưa đủ 3 phiếu)</span>
+            )}
+          </div>
         )}
 
         {isLocked && (
-          <span className="text-xs text-red-700 font-bold">⚠ Đã bị lock (dispute)</span>
+          <div className="flex flex-col gap-2 w-full">
+            <span className="text-xs text-red-700 font-bold">⚠ Đã bị lock (dispute)</span>
+            {(isPoster || isFreelancer) && canInteract && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="flex-1 min-w-[180px]">
+                  <input
+                    type="file"
+                    accept="*/*"
+                    title="Chọn file evidence để upload"
+                    onChange={(e) => handleDisputeFileChange(e.target.files?.[0] || null)}
+                    disabled={disputeUploading}
+                    className="w-full px-2 py-1 border border-gray-400 text-xs rounded text-gray-700 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+                {disputeUploading && (
+                  <span className="text-xs text-blue-600">Đang upload...</span>
+                )}
+                {disputeSelectedFile && (
+                  <span className="text-xs text-green-600">✓ {disputeSelectedFile.name}</span>
+                )}
+                {disputeEvidenceCid && (
+                  <span className="text-xs text-green-700 font-bold">CID OK</span>
+                )}
+                {!hasDisputeId && (
+                  <button
+                    onClick={() => onOpenDispute && onOpenDispute(Number(milestone.id))}
+                    disabled={openingDispute || !disputeEvidenceCid || disputeUploading}
+                    className="bg-red-600 text-white hover:bg-red-700 text-xs px-3 py-2 rounded border-2 border-red-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {openingDispute ? 'Đang mở dispute...' : 'Mở Dispute'}
+                  </button>
+                )}
+                <button
+                  onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
+                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading}
+                  className="bg-blue-800 text-white hover:bg-blue-900 text-xs px-3 py-2 rounded border-2 border-blue-900 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

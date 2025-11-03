@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { ROLE, ROLE_KIND, APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
+import { ROLE, ROLE_KIND, APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
 
 const view = async (functionName: string, args: any[]): Promise<boolean> => {
 	try {
 		const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
 			body: JSON.stringify({ function: functionName, type_arguments: [], arguments: args })
 		});
 		if (!res.ok) {
@@ -27,7 +27,7 @@ const getCid = async (address: string, kind: number): Promise<string | null> => 
 	try {
 		const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
 			body: JSON.stringify({ function: ROLE.GET_CID, type_arguments: [], arguments: [address, kind] })
 		});
 		if (!res.ok) return null;
@@ -42,7 +42,7 @@ const getTableHandle = async (): Promise<string | null> => {
 	try {
 		const resourceType = `${CONTRACT_ADDRESS}::role::RoleStore`;
 		console.log(`[API] Fetching RoleStore resource from MODULE ADDRESS: ${CONTRACT_ADDRESS}`);
-		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`);
+		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`, { headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` } });
 		if (!res.ok) {
 			console.log(`[API] Resource not found at module address ${CONTRACT_ADDRESS}`);
 			return null;
@@ -68,7 +68,7 @@ const queryTableItem = async (handle: string, key: string | number, keyType: str
 		
 		const res = await fetch(url, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
 			body: JSON.stringify({ key_type: keyType, value_type: valueType, key: formattedKey })
 		});
 		if (!res.ok) {

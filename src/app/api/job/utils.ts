@@ -1,10 +1,12 @@
-import { CONTRACT_ADDRESS, APTOS_NODE_URL } from "@/constants/contracts";
+import { CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
 
 export const getTableHandle = async (): Promise<{ handle: string; nextJobId: number } | null> => {
 	try {
 		const resourceType = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
 		console.log(`[API] Fetching EscrowStore from ${CONTRACT_ADDRESS}`);
-		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`);
+		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`, {
+			headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` }
+		});
 		if (!res.ok) {
 			console.log(`[API] Failed to fetch EscrowStore: ${res.status} ${res.statusText}`);
 			const text = await res.text();
@@ -36,7 +38,7 @@ export const queryJobFromTable = async (tableHandle: string, jobId: number): Pro
 		
 		const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${tableHandle}/item`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
 			body: JSON.stringify(requestBody)
 		});
 		

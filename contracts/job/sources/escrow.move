@@ -227,6 +227,9 @@ module job_work_board::escrow {
         let milestone = vector::borrow_mut(&mut job.milestones, i);
         assert!(milestone.status == MilestoneStatus::Submitted, 1);
 
+        let now = timestamp::now_seconds();
+        assert!(now <= milestone.review_deadline, 1);
+
         milestone.status = MilestoneStatus::Accepted;
 
         if (option::is_some(&job.freelancer)) {
@@ -252,6 +255,9 @@ module job_work_board::escrow {
         let i = find_milestone_index(&job.milestones, milestone_id);
         let milestone = vector::borrow_mut(&mut job.milestones, i);
         assert!(milestone.status == MilestoneStatus::Submitted, 1);
+
+        let now = timestamp::now_seconds();
+        assert!(now <= milestone.review_deadline, 1);
 
         milestone.status = MilestoneStatus::Locked;
         job.state = JobState::Disputed;
@@ -291,7 +297,6 @@ module job_work_board::escrow {
                 }
             );
         } else if (milestone.status == MilestoneStatus::Submitted) {
-            // Freelancer can claim timeout if poster didn't review by review_deadline
             assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == caller, 1);
             assert!(now > milestone.review_deadline, 1);
             milestone.status = MilestoneStatus::Accepted;

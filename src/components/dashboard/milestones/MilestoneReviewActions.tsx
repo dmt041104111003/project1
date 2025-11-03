@@ -13,6 +13,7 @@ interface MilestoneReviewActionsProps {
   isSubmitted: boolean;
   isCancelled: boolean;
   canInteract: boolean;
+  reviewTimeout?: boolean;  // Review deadline has passed
   confirming: boolean;
   rejecting: boolean;
   claiming: boolean;
@@ -28,6 +29,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
   isSubmitted,
   isCancelled,
   canInteract,
+  reviewTimeout = false,
   confirming,
   rejecting,
   claiming,
@@ -51,7 +53,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
         <span className="text-xs text-orange-700 font-bold">✓ Đã claim timeout, job đã bị hủy</span>
       )}
 
-      {isSubmitted && canInteract && (
+      {isSubmitted && canInteract && !reviewTimeout && (
         <>
           <Button
             size="sm"
@@ -71,6 +73,12 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
             {rejecting ? 'Đang reject...' : 'Reject'}
           </Button>
         </>
+      )}
+
+      {isSubmitted && reviewTimeout && (
+        <span className="text-xs text-orange-700 font-bold">
+          ⚠ Đã hết thời gian review. Freelancer có thể claim timeout.
+        </span>
       )}
     </>
   );
