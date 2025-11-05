@@ -4,12 +4,9 @@ import React from 'react';
 import { Container } from '@/components/ui/container';
 import { Header } from '@/components/landing/header';
 import { Footer } from '@/components/landing/footer';
+import { LayoutProps } from '@/constants/escrow';
 
-interface JobDetailLayoutProps {
-  children: React.ReactNode;
-}
-
-export const JobDetailLayout: React.FC<JobDetailLayoutProps> = ({ children }) => {
+export const JobDetailLayout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />

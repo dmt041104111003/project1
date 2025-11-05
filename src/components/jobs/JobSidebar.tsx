@@ -3,23 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-
-interface JobData {
-  total_escrow?: number | string;
-  milestones?: any[];
-  state?: any;
-  poster?: string;
-  freelancer?: any;
-  apply_deadline?: number | string;
-}
-
-interface JobSidebarProps {
-  jobData: JobData | null;
-  account: string | null;
-  hasFreelancerRole: boolean;
-  applying: boolean;
-  onApply: () => void;
-}
+import { JobSidebarProps } from '@/constants/escrow';
 
 const parseState = (state: any): string => {
   if (typeof state === 'string') return state;

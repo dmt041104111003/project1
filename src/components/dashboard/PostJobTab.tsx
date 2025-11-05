@@ -6,8 +6,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
-
-interface Milestone { amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string; }
+import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
@@ -36,9 +35,9 @@ export const PostJobTab: React.FC = () => {
   const [posterStatus, setPosterStatus] = useState('');
   const [canPostJobs, setCanPostJobs] = useState(false);
   const [skillsList, setSkillsList] = useState<string[]>([]);
-  const [milestonesList, setMilestonesList] = useState<Milestone[]>([]);
+  const [milestonesList, setMilestonesList] = useState<MilestoneForm[]>([]);
   const [currentSkill, setCurrentSkill] = useState('');
-  const [currentMilestone, setCurrentMilestone] = useState<Milestone>({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
+  const [currentMilestone, setCurrentMilestone] = useState<MilestoneForm>({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
 
@@ -67,13 +66,7 @@ export const PostJobTab: React.FC = () => {
   const removeMilestone = (index: number) => setMilestonesList(prev => prev.filter((_, i) => i !== index));
   const calculateTotalBudget = () => milestonesList.reduce((total, milestone) => total + (parseFloat(milestone.amount) || 0), 0);
 
-  const handleJsonParse = (data: {
-    title?: string;
-    description?: string;
-    requirements?: string[];
-    deadline?: number;
-    milestones?: Array<{ amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string }>;
-  }) => {
+  const handleJsonParse = (data: JsonJobParseData) => {
     if (data.title) setJobTitle(data.title);
     if (data.description) setJobDescription(data.description);
     if (Array.isArray(data.requirements)) setSkillsList(data.requirements);

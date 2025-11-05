@@ -3,26 +3,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
-export interface DisputeData {
-  jobId: number;
-  milestoneIndex: number;
-  disputeId: number;
-  status: 'open' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
-  openedAt?: string;
-  reason?: string;
-  posterEvidenceCid?: string;
-  freelancerEvidenceCid?: string;
-  hasVoted?: boolean;
-  votesCompleted?: boolean;
-}
-
-export interface DisputeItemProps {
-  dispute: DisputeData;
-  resolvingKey: string | null;
-  onResolvePoster: () => void;
-  onResolveFreelancer: () => void;
-}
+import { DisputeItemProps } from '@/constants/escrow';
 
 export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
   const key = `${dispute.jobId}:${dispute.milestoneIndex}`;

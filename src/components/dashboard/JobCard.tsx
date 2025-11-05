@@ -4,28 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
-
-interface Job {
-  id: number;
-  cid: string;
-  poster: string;
-  freelancer: string | null;
-  total_amount: number;
-  milestones_count: number;
-  milestones?: any[];
-  has_freelancer: boolean;
-  state: string;
-  mutual_cancel_requested_by?: string | null;
-  freelancer_withdraw_requested_by?: string | null;
-  apply_deadline?: number;
-}
-
-interface JobCardProps {
-  job: Job;
-  account: string | null;
-  activeTab: 'posted' | 'applied';
-  onUpdate: () => void;
-}
+import { JobCardProps } from '@/constants/escrow';
 
 const getStateDisplay = (state: any): { text: string; classes: string } => {
   const stateStr = typeof state === 'string' ? state : 'Active';

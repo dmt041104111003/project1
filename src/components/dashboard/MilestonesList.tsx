@@ -7,28 +7,7 @@ import { toast } from 'sonner';
 import { MilestoneItem } from './milestones/MilestoneItem';
 import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
-
-interface Milestone {
-  id: string;
-  amount: string;
-  duration?: string;
-  deadline: string;
-  review_period?: string;
-  review_deadline?: string;
-  status: string;
-  evidence_cid?: { vec?: string[] } | string | null;
-}
-
-interface MilestonesListProps {
-  jobId: number;
-  milestones: Milestone[];
-  poster: string;
-  freelancer: string | null;
-  jobState: string;
-  mutualCancelRequestedBy?: string | null;
-  freelancerWithdrawRequestedBy?: string | null;
-  onUpdate?: () => void;
-}
+import { MilestonesListProps } from '@/constants/escrow';
 
 const executeTransaction = async (payload: any): Promise<string> => {
   if (payload.error) throw new Error(payload.error);
@@ -71,11 +50,17 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [hasDisputeId, setHasDisputeId] = useState<boolean>(false);
   const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); // true=freelancer, false=poster
   const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); // true when all 3 reviewers voted
+  const [unlockingNonDisputed, setUnlockingNonDisputed] = useState(false);
 
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const canInteract = jobState === 'InProgress' || jobState === 'Posted' || jobState === 'Disputed';
   const isCancelled = jobState === 'Cancelled';
+  
+  const hasWithdrawableMilestones = milestones.some(m => {
+    const status = parseStatus(m.status);
+    return status === 'Pending' || status === 'Submitted';
+  });
 
   const handleFileUploaded = (milestoneId: number, cid: string) => {
     setEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
@@ -92,10 +77,16 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         const data = await res.json();
         const opt = data?.job?.dispute_id || data?.dispute_id;
         const exists = Array.isArray(opt?.vec) ? opt.vec.length > 0 : Boolean(opt);
+        console.log('[MilestonesList] Dispute check:', {
+          jobId,
+          dispute_id: opt,
+          exists,
+          jobState: data?.job?.state,
+          isPoster: account?.toLowerCase() === poster?.toLowerCase()
+        });
         setHasDisputeId(!!exists);
         const did = exists ? (Array.isArray(opt?.vec) ? Number(opt.vec[0]) : Number(opt)) : 0;
         let finalWinner: boolean | null = null;
-        // Prefer derived majority from summary if available
         if (did) {
           const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
           if (sumRes.ok) {
@@ -104,7 +95,6 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             setDisputeVotesDone(Number(sum?.counts?.total || 0) >= 3);
           }
         }
-        // Fallback to on-chain dispute_winner if summary didn't yield
         if (finalWinner === null) {
           const winner = (data?.job?.dispute_winner ?? null);
           if (typeof winner === 'boolean') finalWinner = winner;
@@ -231,7 +221,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   };
 
   const handleOpenDispute = async (milestoneId: number) => {
-    if (!account || !isPoster) return;
+    if (!account || (!isPoster && !isFreelancer)) return;
     const evidenceCid = (disputeEvidenceCids[milestoneId] || '').trim();
     if (!evidenceCid) {
       toast.error('Vui lòng upload CID evidence trước khi mở dispute');
@@ -331,9 +321,6 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     const statusStr = milestone ? parseStatus(milestone.status) : '';
     const reviewDeadline = milestone?.review_deadline ? Number(milestone.review_deadline) : 0;
     const reviewTimeout = reviewDeadline > 0 && reviewDeadline * 1000 < Date.now();
-    
-    // Poster can claim when milestone is Pending and deadline passed
-    // Freelancer can claim when milestone is Submitted and review deadline passed
     if (isPoster && statusStr === 'Pending') {
       toast.warning('Bạn có chắc muốn claim timeout? Freelancer sẽ mất stake và job sẽ mở lại cho người khác apply.', {
         action: {
@@ -401,6 +388,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
   const handleMutualCancel = async () => {
     if (!account || !isPoster) return;
+    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
+      toast.error('Không thể yêu cầu hủy job khi đang có dispute. Vui lòng giải quyết dispute trước.');
+      return;
+    }
     toast.warning('Bạn có chắc muốn yêu cầu hủy job? Freelancer sẽ được thông báo để xác nhận.', {
       action: {
         label: 'Xác nhận',
@@ -434,6 +425,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
   const handleAcceptMutualCancel = async () => {
     if (!account || !isFreelancer) return;
+    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
+      toast.error('Không thể chấp nhận hủy job khi đang có dispute. Vui lòng giải quyết dispute trước.');
+      return;
+    }
     toast.warning('Bạn có chắc muốn chấp nhận hủy job? Poster sẽ nhận escrow, cả 2 stake sẽ về bạn.', {
       action: {
         label: 'Xác nhận',
@@ -500,6 +495,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
   const handleFreelancerWithdraw = async () => {
     if (!account || !isFreelancer) return;
+    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
+      toast.error('Không thể yêu cầu rút khi đang có dispute. Vui lòng giải quyết dispute trước.');
+      return;
+    }
     toast.warning('Bạn có chắc muốn yêu cầu rút? Poster sẽ được thông báo để xác nhận. Nếu được chấp nhận, bạn sẽ mất stake (1 APT) và job sẽ mở lại.', {
       action: {
         label: 'Xác nhận',
@@ -533,6 +532,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
   const handleAcceptFreelancerWithdraw = async () => {
     if (!account || !isPoster) return;
+    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
+      toast.error('Không thể chấp nhận freelancer rút khi đang có dispute. Vui lòng giải quyết dispute trước.');
+      return;
+    }
     toast.warning('Bạn có chắc muốn chấp nhận freelancer rút? Freelancer sẽ mất stake (1 APT) về bạn và job sẽ mở lại.', {
       action: {
         label: 'Xác nhận',
@@ -597,6 +600,35 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     });
   };
 
+  const handleUnlockNonDisputedMilestones = async () => {
+    if (!account || !isPoster) {
+      toast.error('Chỉ poster mới có thể rút escrow');
+      return;
+    }
+    if (jobState !== 'Disputed') {
+      toast.error('Job phải ở trạng thái Disputed mới có thể rút escrow');
+      return;
+    }
+    try {
+      setUnlockingNonDisputed(true);
+      const res = await fetch('/api/job/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const txHash = await executeTransaction(payload);
+      toast.success(`Rút escrow các milestone không tranh chấp thành công! TX: ${txHash}`);
+      setTimeout(() => onUpdate?.(), 2000);
+    } catch (err: any) {
+      console.error('[MilestonesList] Unlock non-disputed milestones error:', err);
+      toast.error(`Lỗi: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setUnlockingNonDisputed(false);
+    }
+  };
+
   if (!milestones || milestones.length === 0) {
     return null;
   }
@@ -648,6 +680,28 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             />
           );
         })}
+
+        
+        {isPoster && jobState === 'Disputed' && (
+          <div className="mt-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded">
+            <p className="text-sm text-yellow-800 mb-2 font-bold">
+              ⚠ Job đang có dispute - Bạn có thể rút escrow của các milestone không tranh chấp (chưa được thực hiện)
+            </p>
+            {hasWithdrawableMilestones ? (
+              <button
+                onClick={handleUnlockNonDisputedMilestones}
+                disabled={unlockingNonDisputed}
+                className="bg-yellow-600 text-black hover:bg-yellow-700 text-sm px-4 py-2 rounded border-2 border-yellow-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {unlockingNonDisputed ? 'Đang rút...' : 'Rút Escrow Các Milestone Không Tranh Chấp'}
+              </button>
+            ) : (
+              <p className="text-sm text-gray-600 font-bold">
+                ✓ Đã rút hết escrow của các milestone có thể rút
+              </p>
+            )}
+          </div>
+        )}
 
         <JobCancelActions
           jobId={jobId}

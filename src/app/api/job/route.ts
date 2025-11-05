@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress, parseMilestoneStatus } from "./utils";
 
-// GET: Query job data from table
 export async function GET(req: Request) {
 	try {
 		const url = new URL(req.url);
 		const jobId = url.searchParams.get("job_id");
 		const list = url.searchParams.get("list");
 		
-		// List all jobs
 		if (list === "true") {
 			console.log(`[API] Listing jobs`);
 			const store = await getTableHandle();

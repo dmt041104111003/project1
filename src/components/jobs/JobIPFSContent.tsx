@@ -2,10 +2,7 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-
-interface JobIPFSContentProps {
-  jobDetails: Record<string, unknown> | null;
-}
+import { JobIPFSContentProps } from '@/constants/escrow';
 
 export const JobIPFSContent: React.FC<JobIPFSContentProps> = ({ jobDetails }) => {
   return (

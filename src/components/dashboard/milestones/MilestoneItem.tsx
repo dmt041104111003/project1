@@ -4,51 +4,7 @@ import React, { useState } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
-
-interface Milestone {
-  id: string;
-  amount: string;
-  duration?: string;
-  deadline: string;
-  review_period?: string;
-  review_deadline?: string;
-  status: string;
-  evidence_cid?: { vec?: string[] } | string | null;
-}
-
-interface MilestoneItemProps {
-  milestone: Milestone;
-  index: number;
-  jobId: number;
-  account: string | null;
-  poster: string;
-  freelancer: string | null;
-  jobState: string;
-  canInteract: boolean;
-  isCancelled: boolean;
-  isFirstMilestone: boolean;
-  prevMilestoneAccepted: boolean;
-  submitting: boolean;
-  confirming: boolean;
-  rejecting: boolean;
-  claiming: boolean;
-  evidenceCid?: string;
-  disputeEvidenceCid?: string;
-  openingDispute?: boolean;
-  submittingEvidence?: boolean;
-  hasDisputeId?: boolean;
-  votesCompleted?: boolean;
-  onFileUploaded: (milestoneId: number, cid: string) => void;
-  onDisputeFileUploaded?: (milestoneId: number, cid: string) => void;
-  onSubmitMilestone: (milestoneId: number) => void;
-  onConfirmMilestone: (milestoneId: number) => void;
-  onRejectMilestone: (milestoneId: number) => void;
-  onClaimTimeout: (milestoneId: number) => void;
-  onOpenDispute?: (milestoneId: number) => void;
-  onSubmitEvidence?: (milestoneId: number) => void;
-  onClaimDispute?: (milestoneId: number) => void;
-  disputeWinner?: boolean | null;
-}
+import { MilestoneItemProps } from '@/constants/escrow';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   milestone,
@@ -93,12 +49,15 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const isSubmitted = statusStr === 'Submitted';
   const isAccepted = statusStr === 'Accepted';
   const isLocked = statusStr === 'Locked';
+  const isWithdrawn = statusStr === 'Withdrawn';
   const deadline = Number(milestone.deadline);
   const deadlineDate = deadline ? new Date(deadline * 1000) : null;
   const rawOverdue = Boolean(deadlineDate && deadlineDate.getTime() < Date.now() && !isAccepted);
   const timersStopped = isLocked; // stop timers when in dispute
   const isOverdue = timersStopped ? false : rawOverdue;
-  const canSubmit = (isFirstMilestone || prevMilestoneAccepted) && !isOverdue;
+
+  const hasDeadline = deadline > 0;
+  const canSubmit = (isFirstMilestone || prevMilestoneAccepted) && !isOverdue && hasDeadline;
   
   // Review period info
   const duration = Number(milestone.duration || 0);
@@ -120,6 +79,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const getCardClasses = () => {
     if (isAccepted) return 'bg-green-50 border-green-300';
     if (isLocked) return 'bg-red-50 border-red-300';
+    if (isWithdrawn) return 'bg-gray-100 border-gray-400 opacity-60';
     if (isSubmitted) return 'bg-blue-50 border-blue-300';
     if (isOverdue) return 'bg-yellow-50 border-yellow-300';
     return 'bg-gray-50 border-gray-300';
@@ -129,6 +89,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     const base = 'px-2 py-1 text-xs font-bold border-2 rounded';
     if (isAccepted) return `${base} bg-green-100 text-green-800 border-green-300`;
     if (isLocked) return `${base} bg-red-100 text-red-800 border-red-300`;
+    if (isWithdrawn) return `${base} bg-gray-200 text-gray-600 border-gray-400`;
     if (isSubmitted) return `${base} bg-blue-100 text-blue-800 border-blue-300`;
     if (isPending) return `${base} bg-gray-100 text-gray-800 border-gray-300`;
     return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
@@ -202,6 +163,14 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
         </div>
       )}
 
+      {/* Ẩn milestone đã được rút */}
+      {isWithdrawn && (
+        <div className="text-xs text-gray-500 italic mb-2">
+          ⚠ Milestone này đã được poster rút escrow khi có dispute
+        </div>
+      )}
+
+      {!isWithdrawn && (
       <div className="flex gap-2 flex-wrap">
         {isFreelancer && isPending && canInteract && (
           <MilestoneFileUpload
@@ -260,9 +229,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 <span className="text-xs text-gray-600">(Chờ bên thắng claim)</span>
               )
             )}
-            {!votesCompleted && (
-              <span className="text-xs text-gray-600">(Chưa đủ 3 phiếu)</span>
-            )}
+      
           </div>
         )}
 
@@ -311,6 +278,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

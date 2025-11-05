@@ -2,25 +2,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-
-interface MilestoneReviewActionsProps {
-  jobId: number;
-  milestoneId: number;
-  account: string | null;
-  isOverdue: boolean;
-  isPending: boolean;
-  isSubmitted: boolean;
-  isCancelled: boolean;
-  canInteract: boolean;
-  reviewTimeout?: boolean;  // Review deadline has passed
-  confirming: boolean;
-  rejecting: boolean;
-  claiming: boolean;
-  onConfirm: () => void;
-  onReject: () => void;
-  onClaimTimeout: () => void;
-}
+import { MilestoneReviewActionsProps } from '@/constants/escrow';
 
 export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
   milestoneId,

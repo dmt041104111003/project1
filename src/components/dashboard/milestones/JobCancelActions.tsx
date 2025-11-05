@@ -2,30 +2,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-
-interface JobCancelActionsProps {
-  jobId: number;
-  account: string | null;
-  poster: string;
-  freelancer: string | null;
-  canInteract: boolean;
-  isCancelled: boolean;
-  mutualCancelRequestedBy: string | null;
-  freelancerWithdrawRequestedBy: string | null;
-  onMutualCancel: () => void;
-  onAcceptMutualCancel: () => void;
-  onRejectMutualCancel: () => void;
-  onFreelancerWithdraw: () => void;
-  onAcceptFreelancerWithdraw: () => void;
-  onRejectFreelancerWithdraw: () => void;
-  cancelling: boolean;
-  withdrawing: boolean;
-  acceptingCancel: boolean;
-  rejectingCancel: boolean;
-  acceptingWithdraw: boolean;
-  rejectingWithdraw: boolean;
-}
+import { JobCancelActionsProps } from '@/constants/escrow';
 
 export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   account,

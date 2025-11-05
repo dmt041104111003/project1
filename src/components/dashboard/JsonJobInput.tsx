@@ -2,17 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-
-interface JsonJobInputProps {
-  onParse: (data: {
-    title?: string;
-    description?: string;
-    requirements?: string[];
-    deadline?: number;
-    milestones?: Array<{ amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string }>;
-  }) => void;
-  canPostJobs: boolean;
-}
+import { JsonJobInputProps } from '@/constants/escrow';
 
 export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs }) => {
   const [jsonInput, setJsonInput] = useState('');

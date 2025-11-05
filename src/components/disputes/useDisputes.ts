@@ -2,19 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
-
-export interface DisputeData {
-  jobId: number;
-  milestoneIndex: number;
-  disputeId: number;
-  status: 'open' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
-  openedAt?: string;
-  reason?: string;
-  posterEvidenceCid?: string;
-  freelancerEvidenceCid?: string;
-  hasVoted?: boolean;
-  votesCompleted?: boolean; // true when 3 votes reached
-}
+import { DisputeData } from '@/constants/escrow';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);

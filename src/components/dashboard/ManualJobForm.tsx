@@ -2,32 +2,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-
-interface Milestone { amount: string; duration: string; unit: string; reviewPeriod?: string; reviewUnit?: string; }
-
-interface ManualJobFormProps {
-  jobTitle: string;
-  setJobTitle: (v: string) => void;
-  jobDescription: string;
-  setJobDescription: (v: string) => void;
-  jobDuration: string;
-  setJobDuration: (v: string) => void;
-  skillsList: string[];
-  currentSkill: string;
-  setCurrentSkill: (v: string) => void;
-  addSkill: () => void;
-  removeSkill: (index: number) => void;
-  milestonesList: Milestone[];
-  currentMilestone: Milestone;
-  setCurrentMilestone: (v: Milestone) => void;
-  addMilestone: () => void;
-  removeMilestone: (index: number) => void;
-  calculateTotalBudget: () => number;
-  validationErrors: {[key: string]: string};
-  canPostJobs: boolean;
-  onSubmit: (e: React.FormEvent) => void;
-  jobResult: string;
-}
+import { ManualJobFormProps } from '@/constants/escrow';
 
 export const ManualJobForm: React.FC<ManualJobFormProps> = ({
   jobTitle,

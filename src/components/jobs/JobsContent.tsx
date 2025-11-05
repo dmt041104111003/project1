@@ -4,23 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
-
-interface Job {
-  id: number;
-  cid: string;
-  total_amount?: number;
-  milestones_count?: number;
-  has_freelancer?: boolean;
-  state?: string;
-  apply_deadline?: number;
-  poster?: string;
-  freelancer?: string | null;
-}
+import { JobListItem } from '@/constants/escrow';
 
 export const JobsContent: React.FC = () => {
   const router = useRouter();
   const { account } = useWallet();
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<JobListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +71,7 @@ export const JobsContent: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {jobs.map((job) => {
+          {jobs.map((job: JobListItem) => {
             // Parse state and check freelancer (same logic as JobDetailContent)
             let stateStr = 'Posted';
             if (typeof job.state === 'string') {

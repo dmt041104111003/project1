@@ -3,16 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-
-interface MilestoneFileUploadProps {
-  milestoneId: number;
-  canSubmit: boolean;
-  isOverdue: boolean;
-  onFileUploaded: (milestoneId: number, cid: string) => void;
-  onSubmit: (milestoneId: number) => void;
-  submitting: boolean;
-  evidenceCid?: string;
-}
+import { MilestoneFileUploadProps } from '@/constants/escrow';
 
 export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   milestoneId,
