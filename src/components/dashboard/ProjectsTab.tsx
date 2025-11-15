@@ -33,8 +33,8 @@ export const ProjectsTab: React.FC = () => {
         }
         const data = await res.json();
         const rolesData = data.roles || [];
-        setHasPosterRole(rolesData.some((r: any) => r.name === 'poster'));
-        setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
+        setHasPosterRole(rolesData.some((r: { name: string }) => r.name === 'poster'));
+        setHasFreelancerRole(rolesData.some((r: { name: string }) => r.name === 'freelancer'));
       } catch {
         setHasPosterRole(false);
         setHasFreelancerRole(false);
@@ -69,7 +69,7 @@ export const ProjectsTab: React.FC = () => {
       const data = await res.json();
       const allJobs = data.jobs || [];
       
-      let filteredJobs = allJobs.filter((job: Job) => {
+      const filteredJobs = allJobs.filter((job: Job) => {
         if (activeTab === 'posted') {
           return job.poster?.toLowerCase() === account.toLowerCase();
         } else {
@@ -92,7 +92,7 @@ export const ProjectsTab: React.FC = () => {
       );
 
       setJobs(jobsWithMilestones);
-    } catch (err) {
+    } catch {
       setJobs([]);
     } finally {
       setLoading(false);
@@ -103,6 +103,7 @@ export const ProjectsTab: React.FC = () => {
     if (account) {
       fetchJobs();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
   if (!account) {

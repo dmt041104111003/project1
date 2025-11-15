@@ -48,8 +48,9 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
       const finalCid = uploadData.encCid || uploadData.ipfsHash;
       onFileUploaded(milestoneId, finalCid);
       toast.success('Tải file lên thành công!');
-    } catch (err: any) {
-      toast.error(`Lỗi upload file: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi upload file: ${errorMessage}`);
       setSelectedFile(null);
     } finally {
       setUploading(false);

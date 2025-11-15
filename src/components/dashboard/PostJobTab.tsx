@@ -20,7 +20,7 @@ const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
     if (!res.ok) return false;
     const data = await res.json();
     const rolesData = data.roles || [];
-    return rolesData.some((r: any) => r.name === 'poster');
+    return rolesData.some((r: { name: string }) => r.name === 'poster');
   } catch {
     return false;
   }
@@ -74,7 +74,7 @@ export const PostJobTab: React.FC = () => {
     if (data.deadline) setJobDuration((data.deadline / (24 * 60 * 60)).toString());
     if (Array.isArray(data.milestones)) {
       setMilestonesList(
-        data.milestones.map((m: any) => ({
+        data.milestones.map((m: { amount?: unknown; duration?: unknown; reviewPeriod?: unknown; unit?: string; reviewUnit?: string }) => ({
           amount: m.amount?.toString() || '',
           duration: m.duration?.toString() || '',
           unit: m.unit || 'ngày',

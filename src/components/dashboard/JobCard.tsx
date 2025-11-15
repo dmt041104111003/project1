@@ -6,7 +6,7 @@ import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
 import { JobCardProps } from '@/constants/escrow';
 
-  const getStateDisplay = (state: any, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
+  const getStateDisplay = (state: unknown, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
   const stateStr = typeof state === 'string' ? state : 'Active';
   
   const applyDeadlineExpired = applyDeadline
@@ -74,8 +74,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             setTimeout(() => {
               onUpdate();
             }, 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           }
         }
       },

@@ -14,7 +14,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   account,
   poster,
   freelancer,
-  jobState,
+  jobState: _jobState,
   canInteract,
   isCancelled,
   isFirstMilestone,
@@ -115,8 +115,10 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
         throw new Error(uploadData.error || 'Upload failed');
       }
       const finalCid = uploadData.encCid || uploadData.ipfsHash;
-      onDisputeFileUploaded && onDisputeFileUploaded(Number(milestone.id), String(finalCid || ''));
-    } catch (e: any) {
+      if (onDisputeFileUploaded) {
+        onDisputeFileUploaded(Number(milestone.id), String(finalCid || ''));
+      }
+    } catch (e) {
       setDisputeSelectedFile(null);
     } finally {
       setDisputeUploading(false);

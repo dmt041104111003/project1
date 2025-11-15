@@ -1,19 +1,26 @@
-export const parseStatus = (status: any): string => {
+export const parseStatus = (status: unknown): string => {
   if (typeof status === 'string') return status;
-  if (status?.vec && Array.isArray(status.vec) && status.vec.length > 0) {
-    return String(status.vec[0]);
+  if (status && typeof status === 'object') {
+    if ('vec' in status && Array.isArray(status.vec) && status.vec.length > 0) {
+      return String(status.vec[0]);
+    }
+    if ('__variant__' in status && status.__variant__) {
+      return String(status.__variant__);
+    }
+    if ('__name__' in status && status.__name__) {
+      return String(status.__name__);
+    }
+    const keys = Object.keys(status);
+    return keys.length > 0 ? String(keys[0]) : 'Pending';
   }
-  if (status?.__variant__) return String(status.__variant__);
-  if (status?.__name__) return String(status.__name__);
-  const keys = Object.keys(status || {});
-  return keys.length > 0 ? String(keys[0]) : 'Pending';
+  return 'Pending';
 };
 
-export const parseEvidenceCid = (evidence: any): string | null => {
+export const parseEvidenceCid = (evidence: unknown): string | null => {
   if (!evidence) return null;
   if (typeof evidence === 'string') return evidence;
-  if (evidence.vec && Array.isArray(evidence.vec) && evidence.vec.length > 0) {
-    return evidence.vec[0];
+  if (evidence && typeof evidence === 'object' && 'vec' in evidence && Array.isArray(evidence.vec) && evidence.vec.length > 0) {
+    return String(evidence.vec[0]);
   }
   return null;
 };

@@ -9,9 +9,11 @@ import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
 import { MilestonesListProps } from '@/constants/escrow';
 
-const executeTransaction = async (payload: any): Promise<string> => {
-  if (payload.error) throw new Error(payload.error);
-  const wallet = (window as any).aptos;
+const executeTransaction = async (payload: unknown): Promise<string> => {
+  if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
+    throw new Error(payload.error);
+  }
+  const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
   if (!wallet) throw new Error('Wallet not found');
   const tx = await wallet.signAndSubmitTransaction(payload);
   return tx?.hash || 'N/A';
@@ -122,8 +124,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         return updated;
       });
       setTimeout(() => onUpdate?.(), 2000);
-    } catch (err: any) {
-      toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi: ${errorMessage}`);
     } finally {
       setSubmittingId(null);
     }
@@ -137,7 +140,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         const jobRes = await fetch(`/api/job/${jobId}`);
         const jobData = jobRes.ok ? await jobRes.json() : null;
         if (jobData) {
-          const milestone = jobData?.job?.milestones?.find((m: any) => Number(m.id) === milestoneId);
+          const milestone = jobData?.job?.milestones?.find((m: { id: string | number }) => Number(m.id) === milestoneId);
           if (milestone) {
             const reviewDeadline = Number(milestone.review_deadline || 0);
             const now = Math.floor(Date.now() / 1000);
@@ -146,8 +149,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             }
           }
         }
-      } catch (err: any) {
-        if (err.message.includes('Review deadline')) {
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('Review deadline')) {
           throw err;
         }
       }
@@ -157,8 +160,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       const txHash = await executeTransaction(payload);
       toast.success(`Confirm milestone thành công! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 2000);
-    } catch (err: any) {
-      const errorMsg = err?.message || 'Lỗi không xác định';
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
       if (errorMsg.includes('Review deadline has passed')) {
         toast.error('Đã hết thời gian review. Bạn không thể confirm milestone này nữa. Freelancer có thể claim timeout.');
       } else {
@@ -181,7 +184,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               const jobRes = await fetch(`/api/job/${jobId}`);
               const jobData = jobRes.ok ? await jobRes.json() : null;
               if (jobData) {
-                const milestone = jobData?.job?.milestones?.find((m: any) => Number(m.id) === milestoneId);
+                const milestone = jobData?.job?.milestones?.find((m: { id: string | number }) => Number(m.id) === milestoneId);
                 if (milestone) {
                   const reviewDeadline = Number(milestone.review_deadline || 0);
                   const now = Math.floor(Date.now() / 1000);
@@ -190,8 +193,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
                   }
                 }
               }
-            } catch (err: any) {
-              if (err.message.includes('Review deadline')) {
+            } catch (err) {
+              if (err instanceof Error && err.message.includes('Review deadline')) {
                 throw err;
               }
             }
@@ -201,8 +204,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Reject milestone thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            const errorMsg = err?.message || 'Lỗi không xác định';
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
             if (errorMsg.includes('Review deadline has passed')) {
               toast.error('Đã hết thời gian review. Bạn không thể reject milestone này nữa. Freelancer có thể claim timeout.');
             } else {
@@ -233,8 +236,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       toast.success(`Mở dispute thành công! TX: ${txHash}`);
       setHasDisputeId(true);
       setTimeout(() => onUpdate?.(), 2000);
-    } catch (err: any) {
-      toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi: ${errorMessage}`);
     } finally {
       setOpeningDisputeId(null);
     }
@@ -260,8 +264,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       const txHash = await executeTransaction(payload);
       toast.success(`Đã gửi evidence cho dispute! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 1500);
-    } catch (err: any) {
-      toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi: ${errorMessage}`);
     } finally {
       setSubmittingEvidenceId(null);
     }
@@ -281,12 +286,13 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       const txHash = await executeTransaction(payload);
       toast.success(`Đã claim dispute ${isWinnerFreelancer ? 'thanh toán' : 'hoàn tiền'}! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 1500);
-    } catch (err: any) {
-      toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi: ${errorMessage}`);
     }
   };
 
-  const handleClaimTimeout = async (milestoneId: number, isFreelancerClaiming?: boolean) => {
+  const handleClaimTimeout = async (milestoneId: number) => {
     if (!account) return;
     
     const milestone = milestones.find(m => Number(m.id) === milestoneId);
@@ -305,8 +311,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               const txHash = await executeTransaction(payload);
               toast.success(`Claim timeout thành công! TX: ${txHash}`);
               setTimeout(() => onUpdate?.(), 2000);
-            } catch (err: any) {
-              toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+              toast.error(`Lỗi: ${errorMessage}`);
             } finally {
               setClaimingId(null);
             }
@@ -327,8 +334,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               const txHash = await executeTransaction(payload);
               toast.success(`Claim timeout thành công! Milestone đã được accepted và payment đã được gửi. TX: ${txHash}`);
               setTimeout(() => onUpdate?.(), 2000);
-            } catch (err: any) {
-              toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+              toast.error(`Lỗi: ${errorMessage}`);
             } finally {
               setClaimingId(null);
             }
@@ -357,8 +365,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu hủy job! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setCancelling(false);
           }
@@ -386,8 +395,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận hủy job thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setAcceptingCancel(false);
           }
@@ -411,8 +421,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối hủy job. Job sẽ tiếp tục! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setRejectingCancel(false);
           }
@@ -440,8 +451,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu rút! Đang chờ poster xác nhận. TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setWithdrawing(false);
           }
@@ -469,8 +481,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận freelancer rút thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setAcceptingWithdraw(false);
           }
@@ -494,8 +507,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối freelancer rút. Job sẽ tiếp tục! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
-          } catch (err: any) {
-            toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+            toast.error(`Lỗi: ${errorMessage}`);
           } finally {
             setRejectingWithdraw(false);
           }
@@ -522,8 +536,9 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       const txHash = await executeTransaction(payload);
       toast.success(`Rút escrow các milestone không tranh chấp thành công! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 2000);
-    } catch (err: any) {
-      toast.error(`Lỗi: ${err?.message || 'Lỗi không xác định'}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Lỗi: ${errorMessage}`);
     } finally {
       setUnlockingNonDisputed(false);
     }

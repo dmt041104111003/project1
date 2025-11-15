@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MilestoneReviewActionsProps } from '@/constants/escrow';
 
 export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
-  milestoneId,
+  milestoneId: _milestoneId,
   isOverdue,
   isPending,
   isSubmitted,
