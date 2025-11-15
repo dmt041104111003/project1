@@ -28,7 +28,7 @@ export default function DIDActionsPanel() {
       .then(data => {
         setRoles(data.roles || []);
       })
-      .catch(err => {
+      .catch(() => {
         setRoles([]);
       })
       .finally(() => setLoadingRoles(false));

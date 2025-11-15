@@ -33,11 +33,11 @@ export function TrustNumbers() {
       <Container>
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-blue-800 mb-4">
-            Trust numbers
+            Chỉ số minh bạch
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
           <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-            Transparent metrics stored on-chain
+            Chỉ số minh bạch lưu trữ trên blockchain
           </p>
         </div>
         
@@ -70,7 +70,7 @@ export function TrustNumbers() {
             rel="noopener noreferrer"
             className="text-blue-800 font-bold border border-blue-800 px-6 py-3 bg-white"
           >
-            View on Block Explorer
+            Xem trên Block Explorer
           </a>
         </div>
       </Container>

@@ -1,31 +1,31 @@
 import { NextResponse } from "next/server";
 import { ROLE, ROLE_KIND, APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
 
-const view = async (functionName: string, args: any[]): Promise<boolean> => {
+const _view = async (_functionName: string, _args: unknown[]): Promise<boolean> => {
 	try {
 		const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
-			body: JSON.stringify({ function: functionName, type_arguments: [], arguments: args })
+			body: JSON.stringify({ function: _functionName, type_arguments: [], arguments: _args })
 		});
 		if (!res.ok) {
-			const errorText = await res.text().catch(() => res.statusText);
+			await res.text().catch(() => res.statusText);
 			return false;
 		}
 		const data = await res.json();
 		const result = Array.isArray(data) ? data[0] === true : data === true;
 		return result;
-	} catch (err) {
+	} catch {
 		return false;
 	}
 };
 
-const getCid = async (address: string, kind: number): Promise<string | null> => {
+const _getCid = async (_address: string, _kind: number): Promise<string | null> => {
 	try {
 		const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
-			body: JSON.stringify({ function: ROLE.GET_CID, type_arguments: [], arguments: [address, kind] })
+			body: JSON.stringify({ function: ROLE.GET_CID, type_arguments: [], arguments: [_address, _kind] })
 		});
 		if (!res.ok) return null;
 		const data = await res.json();
@@ -45,7 +45,7 @@ const getTableHandle = async (): Promise<string | null> => {
 		const data = await res.json();
 		const handle = data?.data?.users?.handle || null;
 		return handle;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };
@@ -62,12 +62,12 @@ const queryTableItem = async (handle: string, key: string | number, keyType: str
 			body: JSON.stringify({ key_type: keyType, value_type: valueType, key: formattedKey })
 		});
 		if (!res.ok) {
-			const errorText = await res.text().catch(() => "");
+			await res.text().catch(() => "");
 			return null;
 		}
 		const result = await res.json();
 		return result;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };
@@ -137,7 +137,8 @@ export async function GET(req: Request) {
 		}
 
 		return NextResponse.json({ roles });
-	} catch (error: any) {
-		return NextResponse.json({ error: error?.message || "Không thể lấy vai trò" }, { status: 500 });
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "Không thể lấy vai trò";
+		return NextResponse.json({ error: errorMessage }, { status: 500 });
 	}
 }

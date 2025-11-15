@@ -21,16 +21,11 @@ const eslintConfig = [
     ],
   },
   {
-    files: ["src/app/api/**/*.ts", "src/app/api/**/*.tsx"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
-    },
-  },
-  {
     files: ["src/**/*.ts", "src/**/*.tsx"],
     rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+      "@next/next/no-page-custom-font": "warn",
     },
   },
 ];

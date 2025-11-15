@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         resolve(NextResponse.json({ messages }));
       });
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Không thể lấy dữ liệu' }, { status: 500 });
   }
 }
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
     await push(messagesRef, newMessage);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
   }
 }
@@ -265,7 +265,7 @@ export async function DELETE(request: NextRequest) {
     await remove(messageRef);
 
     return NextResponse.json({ success: true, message: 'Đã xóa tin nhắn thành công' });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Không thể xóa tin nhắn' }, { status: 500 });
   }
 }

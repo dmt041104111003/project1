@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { REPUTATION, APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
+import { APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
 
 const getRepStoreHandle = async (): Promise<string | null> => {
 	try {
@@ -13,7 +13,7 @@ const getRepStoreHandle = async (): Promise<string | null> => {
 		const data = await res.json();
 		const handle = data?.data?.table?.handle;
 		return handle;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };
@@ -43,7 +43,7 @@ const getReputationPoints = async (address: string): Promise<number | null> => {
 			if (res.status === 404) {
 				return 0;
 			}
-			const errorText = await res.text().catch(() => res.statusText);
+			await res.text().catch(() => res.statusText);
 			return null;
 		}
 		

@@ -7,7 +7,7 @@ export const getTableHandle = async (): Promise<{ handle: string; nextJobId: num
 			headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` }
 		});
 		if (!res.ok) {
-			const text = await res.text();
+			await res.text();
 			return null;
 		}
 		const data = await res.json();
@@ -17,7 +17,7 @@ export const getTableHandle = async (): Promise<{ handle: string; nextJobId: num
 			handle,
 			nextJobId: Number(nextJobId)
 		};
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };
@@ -40,12 +40,12 @@ export const queryJobFromTable = async (tableHandle: string, jobId: number): Pro
 			if (res.status === 404) {
 				return null;
 			}
-			const errorText = await res.text();
+			await res.text();
 			return null;
 		}
 		const data = await res.json();
 		return data;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };

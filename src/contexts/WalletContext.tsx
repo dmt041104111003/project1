@@ -128,10 +128,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (result?.ok) {
             router.push('/dashboard');
           }
-        } catch (e) {
+        } catch {
         }
         toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
-      } catch (err) {
+      } catch {
         toast.error('Không thể kết nối ví Petra. Vui lòng thử lại.');
       } finally {
         setIsConnecting(false);
@@ -148,14 +148,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const wallet = window.aptos!;
         await wallet.disconnect();
         toast.success('Đã ngắt kết nối ví Petra thành công');
-      } catch (err) {
+      } catch {
         toast.error('Lỗi khi ngắt kết nối ví');
       }
     }
     
     try {
       await signOut({ redirect: false });
-    } catch (e) {
+    } catch {
     }
     
     setAccount(null);

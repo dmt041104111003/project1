@@ -10,11 +10,11 @@ export function PersonaSwitcher() {
       <Container>
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-blue-800 mb-4">
-            Platform Features
+            Tính năng nền tảng
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
           <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-            Everything you need for secure and transparent freelancing
+            Tất cả những gì bạn cần để freelancing an toàn và minh bạch
           </p>
         </div>
         
@@ -23,7 +23,7 @@ export function PersonaSwitcher() {
           {/* Client Features */}
           <div className="border border-gray-400 bg-gray-50 p-6">
             <h3 className="text-xl font-bold text-blue-800 mb-6 text-center">
-              FOR CLIENTS
+              CHO KHÁCH HÀNG
             </h3>
             
             <div className="space-y-4">
@@ -51,7 +51,7 @@ export function PersonaSwitcher() {
           {/* Freelancer Features */}
           <div className="border border-gray-400 bg-gray-50 p-6">
             <h3 className="text-xl font-bold text-blue-800 mb-6 text-center">
-              FOR FREELANCERS
+              CHO FREELANCER
             </h3>
             
             <div className="space-y-4">

@@ -10,11 +10,11 @@ export function HowItWorks() {
       <Container>
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-blue-800 mb-4">
-            How it works
+            Cách hoạt động
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
           <p className="text-xl text-gray-700 max-w-2xl mx-auto">
-            A simple 4-step process to start safe and transparent freelancing
+            Quy trình 4 bước để bắt đầu freelancing an toàn và minh bạch
           </p>
         </div>
         

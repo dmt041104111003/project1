@@ -47,7 +47,7 @@ export function Header() {
       await navigator.clipboard.writeText(account);
       setCopiedAddress(true);
       toast.success('Đã sao chép địa chỉ ví!');
-    } catch (err) {
+    } catch {
       toast.error('Không thể sao chép địa chỉ ví');
     }
   };

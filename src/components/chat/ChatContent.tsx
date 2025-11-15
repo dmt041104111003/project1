@@ -72,7 +72,7 @@ const ChatContentInner: React.FC = () => {
       } else {
         toast.error(data.error || 'Lỗi khi accept phòng');
       }
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi accept phòng');
     }
   };
@@ -99,7 +99,7 @@ const ChatContentInner: React.FC = () => {
       } else {
         toast.error(data.error || 'Lỗi khi xóa tin nhắn');
       }
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi xóa tin nhắn');
     }
   };
@@ -137,7 +137,7 @@ const ChatContentInner: React.FC = () => {
       if (data.success && data.rooms) {
         setRooms(data.rooms);
       }
-    } catch (error) {
+    } catch {
     }
   }, [currentUser.address]);
 
@@ -227,7 +227,7 @@ const ChatContentInner: React.FC = () => {
       } else {
         setCreateRoomError(roomData.error || 'Lỗi khi tạo phòng');
       }
-    } catch (error) {
+    } catch {
       setCreateRoomError('Lỗi khi tạo phòng');
     } finally {
       setIsCreatingRoom(false);

@@ -45,23 +45,23 @@ export function Hero() {
           <div>
             <div className="border border-gray-400 bg-gray-50 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">
-                PLATFORM INFO
+                THÔNG TIN NỀN TẢNG
               </h2>
               
               <div className="space-y-3">
                 <div className="border border-gray-300 bg-white p-3">
-                  <div className="font-bold text-gray-900">Identity Verification</div>
-                  <div className="text-sm text-gray-600">DID-based authentication</div>
+                  <div className="font-bold text-gray-900">Xác minh danh tính</div>
+                  <div className="text-sm text-gray-600">Xác minh danh tính dựa trên DID</div>
                 </div>
 
                 <div className="border border-gray-300 bg-white p-3">
-                  <div className="font-bold text-gray-900">Escrow Protection</div>
-                  <div className="text-sm text-gray-600">Automated payment security</div>
+                  <div className="font-bold text-gray-900">Bảo vệ escrow</div>
+                  <div className="text-sm text-gray-600">Bảo vệ thanh toán tự động</div>
                 </div>
 
                 <div className="border border-gray-300 bg-white p-3">
-                  <div className="font-bold text-gray-900">Smart Contracts</div>
-                  <div className="text-sm text-gray-600">Automated job completion</div>
+                  <div className="font-bold text-gray-900">Hợp đồng thông minh</div>
+                  <div className="text-sm text-gray-600">Hoàn thành công việc tự động</div>
                 </div>
               </div>
             </div>

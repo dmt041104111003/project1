@@ -51,7 +51,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
       const response = await fetch(`/api/chat/messages?roomId=${currentRoomId}`);
       const data = await response.json();
       setMessages(data.messages || []);
-    } catch (error) {
+    } catch {
       setMessages([]);
     } finally {
       setIsLoading(false);
@@ -88,7 +88,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
       if (response.ok) {
         fetchMessages();
       }
-    } catch (error) {
+    } catch {
     }
   };
 

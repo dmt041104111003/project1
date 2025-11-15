@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DISPUTE, CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
+import { CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
 
 const getDisputeStoreHandle = async (): Promise<string | null> => {
   try {

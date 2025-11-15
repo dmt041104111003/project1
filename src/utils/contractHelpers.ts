@@ -1,8 +1,8 @@
-import { ESCROW, DISPUTE, ROLE, REPUTATION, ROLE_KIND } from '@/constants/contracts';
+import { ESCROW, DISPUTE, ROLE, ROLE_KIND } from '@/constants/contracts';
 
 export function buildTransactionPayload(
   functionName: string,
-  args: any[],
+  args: unknown[],
   typeArgs: string[] = []
 ) {
   return {

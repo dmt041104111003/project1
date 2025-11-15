@@ -65,7 +65,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             const { escrowHelpers } = await import('@/utils/contractHelpers');
             const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
-            const wallet = (window as any).aptos;
+            const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
             if (!wallet) throw new Error('Wallet not found');
 
             const tx = await wallet.signAndSubmitTransaction(payload);

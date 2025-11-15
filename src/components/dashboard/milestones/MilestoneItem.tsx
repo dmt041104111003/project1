@@ -118,7 +118,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       if (onDisputeFileUploaded) {
         onDisputeFileUploaded(Number(milestone.id), String(finalCid || ''));
       }
-    } catch (e) {
+    } catch {
       setDisputeSelectedFile(null);
     } finally {
       setDisputeUploading(false);

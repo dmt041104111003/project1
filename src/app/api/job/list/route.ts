@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress } from "../utils";
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
 	try {
 		const store = await getTableHandle();
 		if (!store) {

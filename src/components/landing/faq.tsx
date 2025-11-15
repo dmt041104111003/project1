@@ -17,11 +17,11 @@ export function FAQ() {
       <Container>
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-blue-800 mb-4">
-            Frequently asked questions
+            Các câu hỏi hay gặp
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
           <p className="text-xl text-gray-700 max-w-2xl mx-auto">
-            Common questions about the Marketplace2vn platform
+            Các câu hỏi hay gặp về nền tảng Marketplace2vn
           </p>
         </div>
         
