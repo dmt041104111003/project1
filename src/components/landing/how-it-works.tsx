@@ -23,9 +23,9 @@ export function HowItWorks() {
           <table className="w-full border-collapse border-2 border-blue-800 bg-white">
              <thead>
                <tr className="bg-blue-600 text-white">
-                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Step</th>
-                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Action</th>
-                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Description</th>
+                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Bước</th>
+                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Hành động</th>
+                 <th className="border-2 border-blue-800 p-4 text-left font-bold text-lg">Mô tả</th>
                </tr>
              </thead>
             <tbody>
@@ -48,7 +48,7 @@ export function HowItWorks() {
 
         {/* Quick Start Guide - Horizontal */}
         <div className="mt-12">
-          <h3 className="text-2xl font-bold text-blue-800 mb-6 text-center">Quick Start Guide</h3>
+          <h3 className="text-2xl font-bold text-blue-800 mb-6 text-center">Hướng dẫn nhanh</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {HOW_IT_WORKS_STEPS.map((step) => (
               <Card key={step.id} variant="default" className="text-center">
