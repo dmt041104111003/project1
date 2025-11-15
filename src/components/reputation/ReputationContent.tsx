@@ -1,122 +1,82 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
-import { useReputation } from './useReputation';
-import { PointsCard } from '@/components/reputation/PointsCard';
-import { ReputationChecker } from './ReputationChecker';
 
 export const ReputationContent: React.FC = () => {
   const { account } = useWallet();
-  const {
-    loading,
-    errorMsg,
-    userRole,
-    checkingRole,
-    utrPoints,
-    utfPoints,
-    utpPoints,
-    aptBalance,
-    reputation,
-    fetchUTRPoints,
-    fetchUTFPoints,
-    fetchUTPPoints,
-    claimReviewerUTR,
-    claimUTF,
-    claimUTP,
-    checkReputation,
-    refresh,
-  } = useReputation(account);
+  const [checkAddress, setCheckAddress] = useState('');
+  const [checkedAddress, setCheckedAddress] = useState<string | null>(null);
+  const [checkedUT, setCheckedUT] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState('');
 
-  if (checkingRole) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-blue-800 mb-2">Reputation & UTR</h1>
-          <p className="text-lg text-gray-700">Checking user role...</p>
-        </div>
-        <Card variant="outlined" className="p-6 text-center">
-          <div className="text-sm text-gray-700">Loading...</div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!userRole || userRole === 'none') {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-blue-800 mb-2">Reputation & UTR</h1>
-          <p className="text-lg text-gray-700">Access required.</p>
-        </div>
-        <Card variant="outlined" className="p-6 text-center">
-          <div className="text-sm text-gray-700">Please register as a Freelancer, Poster, or Reviewer to access this page.</div>
-        </Card>
-      </div>
-    );
-  }
+  const handleCheckAddress = async () => {
+    const address = checkAddress.trim() || account;
+    if (!address) {
+      setCheckError('Please enter an address or connect wallet');
+      return;
+    }
+    
+    setChecking(true);
+    setCheckError('');
+    try {
+      const res = await fetch(`/api/reputation?address=${encodeURIComponent(address)}`);
+      if (!res.ok) throw new Error('Failed to fetch reputation');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to fetch reputation');
+      
+      setCheckedAddress(address);
+      setCheckedUT(data.ut || 0);
+    } catch (e: any) {
+      setCheckError(e?.message || 'Failed to check reputation');
+      setCheckedAddress(null);
+      setCheckedUT(null);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-blue-800 mb-2">Reputation & UTR</h1>
-        <p className="text-lg text-gray-700">Manage your UTR points and check reputation scores.</p>
-        <div className="mt-2 text-sm text-gray-600">
-          Role: <span className="font-bold text-blue-800 capitalize">{userRole}</span>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <PointsCard
-          title="UTR Points (Reviewer)"
-          points={utrPoints}
-          aptBalance={aptBalance}
-          loading={loading}
-          onRefresh={fetchUTRPoints}
-          onClaim={claimReviewerUTR}
-          disabled={userRole !== 'reviewer'}
-          disabledText="Only reviewers can claim UTR"
-        />
-
-        <PointsCard
-          title="UTF Points (Freelancer)"
-          points={utfPoints}
-          aptBalance={aptBalance}
-          loading={loading}
-          onRefresh={fetchUTFPoints}
-          onClaim={claimUTF}
-          disabled={userRole !== 'freelancer'}
-          disabledText="Only freelancers can claim UTF"
-        />
-
-        <PointsCard
-          title="UTP Points (Poster)"
-          points={utpPoints}
-          aptBalance={aptBalance}
-          loading={loading}
-          onRefresh={fetchUTPPoints}
-          onClaim={claimUTP}
-          disabled={userRole !== 'poster'}
-          disabledText="Only posters can claim UTP"
-        />
-
-        <ReputationChecker
-          reputation={reputation}
-          loading={loading}
-          onCheckReputation={checkReputation}
-        />
+        <h1 className="text-3xl font-bold text-blue-800 mb-2">Reputation Points</h1>
+        <p className="text-lg text-gray-700">Check UT points for any address.</p>
       </div>
 
       <Card variant="outlined" className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-blue-800">Actions</h2>
-          <Button variant="outline" className="!bg-white !text-black !border-2 !border-black" onClick={refresh}>
-            Refresh All
-          </Button>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Wallet Address {account && <span className="text-gray-500 font-normal">(leave empty to check your address)</span>}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={checkAddress}
+                onChange={(e) => setCheckAddress(e.target.value)}
+                placeholder={account || "0x..."}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyPress={(e) => e.key === 'Enter' && handleCheckAddress()}
+              />
+              <Button onClick={handleCheckAddress} disabled={checking} variant="primary">
+                {checking ? 'Checking...' : 'Check'}
+              </Button>
+            </div>
+            {checkError && <p className="mt-2 text-sm text-red-600">{checkError}</p>}
+          </div>
+
+          {checkedAddress && checkedUT !== null && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-md">
+              <div className="text-sm text-gray-600 mb-1">Address:</div>
+              <div className="text-sm font-mono text-gray-800 mb-3 break-all">{checkedAddress}</div>
+              <div className="text-sm text-gray-600 mb-1">UT Points:</div>
+              <div className="text-2xl font-bold text-blue-800">{checkedUT}</div>
+            </div>
+          )}
         </div>
-        {errorMsg && <div className="p-3 bg-red-100 text-red-800 text-sm border border-red-300 mb-4">{errorMsg}</div>}
       </Card>
     </div>
   );

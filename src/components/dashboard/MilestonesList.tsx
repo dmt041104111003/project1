@@ -13,12 +13,7 @@ const executeTransaction = async (payload: any): Promise<string> => {
   if (payload.error) throw new Error(payload.error);
   const wallet = (window as any).aptos;
   if (!wallet) throw new Error('Wallet not found');
-  const tx = await wallet.signAndSubmitTransaction({
-    type: "entry_function_payload",
-    function: payload.function,
-    type_arguments: payload.type_args || [],
-    arguments: payload.args
-  });
+  const tx = await wallet.signAndSubmitTransaction(payload);
   return tx?.hash || 'N/A';
 };
 
@@ -48,8 +43,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [openingDisputeId, setOpeningDisputeId] = useState<number | null>(null);
   const [submittingEvidenceId, setSubmittingEvidenceId] = useState<number | null>(null);
   const [hasDisputeId, setHasDisputeId] = useState<boolean>(false);
-  const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); // true=freelancer, false=poster
-  const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); // true when all 3 reviewers voted
+  const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); 
+  const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); 
   const [unlockingNonDisputed, setUnlockingNonDisputed] = useState(false);
 
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
@@ -99,7 +94,6 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           const winner = (data?.job?.dispute_winner ?? null);
           if (typeof winner === 'boolean') finalWinner = winner;
         }
-        // If on-chain already has a winner, consider voting completed
         if (typeof finalWinner === 'boolean') {
           setDisputeVotesDone(true);
         }
@@ -118,17 +112,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
     try {
       setSubmittingId(milestoneId);
-      const res = await fetch('/api/job/milestone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'submit',
-          job_id: jobId,
-          milestone_id: milestoneId,
-          evidence_cid: evidenceCid.trim()
-        })
-      });
-      const payload = await res.json();
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = escrowHelpers.submitMilestone(jobId, milestoneId, evidenceCid.trim());
       const txHash = await executeTransaction(payload);
       toast.success(`Submit milestone thành công! TX: ${txHash}`);
       setEvidenceCids(prev => {
@@ -149,19 +134,28 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     if (!account || !isPoster) return;
     try {
       setConfirmingId(milestoneId);
-      const res = await fetch('/api/job/milestone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'confirm',
-          job_id: jobId,
-          milestone_id: milestoneId
-        })
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload.error || 'Failed to prepare transaction');
+      // Check review deadline before confirming
+      try {
+        const jobRes = await fetch(`/api/job/${jobId}`);
+        if (jobRes.ok) {
+          const jobData = await jobRes.json();
+          const milestone = jobData?.job?.milestones?.find((m: any) => Number(m.id) === milestoneId);
+          if (milestone) {
+            const reviewDeadline = Number(milestone.review_deadline || 0);
+            const now = Math.floor(Date.now() / 1000);
+            if (reviewDeadline > 0 && now > reviewDeadline) {
+              throw new Error('Review deadline has passed. You can no longer confirm or reject this milestone. Freelancer can now claim timeout.');
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.message.includes('Review deadline')) {
+          throw err;
+        }
       }
+      
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = escrowHelpers.confirmMilestone(jobId, milestoneId);
       const txHash = await executeTransaction(payload);
       toast.success(`Confirm milestone thành công! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 2000);
@@ -186,19 +180,28 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setRejectingId(milestoneId);
-            const res = await fetch('/api/job/milestone', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'reject',
-                job_id: jobId,
-                milestone_id: milestoneId
-              })
-            });
-            const payload = await res.json();
-            if (!res.ok) {
-              throw new Error(payload.error || 'Failed to prepare transaction');
+            // Check review deadline before rejecting
+            try {
+              const jobRes = await fetch(`/api/job/${jobId}`);
+              if (jobRes.ok) {
+                const jobData = await jobRes.json();
+                const milestone = jobData?.job?.milestones?.find((m: any) => Number(m.id) === milestoneId);
+                if (milestone) {
+                  const reviewDeadline = Number(milestone.review_deadline || 0);
+                  const now = Math.floor(Date.now() / 1000);
+                  if (reviewDeadline > 0 && now > reviewDeadline) {
+                    throw new Error('Review deadline has passed. You can no longer confirm or reject this milestone. Freelancer can now claim timeout.');
+                  }
+                }
+              }
+            } catch (err: any) {
+              if (err.message.includes('Review deadline')) {
+                throw err;
+              }
             }
+            
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.rejectMilestone(jobId, milestoneId);
             const txHash = await executeTransaction(payload);
             toast.success(`Reject milestone thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -229,18 +232,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     }
     try {
       setOpeningDisputeId(milestoneId);
-      const res = await fetch('/api/dispute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'open_dispute',
-          job_id: jobId,
-          milestone_id: milestoneId,
-          evidence_cid: evidenceCid,
-        })
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.openDispute(jobId, milestoneId, evidenceCid);
       const txHash = await executeTransaction(payload);
       toast.success(`Mở dispute thành công! TX: ${txHash}`);
       setHasDisputeId(true);
@@ -269,17 +262,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       const disputeId = Array.isArray(disputeOpt?.vec) ? Number(disputeOpt.vec[0]) : Number(disputeOpt);
       if (!disputeId) throw new Error('Không tìm thấy dispute_id cho job này');
 
-      const res = await fetch('/api/dispute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add_evidence',
-          dispute_id: disputeId,
-          evidence_cid: evidenceCid,
-        })
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.addEvidence(disputeId, evidenceCid);
       const txHash = await executeTransaction(payload);
       toast.success(`Đã gửi evidence cho dispute! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 1500);
@@ -298,13 +282,10 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     if (isWinnerFreelancer && !isFreelancer) return;
     if (!isWinnerFreelancer && !isPoster) return;
     try {
-      const action = isWinnerFreelancer ? 'claim_dispute_payment' : 'claim_dispute_refund';
-      const res = await fetch('/api/escrow', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, args: [jobId, milestoneId], typeArgs: [] })
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = isWinnerFreelancer 
+        ? escrowHelpers.claimDisputePayment(jobId, milestoneId)
+        : escrowHelpers.claimDisputeRefund(jobId, milestoneId);
       const txHash = await executeTransaction(payload);
       toast.success(`Đã claim dispute ${isWinnerFreelancer ? 'payment' : 'refund'}! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 1500);
@@ -328,16 +309,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           onClick: async () => {
             try {
               setClaimingId(milestoneId);
-              const res = await fetch('/api/job/milestone', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'claim_timeout',
-                  job_id: jobId,
-                  milestone_id: milestoneId
-                })
-              });
-              const payload = await res.json();
+              const { escrowHelpers } = await import('@/utils/contractHelpers');
+              const payload = escrowHelpers.claimTimeout(jobId, milestoneId);
               const txHash = await executeTransaction(payload);
               toast.success(`Claim timeout thành công! TX: ${txHash}`);
               setTimeout(() => onUpdate?.(), 2000);
@@ -359,16 +332,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           onClick: async () => {
             try {
               setClaimingId(milestoneId);
-              const res = await fetch('/api/job/milestone', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'claim_timeout',
-                  job_id: jobId,
-                  milestone_id: milestoneId
-                })
-              });
-              const payload = await res.json();
+              const { escrowHelpers } = await import('@/utils/contractHelpers');
+              const payload = escrowHelpers.claimTimeout(jobId, milestoneId);
               const txHash = await executeTransaction(payload);
               toast.success(`Claim timeout thành công! Milestone đã được accepted và payment đã được gửi. TX: ${txHash}`);
               setTimeout(() => onUpdate?.(), 2000);
@@ -398,15 +363,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setCancelling(true);
-            const res = await fetch('/api/job/cancel', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'mutual_cancel',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.mutualCancel(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu hủy job! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -435,15 +393,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setAcceptingCancel(true);
-            const res = await fetch('/api/job/cancel', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'accept_mutual_cancel',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.acceptMutualCancel(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận hủy job thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -468,15 +419,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setRejectingCancel(true);
-            const res = await fetch('/api/job/cancel', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'reject_mutual_cancel',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.rejectMutualCancel(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối hủy job. Job sẽ tiếp tục! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -505,15 +449,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setWithdrawing(true);
-            const res = await fetch('/api/job/withdraw', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'freelancer_withdraw',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.freelancerWithdraw(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu rút! Đang chờ poster xác nhận. TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -542,15 +479,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setAcceptingWithdraw(true);
-            const res = await fetch('/api/job/withdraw', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'accept_freelancer_withdraw',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.acceptFreelancerWithdraw(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận freelancer rút thành công! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -575,15 +505,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         onClick: async () => {
           try {
             setRejectingWithdraw(true);
-            const res = await fetch('/api/job/withdraw', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'reject_freelancer_withdraw',
-                job_id: jobId
-              })
-            });
-            const payload = await res.json();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.rejectFreelancerWithdraw(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối freelancer rút. Job sẽ tiếp tục! TX: ${txHash}`);
             setTimeout(() => onUpdate?.(), 2000);
@@ -611,13 +534,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     }
     try {
       setUnlockingNonDisputed(true);
-      const res = await fetch('/api/job/unlock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: jobId })
-      });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to prepare transaction');
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = escrowHelpers.unlockNonDisputedMilestones(jobId);
       const txHash = await executeTransaction(payload);
       toast.success(`Rút escrow các milestone không tranh chấp thành công! TX: ${txHash}`);
       setTimeout(() => onUpdate?.(), 2000);
@@ -639,14 +557,12 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
       <div className="space-y-3">
         {milestones.map((milestone, index) => {
           const isFirstMilestone = index === 0;
-          const prevMilestone = index > 0 ? milestones[index - 1] : null;
-          const prevStatusStr = prevMilestone ? parseStatus(prevMilestone.status) : null;
-          const prevMilestoneAccepted = prevStatusStr === 'Accepted';
 
           return (
             <MilestoneItem
               key={index}
               milestone={milestone}
+              milestones={milestones}
               index={index}
               jobId={jobId}
               account={account}
@@ -656,7 +572,6 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               canInteract={canInteract}
               isCancelled={isCancelled}
               isFirstMilestone={isFirstMilestone}
-              prevMilestoneAccepted={prevMilestoneAccepted}
               submitting={submittingId === Number(milestone.id)}
               confirming={confirmingId === Number(milestone.id)}
               rejecting={rejectingId === Number(milestone.id)}

@@ -8,6 +8,7 @@ import { MilestoneItemProps } from '@/constants/escrow';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   milestone,
+  milestones,
   index,
   jobId,
   account,
@@ -17,7 +18,6 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   canInteract,
   isCancelled,
   isFirstMilestone,
-  prevMilestoneAccepted,
   submitting,
   confirming,
   rejecting,
@@ -57,6 +57,10 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const isOverdue = timersStopped ? false : rawOverdue;
 
   const hasDeadline = deadline > 0;
+  const safeMilestones = Array.isArray(milestones) ? milestones : [];
+  const prevMilestone = index > 0 && safeMilestones.length > index - 1 ? safeMilestones[index - 1] : null;
+  const prevStatusStr = prevMilestone ? parseStatus(prevMilestone.status) : null;
+  const prevMilestoneAccepted = prevStatusStr === 'Accepted';
   const canSubmit = (isFirstMilestone || prevMilestoneAccepted) && !isOverdue && hasDeadline;
   
   // Review period info

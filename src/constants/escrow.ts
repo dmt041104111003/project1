@@ -1,12 +1,9 @@
 import type { FormEvent, ReactNode } from 'react';
-// Common layout props - reusable for all layout components
+
 export interface LayoutProps {
   children: ReactNode;
 }
 
-// Job Types
-
-// Base Job interface - full job data from blockchain
 export interface Job {
   id: number;
   cid: string;
@@ -22,7 +19,6 @@ export interface Job {
   apply_deadline?: number;
 }
 
-// Job list item - partial job data for list views (id and cid are required)
 export interface JobListItem {
   id: number;
   cid: string;
@@ -35,7 +31,6 @@ export interface JobListItem {
   freelancer?: string | null;
 }
 
-// Job data for sidebar - raw data from API (may have different field names/types)
 export interface JobData {
   total_escrow?: number | string;
   milestones?: any[];
@@ -43,9 +38,8 @@ export interface JobData {
   poster?: string;
   freelancer?: any;
   apply_deadline?: number | string;
+  freelancer_stake?: number | string;
 }
-
-// Milestone Types
 
 export interface Milestone {
   id: string;
@@ -66,8 +60,6 @@ export interface MilestoneForm {
   reviewUnit?: string;
 }
 
-// Dispute Types
-
 export interface DisputeData {
   jobId: number;
   milestoneIndex: number;
@@ -80,8 +72,6 @@ export interface DisputeData {
   hasVoted?: boolean;
   votesCompleted?: boolean;
 }
-
-// Component Props - Job Related
 
 export interface JobCardProps {
   job: Job;
@@ -98,15 +88,13 @@ export interface JobSidebarProps {
   onApply: () => void;
 }
 
-// Job IPFS content props
 export interface JobIPFSContentProps {
   jobDetails: Record<string, unknown> | null;
 }
 
-// Component Props - Milestone Related
-
 export interface MilestoneItemProps {
   milestone: Milestone;
+  milestones: Milestone[];
   index: number;
   jobId: number;
   account: string | null;
@@ -116,7 +104,6 @@ export interface MilestoneItemProps {
   canInteract: boolean;
   isCancelled: boolean;
   isFirstMilestone: boolean;
-  prevMilestoneAccepted: boolean;
   submitting: boolean;
   confirming: boolean;
   rejecting: boolean;
@@ -178,8 +165,6 @@ export interface MilestonesListProps {
   onUpdate?: () => void;
 }
 
-// Component Props - Job Actions
-
 export interface JobCancelActionsProps {
   jobId: number;
   account: string | null;
@@ -203,16 +188,12 @@ export interface JobCancelActionsProps {
   rejectingWithdraw: boolean;
 }
 
-// Component Props - Dispute Related
-
 export interface DisputeItemProps {
   dispute: DisputeData;
   resolvingKey: string | null;
   onResolvePoster: () => void;
   onResolveFreelancer: () => void;
 }
-
-// Component Props - Job Form Related
 
 export interface JsonJobParseData {
   title?: string;
@@ -228,6 +209,7 @@ export interface JsonJobInputProps {
 }
 
 export interface ManualJobFormProps {
+  isSubmitting?: boolean;
   jobTitle: string;
   setJobTitle: (v: string) => void;
   jobDescription: string;

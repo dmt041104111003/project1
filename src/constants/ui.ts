@@ -1,5 +1,3 @@
-// UI Component Interfaces
-
 export interface AlertProps {
   children: React.ReactNode;
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger';

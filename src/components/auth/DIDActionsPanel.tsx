@@ -41,21 +41,36 @@ export default function DIDActionsPanel() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: `register_${role}`, about: desc || undefined })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'API failed');
-      if (!data.function) throw new Error('Invalid response');
+      let cid = '';
       
-      await window.aptos.signAndSubmitTransaction({
-        type: 'entry_function_payload',
-        function: data.function,
-        type_arguments: data.type_args,
-        arguments: data.args
-      });
+      // Upload to IPFS first if needed (for freelancer/poster with description)
+      if ((role === 'freelancer' || role === 'poster') && desc.trim()) {
+        const ipfsRes = await fetch('/api/ipfs/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'profile', about: desc })
+        });
+        const ipfsData = await ipfsRes.json();
+        if (!ipfsData.success) throw new Error(ipfsData.error || 'IPFS upload failed');
+        cid = ipfsData.encCid || ipfsData.ipfsHash || '';
+        if (!cid) throw new Error('CID required for freelancer and poster');
+      }
+      
+      // Build transaction payload using helper
+      const { roleHelpers } = await import('@/utils/contractHelpers');
+      
+      let payload;
+      if (role === 'freelancer') {
+        payload = roleHelpers.registerFreelancer(cid);
+      } else if (role === 'poster') {
+        payload = roleHelpers.registerPoster(cid);
+      } else if (role === 'reviewer') {
+        payload = roleHelpers.registerReviewer();
+      } else {
+        throw new Error('Invalid role');
+      }
+      
+      await window.aptos.signAndSubmitTransaction(payload);
       
       setMessage('Đăng ký thành công!');
       setRole('');
@@ -100,7 +115,12 @@ export default function DIDActionsPanel() {
           <select
             className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
             value={role}
-            onChange={e => setRole(e.target.value)}
+            onChange={e => {
+              setRole(e.target.value);
+              if (e.target.value === 'reviewer') {
+                setDesc('');
+              }
+            }}
           >
             <option value="">Select role...</option>
             <option value="freelancer">Freelancer</option>
@@ -109,16 +129,18 @@ export default function DIDActionsPanel() {
           </select>
         </div>
         
-        <div>
-          <label className="block text-sm font-bold text-gray-900 mb-1">Description</label>
-          <textarea
-            className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
-            rows={3}
-            value={desc}
-            onChange={e => setDesc(e.target.value)}
-            placeholder="About you / skills..."
-          />
-        </div>
+        {role !== 'reviewer' && (
+          <div>
+            <label className="block text-sm font-bold text-gray-900 mb-1">Description</label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
+              rows={3}
+              value={desc}
+              onChange={e => setDesc(e.target.value)}
+              placeholder="About you / skills..."
+            />
+          </div>
+        )}
         
         <Button
           className="w-full"

@@ -62,11 +62,44 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     const hasFreelancer = getFreelancerAddr(jobData.freelancer) !== null;
     const stateStr = parseState(jobData.state);
     const isPosted = stateStr === 'Posted';
-    const isExpired = jobData.apply_deadline 
-      ? Number(jobData.apply_deadline) * 1000 < Date.now() 
+    const isCancelled = stateStr === 'Cancelled';
+    const freelancerStake = Number(jobData.freelancer_stake || 0);
+    const applyDeadline = jobData.apply_deadline ? Number(jobData.apply_deadline) : 0;
+    const applyDeadlineExpired = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
+    const isExpiredPosted = isPosted && applyDeadlineExpired && !hasFreelancer;
+
+    const hasTimedOutMilestone = jobData.milestones && Array.isArray(jobData.milestones) 
+      ? jobData.milestones.some((milestone: any) => {
+          const deadline = Number(milestone.deadline || 0);
+          const statusStr = typeof milestone.status === 'string' 
+            ? milestone.status 
+            : (milestone.status?.vec && Array.isArray(milestone.status.vec) && milestone.status.vec.length > 0 
+              ? String(milestone.status.vec[0]) 
+              : (milestone.status?.__variant__ ? String(milestone.status.__variant__) : 'Pending'));
+          return deadline > 0 && deadline * 1000 < Date.now() && statusStr === 'Pending';
+        })
       : false;
 
-    if (!isPosted) {
+    const isReopenedAfterTimeout = (isCancelled && freelancerStake === 0) || hasTimedOutMilestone;
+    
+    // Cannot apply if expired and not reopened after timeout
+    // Even if reopened, if apply_deadline expired, contract will reject
+    if (isExpiredPosted && !isReopenedAfterTimeout) {
+      return (
+        <div className="text-center py-4">
+          <p className="text-sm text-red-700 font-bold">Đã hết hạn đăng ký apply</p>
+        </div>
+      );
+    }
+    
+    // Check if apply_deadline expired (even for reopened jobs)
+    const applyDeadlineExpiredForApply = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
+    
+    // Can apply if: (Posted and not expired) OR (reopened after timeout and not expired)
+    const canApply = (isPosted && !hasFreelancer && !applyDeadlineExpiredForApply) || 
+                     (isReopenedAfterTimeout && !hasFreelancer && !applyDeadlineExpiredForApply);
+
+    if (!canApply && !isPosted && !isReopenedAfterTimeout) {
       return (
         <div className="text-center py-4">
           <p className="text-sm text-gray-900 font-medium">
@@ -76,7 +109,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       );
     }
 
-    if (hasFreelancer) {
+    if (hasFreelancer && !hasTimedOutMilestone && !(isCancelled && freelancerStake === 0)) {
       return (
         <div className="text-center py-4">
           <p className="text-sm text-gray-900 font-medium">Job đã có freelancer</p>
@@ -84,23 +117,38 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       );
     }
 
-    if (isExpired) {
+    // Show error if apply_deadline expired (even for reopened jobs)
+    if (applyDeadlineExpiredForApply) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 font-bold">Đã hết hạn apply</p>
+          <p className="text-sm text-red-700 font-bold">Đã hết hạn đăng ký apply</p>
+          {isReopenedAfterTimeout && (
+            <p className="text-xs text-gray-600 mt-1">
+              Job đã được mở lại nhưng hạn đăng ký đã hết hạn
+            </p>
+          )}
         </div>
       );
     }
 
     return (
-      <Button
-        onClick={onApply}
-        disabled={applying}
-        size="lg"
-        className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
-      >
-        {applying ? 'Đang apply...' : 'Apply Job'}
-      </Button>
+      <div className="space-y-2">
+        {isReopenedAfterTimeout && (
+          <div className="text-center mb-2">
+            <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-300 rounded px-2 py-1">
+              Job đã được mở lại (Freelancer trước đã timeout)
+            </p>
+          </div>
+        )}
+        <Button
+          onClick={onApply}
+          disabled={applying}
+          size="lg"
+          className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
+        >
+          {applying ? 'Đang apply...' : 'Apply Job'}
+        </Button>
+      </div>
     );
   };
 
@@ -109,16 +157,40 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   const isFreelancerOfJob = account && freelancerAddr 
     ? account.toLowerCase() === freelancerAddr.toLowerCase() 
     : false;
+  
+  const applyDeadline = jobData.apply_deadline ? Number(jobData.apply_deadline) : 0;
+  const applyDeadlineExpired = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
+  const hasFreelancer = freelancerAddr !== null;
+  
+  const freelancerStake = Number(jobData.freelancer_stake || 0);
+  const isCancelled = stateStr === 'Cancelled';
+  const hasTimedOutMilestone = jobData.milestones && Array.isArray(jobData.milestones) 
+    ? jobData.milestones.some((milestone: any) => {
+        const deadline = Number(milestone.deadline || 0);
+        const statusStr = typeof milestone.status === 'string' 
+          ? milestone.status 
+          : (milestone.status?.vec && Array.isArray(milestone.status.vec) && milestone.status.vec.length > 0 
+            ? String(milestone.status.vec[0]) 
+            : (milestone.status?.__variant__ ? String(milestone.status.__variant__) : 'Pending'));
+        return deadline > 0 && deadline * 1000 < Date.now() && statusStr === 'Pending';
+      })
+    : false;
+  const isReopenedAfterTimeout = (isCancelled && freelancerStake === 0) || hasTimedOutMilestone;
+  
+  const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer && !isReopenedAfterTimeout;
+  
   const displayState = (stateStr === 'Cancelled' && !isFreelancerOfJob) ? 'Posted' : stateStr;
-  const displayText = displayState === 'Posted' ? 'Open' :
+  const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
+                      displayState === 'Posted' ? 'Open' :
                       displayState === 'InProgress' ? 'In Progress' :
                       displayState === 'Completed' ? 'Completed' :
                       displayState === 'Disputed' ? 'Disputed' :
                       displayState === 'Cancelled' ? 'Cancelled' :
                       displayState || 'Active';
 
-  const getStateClasses = (state: string) => {
+  const getStateClasses = (state: string, isExpiredPosted: boolean) => {
     const base = 'px-2 py-1 text-xs font-bold border-2';
+    if (isExpiredPosted) return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
     if (state === 'Cancelled') return `${base} bg-orange-100 text-orange-800 border-orange-300`;
     if (state === 'Posted') return `${base} bg-green-100 text-green-800 border-green-300`;
     if (state === 'InProgress') return `${base} bg-blue-100 text-blue-800 border-blue-300`;
@@ -154,7 +226,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
             <div>
               <div className="text-xs text-gray-600 mb-1">Trạng thái</div>
               <div>
-                <span className={getStateClasses(displayState)}>
+                <span className={getStateClasses(displayState, isExpiredPosted)}>
                   {displayText}
                 </span>
               </div>

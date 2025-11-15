@@ -65,7 +65,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
         </p>
       )}
       {!canSubmit && !isOverdue && (
-        <p className="text-xs text-red-600 font-bold">
+        <p className="text-xs text-orange-600 font-bold">
           ⚠ Milestone trước phải được accepted trước khi submit milestone này
         </p>
       )}

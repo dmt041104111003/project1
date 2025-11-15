@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { DISPUTE, CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
 
-// Helper to get DisputeStore table handle
 const getDisputeStoreHandle = async (): Promise<string | null> => {
   try {
     const resourceType = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
@@ -14,7 +13,6 @@ const getDisputeStoreHandle = async (): Promise<string | null> => {
   }
 };
 
-// Helper to query dispute by id
 const queryDisputeFromTable = async (tableHandle: string, disputeId: number): Promise<any> => {
   try {
     const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${tableHandle}/item`, {
@@ -76,22 +74,18 @@ const parseVoteCounts = (votes: any): { total: number; forFreelancer: number; fo
   for (const v of votes) {
     if (!v) continue;
     total += 1;
-    // Common shapes: { reviewer: address, choice: bool } where true=freelancer
     if (typeof v === 'object' && typeof v.choice === 'boolean') {
       if (v.choice === true) forFreelancer += 1;
       continue;
     }
-    // Alternate shapes: { vote_for_freelancer: bool }
     if (typeof v === 'object' && typeof v.vote_for_freelancer === 'boolean') {
       if (v.vote_for_freelancer === true) forFreelancer += 1;
       continue;
     }
-    // If boolean directly
     if (typeof v === 'boolean') {
       if (v === true) forFreelancer += 1;
       continue;
     }
-    // If array like [reviewer, bool]
     if (Array.isArray(v) && v.length > 1 && typeof v[1] === 'boolean') {
       if (v[1] === true) forFreelancer += 1;
       continue;
@@ -101,52 +95,6 @@ const parseVoteCounts = (votes: any): { total: number; forFreelancer: number; fo
   return { total, forFreelancer, forPoster };
 };
 
-export async function POST(req: Request) {
-  try {
-    const { action, job_id, milestone_id, evidence_cid, dispute_id, vote_choice } = await req.json();
-    console.log('[API][dispute][POST]', { action, job_id, milestone_id, dispute_id, hasEvidence: !!evidence_cid, vote_choice });
-    switch (action) {
-      case 'open_dispute': {
-        if (job_id === undefined || milestone_id === undefined || !evidence_cid) {
-          return NextResponse.json({ error: 'job_id, milestone_id, evidence_cid required' }, { status: 400 });
-        }
-        console.log('[API][dispute][POST] prepare OPEN_DISPUTE');
-        return NextResponse.json({
-          function: DISPUTE.OPEN_DISPUTE,
-          type_args: [],
-          args: [job_id, milestone_id, evidence_cid]
-        });
-      }
-      case 'add_evidence': {
-        if (!dispute_id || !evidence_cid) {
-          return NextResponse.json({ error: 'dispute_id, evidence_cid required' }, { status: 400 });
-        }
-        console.log('[API][dispute][POST] prepare ADD_EVIDENCE');
-        return NextResponse.json({
-          function: DISPUTE.ADD_EVIDENCE,
-          type_args: [],
-          args: [dispute_id, evidence_cid]
-        });
-      }
-      case 'reviewer_vote': {
-        if (!dispute_id || vote_choice === undefined) {
-          return NextResponse.json({ error: 'dispute_id and vote_choice required' }, { status: 400 });
-        }
-        console.log('[API][dispute][POST] prepare REVIEWER_VOTE');
-        return NextResponse.json({
-          function: DISPUTE.REVIEWER_VOTE,
-          type_args: [],
-          args: [dispute_id, vote_choice === true || vote_choice === 'true']
-        });
-      }
-      default:
-        return NextResponse.json({ error: 'Invalid action. Use: open_dispute, add_evidence, reviewer_vote' }, { status: 400 });
-    }
-  } catch (e: any) {
-    console.error('[API][dispute][POST] error', e);
-    return NextResponse.json({ error: e?.message || 'Failed to prepare transaction' }, { status: 500 });
-  }
-}
 
 export async function GET(req: Request) {
   try {

@@ -88,19 +88,8 @@ export const JobDetailContent: React.FC = () => {
     try {
       setApplying(true);
       
-      // Get transaction payload from API
-      const res = await fetch('/api/job/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: Number(jobId)
-        })
-      });
-      
-      const payload = await res.json();
-      if (payload.error) {
-        throw new Error(payload.error);
-      }
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = escrowHelpers.applyJob(Number(jobId));
       
       // Sign and submit transaction
       const wallet = (window as any).aptos;
@@ -108,12 +97,7 @@ export const JobDetailContent: React.FC = () => {
         throw new Error('Wallet not found. Please connect your wallet first.');
       }
       
-      const tx = await wallet.signAndSubmitTransaction({
-        type: "entry_function_payload",
-        function: payload.function,
-        type_arguments: payload.type_args || [],
-        arguments: payload.args
-      });
+      const tx = await wallet.signAndSubmitTransaction(payload);
       
       if (tx?.hash) {
         toast.success(`Apply thành công! TX: ${tx.hash}`);
@@ -283,15 +267,6 @@ export const JobDetailContent: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      
-                      {evidenceCidStr && (
-                        <div className="mt-3 pt-3 border-t border-gray-300">
-                          <div className="text-xs text-gray-600 mb-1">Evidence CID</div>
-                          <div className="text-xs font-mono text-gray-700 break-all">
-                            {evidenceCidStr}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}

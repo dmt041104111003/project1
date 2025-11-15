@@ -169,13 +169,8 @@ export function useDisputes(account?: string | null) {
       setLoading(true);
       setErrorMsg('');
       const { wallet } = await getWallet();
-      const res = await fetch('/api/escrow', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'open_dispute', args: [CONTRACT_ADDRESS, Number(jobId), Number(milestoneIndex)], typeArgs: [] })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.openDispute(Number(jobId), Number(milestoneIndex), openReason || '');
       await wallet.signAndSubmitTransaction(payload as any);
       // optimistic add
       const newItem: DisputeData = { jobId: Number(jobId), milestoneIndex: Number(milestoneIndex), disputeId: 0, status: 'open', reason: openReason, openedAt: new Date().toISOString() };
@@ -193,13 +188,8 @@ export function useDisputes(account?: string | null) {
     try {
       setResolving(`${disputeIdNum}:poster`);
       const { wallet } = await getWallet();
-      const res = await fetch('/api/dispute', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reviewer_vote', dispute_id: disputeIdNum, vote_choice: false })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await wallet.signAndSubmitTransaction(payload as any);
       // keep list; backend resolves automatically when sufficient votes
     } catch (e: any) {
@@ -213,13 +203,8 @@ export function useDisputes(account?: string | null) {
     try {
       setResolving(`${disputeIdNum}:freelancer`);
       const { wallet } = await getWallet();
-      const res = await fetch('/api/dispute', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reviewer_vote', dispute_id: disputeIdNum, vote_choice: true })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      const payload = { type: 'entry_function_payload', function: data.function, type_arguments: data.type_args, arguments: data.args } as const;
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await wallet.signAndSubmitTransaction(payload as any);
       // keep list; backend resolves automatically when sufficient votes
     } catch (e: any) {

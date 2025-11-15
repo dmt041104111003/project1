@@ -6,9 +6,21 @@ import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
 import { JobCardProps } from '@/constants/escrow';
 
-const getStateDisplay = (state: any): { text: string; classes: string } => {
+const getStateDisplay = (state: any, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
   const stateStr = typeof state === 'string' ? state : 'Active';
   
+  // Check if apply deadline has passed
+  const applyDeadlineExpired = applyDeadline 
+    ? applyDeadline * 1000 < Date.now() 
+    : false;
+  const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer;
+  
+  if (isExpiredPosted) {
+    return {
+      text: 'Hết hạn đăng ký',
+      classes: 'bg-yellow-100 text-yellow-800 border-yellow-300'
+    };
+  }
   if (stateStr === 'Posted') {
     return {
       text: 'Open',
@@ -51,26 +63,13 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
         label: 'Xác nhận',
         onClick: async () => {
           try {
-            const res = await fetch('/api/job/withdraw', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'poster_withdraw_unfilled',
-                job_id: job.id
-              })
-            });
-            const payload = await res.json();
-            if (payload.error) throw new Error(payload.error);
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
             const wallet = (window as any).aptos;
             if (!wallet) throw new Error('Wallet not found');
 
-            const tx = await wallet.signAndSubmitTransaction({
-              type: "entry_function_payload",
-              function: payload.function,
-              type_arguments: payload.type_args || [],
-              arguments: payload.args
-            });
+            const tx = await wallet.signAndSubmitTransaction(payload);
 
             toast.success(`Rút job thành công! TX: ${tx?.hash || 'N/A'}`);
             setTimeout(() => {
@@ -90,7 +89,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     });
   };
 
-  const stateDisplay = getStateDisplay(job.state);
+  const stateDisplay = getStateDisplay(job.state, job.apply_deadline, job.has_freelancer);
   const canShowWithdraw = activeTab === 'posted' && 
     !job.has_freelancer && 
     job.state === 'Posted' && 

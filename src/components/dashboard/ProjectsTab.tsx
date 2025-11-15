@@ -17,7 +17,6 @@ export const ProjectsTab: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  // Check user roles
   useEffect(() => {
     if (!account) {
       setHasPosterRole(false);
@@ -44,14 +43,12 @@ export const ProjectsTab: React.FC = () => {
     checkRoles();
   }, [account]);
 
-  // Fetch jobs from table
   const fetchJobs = async () => {
     if (!account) {
       setJobs([]);
       return;
     }
 
-    // Check role for current tab
     if (activeTab === 'posted' && !hasPosterRole) {
       setJobs([]);
       return;
@@ -72,7 +69,6 @@ export const ProjectsTab: React.FC = () => {
       const data = await res.json();
       const allJobs = data.jobs || [];
       
-      // Filter jobs: posted = jobs where poster === account, applied = jobs where freelancer === account
       let filteredJobs = allJobs.filter((job: Job) => {
         if (activeTab === 'posted') {
           return job.poster?.toLowerCase() === account.toLowerCase();
@@ -81,7 +77,6 @@ export const ProjectsTab: React.FC = () => {
         }
       });
 
-      // Fetch full job details with milestones for each job
       const jobsWithMilestones = await Promise.all(
         filteredJobs.map(async (job: Job) => {
           try {
@@ -91,7 +86,6 @@ export const ProjectsTab: React.FC = () => {
               return { ...job, ...detailData.job };
             }
           } catch {
-            // If fetch fails, return original job
           }
           return job;
         })

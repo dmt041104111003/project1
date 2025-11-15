@@ -89,9 +89,15 @@ export const JobsContent: React.FC = () => {
               }
             }
             
-            // Only show "Cancelled" to the freelancer, others see "Open"
+            const applyDeadlineExpired = job.apply_deadline 
+              ? Number(job.apply_deadline) * 1000 < Date.now() 
+              : false;
+            const hasFreelancer = job.freelancer !== null && job.freelancer !== undefined;
+            const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer;
+            
             const displayState = (stateStr === 'Cancelled' && !isFreelancerOfJob) ? 'Posted' : stateStr;
-            const displayText = displayState === 'Posted' ? 'Open' :
+            const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
+                               displayState === 'Posted' ? 'Open' :
                                displayState === 'InProgress' ? 'In Progress' :
                                displayState === 'Completed' ? 'Completed' :
                                displayState === 'Disputed' ? 'Disputed' :
@@ -121,6 +127,7 @@ export const JobsContent: React.FC = () => {
                       </p>
                     </div>
                     <span className={`px-2 py-1 text-xs font-bold border-2 ${
+                      isExpiredPosted ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
                       displayState === 'Cancelled' ? 'bg-orange-100 text-orange-800 border-orange-300' :
                       displayState === 'Posted' ? 'bg-green-100 text-green-800 border-green-300' :
                       displayState === 'InProgress' ? 'bg-blue-100 text-blue-800 border-blue-300' :

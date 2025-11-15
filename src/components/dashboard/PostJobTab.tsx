@@ -40,6 +40,7 @@ export const PostJobTab: React.FC = () => {
   const [currentMilestone, setCurrentMilestone] = useState<MilestoneForm>({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!account) return;
@@ -88,6 +89,8 @@ export const PostJobTab: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmitting) return;
+    
     if (!account) {
       setJobResult('Vui lòng kết nối ví!');
       return;
@@ -115,8 +118,9 @@ export const PostJobTab: React.FC = () => {
   };
 
   const createJob = async () => {
-    if (!account) return;
+    if (!account || isSubmitting) return;
     try {
+      setIsSubmitting(true);
       setJobResult('Đang tạo job...');
       
       const ipfsRes = await fetch('/api/ipfs/upload', {
@@ -141,31 +145,41 @@ export const PostJobTab: React.FC = () => {
       const applyDeadlineDays = parseFloat(jobDuration) || 7;
       const applyDeadlineTimestamp = Math.floor(Date.now() / 1000) + (applyDeadlineDays * 24 * 60 * 60);
       
-      const apiRes = await fetch('/api/job/post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          job_details_cid: jobDetailsCid, 
-          milestones: contractMilestones, 
-          milestone_durations: contractMilestoneDurations,
-          milestone_review_periods: contractMilestoneReviewPeriods,
-          apply_deadline: applyDeadlineTimestamp
-        })
-      });
-      const payload = await apiRes.json();
-      if (payload.error) throw new Error(payload.error);
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
       
-      setJobResult('Đang ký transaction...');
-      const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction({
-        type: "entry_function_payload",
-        function: payload.function,
-        type_arguments: payload.type_args,
-        arguments: payload.args
-      });
+      const totalCostOctas = escrowHelpers.calculateJobCreationCost(contractMilestones);
+      const totalCostAPT = totalCostOctas / APT_TO_UNITS;
+      const milestonesTotal = contractMilestones.reduce((sum, m) => sum + m, 0) / APT_TO_UNITS;
       
-      setJobResult(tx?.hash ? `Job đã được tạo thành công! TX: ${tx.hash}` : 'Job đã được gửi transaction!');
+      setJobResult(`Tổng chi phí: ${totalCostAPT.toFixed(8)} APT (Milestones: ${milestonesTotal.toFixed(8)} APT + Stake: 1 APT + Fee: 1.5 APT). Đang ký transaction...`);
+      
+      const payload = escrowHelpers.createJob(
+        jobDetailsCid,
+        contractMilestoneDurations,
+        contractMilestones, 
+        contractMilestoneReviewPeriods, 
+        applyDeadlineTimestamp
+      );
+      
+      const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction(payload);
+      
+      if (tx?.hash) {
+        setJobResult(`Job đã được tạo thành công! TX: ${tx.hash}`);
+        setJobTitle('');
+        setJobDescription('');
+        setJobDuration('7');
+        setSkillsList([]);
+        setMilestonesList([]);
+        setCurrentSkill('');
+        setCurrentMilestone({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
+        setValidationErrors({});
+      } else {
+        setJobResult('Job đã được gửi transaction!');
+      }
     } catch (e: unknown) {
       setJobResult(`Lỗi: ${(e as Error)?.message || 'thất bại'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -212,6 +226,7 @@ export const PostJobTab: React.FC = () => {
               canPostJobs={canPostJobs}
               onSubmit={handleFormSubmit}
               jobResult={jobResult}
+              isSubmitting={isSubmitting}
             />
           </TabsContent>
         </Tabs>

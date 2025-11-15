@@ -52,7 +52,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
       const data = await response.json();
       setMessages(data.messages || []);
     } catch (error) {
-      console.error('Error fetching messages:', error);
       setMessages([]);
     } finally {
       setIsLoading(false);
@@ -90,7 +89,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
         fetchMessages();
       }
     } catch (error) {
-      console.error('Error sending message:', error);
     }
   };
 

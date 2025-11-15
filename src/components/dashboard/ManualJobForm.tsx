@@ -26,6 +26,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
   canPostJobs,
   onSubmit,
   jobResult,
+  isSubmitting = false,
 }) => {
   return (
     <form className="space-y-6" onSubmit={onSubmit}>
@@ -260,9 +261,13 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
         size="lg"
         variant="outline"
         className="w-full !bg-white !text-black !border-2 !border-black py-4 text-lg font-bold hover:!bg-gray-100"
-        disabled={!canPostJobs}
+        disabled={!canPostJobs || isSubmitting}
       >
-        {!canPostJobs ? 'Cần verify profile và có role Poster' : 'Đăng dự án'}
+        {!canPostJobs 
+          ? 'Cần verify profile và có role Poster' 
+          : isSubmitting 
+          ? 'Đang xử lý...' 
+          : 'Đăng dự án'}
       </Button>
 
       {jobResult && (

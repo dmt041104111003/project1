@@ -23,7 +23,8 @@ module job_work_board::escrow {
         InProgress,
         Completed,
         Cancelled,
-        Disputed
+        Disputed,
+        Expired
     }
 
     enum MilestoneStatus has copy, drop, store {
@@ -170,7 +171,7 @@ module job_work_board::escrow {
         let now = timestamp::now_seconds();
         assert!(now <= job.apply_deadline, 2); 
         assert!(option::is_none(&job.freelancer), 1);
-        assert!(job.state == JobState::Posted, 1);
+        assert!(job.state == JobState::Posted || job.state == JobState::Expired, 1);
         assert!(job.freelancer_stake == 0, 1);
         let stake = coin::withdraw<AptosCoin>(freelancer, STAKE_AMOUNT);
         let fee = coin::withdraw<AptosCoin>(freelancer, FREELANCER_FEE);
@@ -189,6 +190,21 @@ module job_work_board::escrow {
         
         coin::merge(&mut job.stake_pool, stake);
         coin::merge(&mut job.dispute_pool, fee);
+    }
+
+    public entry fun mark_job_expired(poster: &signer, job_id: u64) acquires EscrowStore {
+        let poster_addr = signer::address_of(poster);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(job.poster == poster_addr, 1);
+        assert!(job.state == JobState::Posted, 1);
+        assert!(option::is_none(&job.freelancer), 1);
+        
+        let now = timestamp::now_seconds();
+        if (job.apply_deadline > 0 && now > job.apply_deadline) {
+            job.state = JobState::Expired;
+        };
     }
 
 
@@ -293,7 +309,26 @@ module job_work_board::escrow {
                 coin::deposit(caller, penalty);
                 job.freelancer_stake = 0;
             };
-            job.state = JobState::Cancelled;
+            
+            job.freelancer = option::none();
+            job.state = JobState::Posted;
+            job.started_at = option::none();
+            job.mutual_cancel_requested_by = option::none();
+            job.freelancer_withdraw_requested_by = option::none();
+            
+            // Reset milestones that are not accepted back to Pending
+            let len = vector::length(&job.milestones);
+            let j = 0;
+            while (j < len) {
+                let m = vector::borrow_mut(&mut job.milestones, j);
+                if (m.status != MilestoneStatus::Accepted) {
+                    m.status = MilestoneStatus::Pending;
+                    m.deadline = 0;
+                    m.review_deadline = 0;
+                    m.evidence_cid = option::none();
+                };
+                j = j + 1;
+            };
             
             aptos_framework::event::emit_event(
                 &mut store.events,
@@ -312,11 +347,41 @@ module job_work_board::escrow {
             
             let freelancer = *option::borrow(&job.freelancer);
             process_milestone_payment(job, milestone.amount, freelancer);
+            set_next_milestone_deadline(job, i);
 
             if (are_all_milestones_accepted(&job.milestones)) {
                 job.state = JobState::Completed;
                 return_stakes(job);
             };
+        };
+    }
+
+    public entry fun reopen_job_after_timeout(poster: &signer, job_id: u64) acquires EscrowStore {
+        let poster_addr = signer::address_of(poster);
+        let store = borrow_global_mut<EscrowStore>(@job_work_board);
+        let job = table::borrow_mut(&mut store.table, job_id);
+
+        assert!(job.poster == poster_addr, 1);
+        assert!(job.state == JobState::Cancelled, 1);
+        assert!(job.freelancer_stake == 0, 1);
+        
+        job.freelancer = option::none();
+        job.state = JobState::Posted;
+        job.started_at = option::none();
+        job.mutual_cancel_requested_by = option::none();
+        job.freelancer_withdraw_requested_by = option::none();
+
+        let len = vector::length(&job.milestones);
+        let i = 0;
+        while (i < len) {
+            let milestone = vector::borrow_mut(&mut job.milestones, i);
+            if (milestone.status != MilestoneStatus::Accepted) {
+                milestone.status = MilestoneStatus::Pending;
+                milestone.deadline = 0;
+                milestone.review_deadline = 0;
+                milestone.evidence_cid = option::none();
+            };
+            i = i + 1;
         };
     }
 
@@ -357,7 +422,7 @@ module job_work_board::escrow {
         assert!(job.state != JobState::Disputed, 4); 
         assert!(option::is_none(&job.dispute_id), 4); 
         assert!(option::is_none(&job.dispute_winner), 4); 
-        assert!(!has_milestone_submitted(&job.milestones), 5); // E_MILESTONE_PENDING_REVIEW
+        assert!(!has_milestone_submitted(&job.milestones), 5); 
         
         if (option::is_some(&job.mutual_cancel_requested_by)) {
             return
@@ -376,7 +441,7 @@ module job_work_board::escrow {
         assert!(job.state != JobState::Disputed, 4); 
         assert!(option::is_none(&job.dispute_id), 4); 
         assert!(option::is_none(&job.dispute_winner), 4); 
-        assert!(!has_milestone_submitted(&job.milestones), 5); // E_MILESTONE_PENDING_REVIEW
+        assert!(!has_milestone_submitted(&job.milestones), 5);
         
         let requester = *option::borrow(&job.mutual_cancel_requested_by);
         assert!(requester == job.poster, 1);  
@@ -427,6 +492,7 @@ module job_work_board::escrow {
         let deadline_passed = job.apply_deadline == 0 || now >= job.apply_deadline;
 
         assert!(has_no_freelancer || deadline_passed, 2);
+        assert!(!has_milestone_submitted(&job.milestones), 5); 
 
         let job_funds_refund = coin::extract_all(&mut job.job_funds);
         coin::deposit(poster_addr, job_funds_refund);
@@ -449,7 +515,7 @@ module job_work_board::escrow {
         assert!(job.state != JobState::Disputed, 4); 
         assert!(option::is_none(&job.dispute_id), 4); 
         assert!(option::is_none(&job.dispute_winner), 4); 
-        assert!(!has_milestone_submitted(&job.milestones), 5); // E_MILESTONE_PENDING_REVIEW
+        assert!(!has_milestone_submitted(&job.milestones), 5); 
         
         if (option::is_some(&job.freelancer_withdraw_requested_by)) {
             return
@@ -535,6 +601,25 @@ module job_work_board::escrow {
         job.dispute_winner = option::some(winner_is_freelancer);
         job.dispute_id = option::none();
         
+        if (option::is_some(&job.freelancer)) {
+            let freelancer = *option::borrow(&job.freelancer);
+            if (winner_is_freelancer) {
+                if (role::has_freelancer(freelancer)) {
+                    reputation::inc_ut(freelancer, 2);
+                };
+                if (role::has_poster(job.poster)) {
+                    reputation::dec_ut(job.poster, 1);
+                };
+            } else {
+                if (role::has_freelancer(freelancer)) {
+                    reputation::dec_ut(freelancer, 1);
+                };
+                if (role::has_poster(job.poster)) {
+                    reputation::inc_ut(job.poster, 2);
+                };
+            };
+        };
+        
         if (are_all_milestones_accepted(&job.milestones)) {
             job.state = JobState::Completed;
             return_stakes(job);
@@ -597,12 +682,13 @@ module job_work_board::escrow {
         true
     }
 
+    // Update reputation chỉ khi không có dispute (milestone accepted bình thường)
     fun update_reputation(freelancer_addr: address, poster_addr: address) {
         if (role::has_freelancer(freelancer_addr)) {
-            reputation::inc_utf(freelancer_addr, 1);
+            reputation::inc_ut(freelancer_addr, 1);
         };
         if (role::has_poster(poster_addr)) {
-            reputation::inc_utp(poster_addr, 1);
+            reputation::inc_ut(poster_addr, 1);
         };
     }
 
@@ -613,8 +699,13 @@ module job_work_board::escrow {
     ) {
         let payment = coin::extract(&mut job.job_funds, amount);
         coin::deposit(freelancer_addr, payment);
-        update_reputation(freelancer_addr, job.poster);
+        // Chỉ cộng điểm khi không có dispute (milestone accepted bình thường)
+        // Nếu có dispute, dispute module sẽ xử lý điểm
+        if (option::is_none(&job.dispute_id)) {
+            update_reputation(freelancer_addr, job.poster);
+        };
     }
+
 
     fun set_next_milestone_deadline(job: &mut Job, current_idx: u64) {
         let len = vector::length(&job.milestones);

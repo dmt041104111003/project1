@@ -116,40 +116,28 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem('aptosNetwork', network);
         
         try {
-          console.log('Attempting NextAuth sign-in with address:', acc.address);
           const result = await signIn('credentials', {
             redirect: false,
             address: acc.address,
           });
           
-          console.log('NextAuth sign-in result:', result);
-          console.log('NextAuth sign-in result.ok:', result?.ok);
-          console.log('NextAuth sign-in result.error:', result?.error);
-          console.log('NextAuth sign-in result.url:', result?.url);
-          
           if (result?.error) {
-            console.error('NextAuth sign-in error:', result.error);
             throw new Error(result.error);
           }
           
           if (result?.ok) {
-            console.log('NextAuth sign-in successful, redirecting to dashboard');
             router.push('/dashboard');
-          } else {
-            console.log('NextAuth sign-in not successful, result:', result);
           }
         } catch (e) {
-          console.error('NextAuth sign-in failed:', e);
         }
-        toast.success(`Connected to Petra wallet successfully! Address: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
+        toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
       } catch (err) {
-        console.error('Wallet connection error:', err);
-        toast.error('Failed to connect to Petra wallet. Please try again.');
+        toast.error('Không thể kết nối ví Petra. Vui lòng thử lại.');
       } finally {
         setIsConnecting(false);
       }
     } else {
-      toast.error('Please install Petra wallet to connect. Visit: https://petra.app');
+      toast.error('Vui lòng cài đặt ví Petra để kết nối. Truy cập: https://petra.app');
       setIsConnecting(false);
     }
   };
@@ -159,18 +147,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const wallet = window.aptos!;
         await wallet.disconnect();
-        toast.success('Disconnected from Petra wallet successfully');
+        toast.success('Đã ngắt kết nối ví Petra thành công');
       } catch (err) {
-        console.error('Wallet disconnection error:', err);
-        toast.error('Error when disconnecting wallet');
+        toast.error('Lỗi khi ngắt kết nối ví');
       }
     }
     
-    // Sign out from NextAuth
     try {
       await signOut({ redirect: false });
     } catch (e) {
-      console.error('NextAuth sign-out failed:', e);
     }
     
     setAccount(null);
@@ -181,10 +166,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.removeItem('aptosNetwork');
   };
 
-  // Simple auth token
   const getAuthToken = async (): Promise<string | null> => {
     if (!account) return null;
-    return account; // Just use address as token
+    return account;
   };
 
   return (

@@ -6,8 +6,9 @@ module job_work_board::dispute {
     use aptos_std::table::{Self, Table};
     use job_work_board::role;
     use job_work_board::escrow;
+    use job_work_board::reputation;
 
-    const MIN_REVIEWERS: u64 = 3; // selection size and required votes to close
+    const MIN_REVIEWERS: u64 = 3; 
 
     enum DisputeStatus has copy, drop, store {
         Open,
@@ -57,10 +58,8 @@ module job_work_board::dispute {
         let (poster_addr, freelancer_opt) = escrow::get_job_parties(job_id);
         assert!(option::is_some(&freelancer_opt), 1);
         let freelancer_addr = *option::borrow(&freelancer_opt);
-        // Either poster or freelancer can open
         assert!(caller == poster_addr || caller == freelancer_addr, 1);
         
-        // borrow store first to check reviewer_load during selection
         let store = borrow_global_mut<DisputeStore>(@job_work_board);
 
         let all_reviewers = role::get_reviewers();
@@ -69,16 +68,16 @@ module job_work_board::dispute {
         let i = 0;
         while (i < n_all) {
             let r = *vector::borrow(&all_reviewers, i);
-            // Rule: must have reviewer role (ensured by get_reviewers) and not in any active dispute
-            let busy = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
-            if (busy == 0) {
-                vector::push_back(&mut eligible, r);
+            if (r != poster_addr && r != freelancer_addr) {
+                let busy = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
+                if (busy == 0) {
+                    vector::push_back(&mut eligible, r);
+                };
             };
             i = i + 1;
         };
         let n_eligible = vector::length(&eligible);
         assert!(n_eligible >= MIN_REVIEWERS, 2);
-        // Select all eligible reviewers for this dispute
         let selected = vector::empty<address>();
         let j = 0;
         while (j < n_eligible) {
@@ -102,7 +101,6 @@ module job_work_board::dispute {
             selected_reviewers: selected,
         });
 
-        // mark selected reviewers busy
         let sel_len_mark = vector::length(&selected);
         let m = 0;
         while (m < sel_len_mark) {
@@ -139,7 +137,7 @@ module job_work_board::dispute {
         while (k < sel_len) {
             if (*vector::borrow(&dispute.selected_reviewers, k) == reviewer_addr) {
                 allowed = true;
-                k = sel_len; // break
+                k = sel_len; 
             } else {
                 k = k + 1;
             };
@@ -158,13 +156,11 @@ module job_work_board::dispute {
 
         vector::push_back(&mut dispute.votes, Vote { reviewer: reviewer_addr, choice: vote_choice });
 
-        // Only resolve when all selected reviewers have voted (3 votes)
         if (vector::length(&dispute.votes) >= MIN_REVIEWERS) {
             tally_votes(dispute_id);
         };
     }
 
-    // Optional: other party can add evidence CID later (no status change required)
     public entry fun add_evidence(
         s: &signer,
         dispute_id: u64,
@@ -173,10 +169,8 @@ module job_work_board::dispute {
         let caller = signer::address_of(s);
         let store = borrow_global_mut<DisputeStore>(@job_work_board);
         let dispute = table::borrow_mut(&mut store.table, dispute_id);
-        // Only poster or freelancer of this dispute can add
         assert!(caller == dispute.poster || caller == dispute.freelancer, 1);
         if (caller == dispute.poster) {
-            // overwrite or set
             dispute.poster_evidence_cid = option::some(evidence_cid);
         } else {
             dispute.freelancer_evidence_cid = option::some(evidence_cid);
@@ -202,7 +196,7 @@ module job_work_board::dispute {
         };
 
         let poster_votes = total_votes - freelancer_votes;
-        // Resolve only if a side has at least 2 votes (majority of 3)
+        let winner_is_freelancer = freelancer_votes >= 2;
         if (freelancer_votes >= 2) {
             escrow::resolve_dispute(dispute.job_id, dispute.milestone_id, true);
             dispute.status = DisputeStatus::Resolved;
@@ -210,15 +204,27 @@ module job_work_board::dispute {
             escrow::resolve_dispute(dispute.job_id, dispute.milestone_id, false);
             dispute.status = DisputeStatus::Resolved;
         } else {
-            // tie, do nothing and wait for more votes
             return
         };
 
-        // decrement reviewer load
-        let nsel = vector::length(&dispute.selected_reviewers);
+        let votes_len = vector::length(&dispute.votes);
+        let v = 0;
+        while (v < votes_len) {
+            let vote = vector::borrow(&dispute.votes, v);
+            let reviewer_addr = vote.reviewer;
+            let voted_freelancer = vote.choice;
+            if (voted_freelancer == winner_is_freelancer) {
+                reputation::inc_ut(reviewer_addr, 2);
+            } else {
+                reputation::dec_ut(reviewer_addr, 1);
+            };
+            v = v + 1;
+        };
+
+        let votes_len2 = vector::length(&dispute.votes);
         let z = 0;
-        while (z < nsel) {
-            let rr = *vector::borrow(&dispute.selected_reviewers, z);
+        while (z < votes_len2) {
+            let rr = vector::borrow(&dispute.votes, z).reviewer;
             if (table::contains(&store.reviewer_load, rr)) {
                 let cur2 = table::borrow_mut(&mut store.reviewer_load, rr);
                 if (*cur2 > 0) { *cur2 = *cur2 - 1; };
