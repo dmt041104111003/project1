@@ -28,7 +28,7 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
         <textarea
           value={jsonInput}
           onChange={(e) => setJsonInput(e.target.value)}
-          placeholder={`{\n  "title": "Phát triển smart contract",\n  "description": "Mô tả dự án...",\n  "requirements": ["Solidity", "Move"],\n  "deadline": 604800,\n  "milestones": [\n    { "amount": "0.1", "duration": "300", "unit": "giây", "reviewPeriod": "300", "reviewUnit": "giây" },\n    { "amount": "0.1", "duration": "600", "unit": "giây", "reviewPeriod": "600", "reviewUnit": "giây" }\n  ]\n}`}
+          placeholder={`{\n  "title": "Phát triển smart contract",\n  "description": "Mô tả dự án...",\n  "requirements": ["Solidity", "Move"],\n  "deadline": 7,\n  "deadlineUnit": "ngày",\n  "milestones": [\n    { "amount": "0.1", "duration": "300", "unit": "giây", "reviewPeriod": "300", "reviewUnit": "giây" },\n    { "amount": "0.1", "duration": "600", "unit": "giây", "reviewPeriod": "600", "reviewUnit": "giây" }\n  ]\n}`}
           rows={15}
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 font-mono text-sm resize-none ${

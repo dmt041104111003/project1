@@ -27,15 +27,10 @@ const ChatContentInner: React.FC = () => {
     chatAccepted: boolean;
     creatorAddress: string;
     participantAddress: string;
-    jobCid?: string;
-    role?: string;
-    idHash?: string;
-    commitment?: string;
-    participantCommitment?: string;
   }>>([]);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
-  const [newRoomJobCid, setNewRoomJobCid] = useState('');
-  const [newRoomIdHash, setNewRoomIdHash] = useState('');
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomParticipantAddress, setNewRoomParticipantAddress] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [createRoomError, setCreateRoomError] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string; sender: string; senderId: string; timestamp: number } | null>(null);
@@ -60,7 +55,8 @@ const ChatContentInner: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           acceptRoom: true,
-          roomIdToAccept: roomId
+          roomIdToAccept: roomId,
+          senderId: currentUser.address
         })
       });
 
@@ -172,33 +168,23 @@ const ChatContentInner: React.FC = () => {
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomJobCid.trim() || !newRoomIdHash.trim()) return;
+    if (!newRoomName.trim() || !newRoomParticipantAddress.trim()) return;
 
     setIsCreatingRoom(true);
     setCreateRoomError('');
 
     try {
-      const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-      const res = await fetch(`${gateway}/${newRoomJobCid.trim()}`);
-      if (!res.ok) throw new Error('Invalid job cid');
-      const jobMeta = await res.json();
-      const posterHash = (jobMeta?.poster_id_hash as string) || '';
-      const freelancerHash = (jobMeta?.freelancer_id_hash as string) || '';
-      const provided = newRoomIdHash.trim().toLowerCase();
-      if (provided !== posterHash.toLowerCase() && provided !== freelancerHash.toLowerCase()) {
-        throw new Error('ID hash không khớp metadata');
+      const participantAddr = newRoomParticipantAddress.trim().toLowerCase();
+      if (participantAddr === currentUser.address.toLowerCase()) {
+        setCreateRoomError('Bạn không thể tạo phòng chat với chính mình');
+        setIsCreatingRoom(false);
+        return;
       }
-      const encoder = new TextEncoder();
-      const data = encoder.encode(`${posterHash}${freelancerHash}`);
-      const hashBuf = await crypto.subtle.digest('SHA-256', data);
-      const hashArr = Array.from(new Uint8Array(hashBuf));
-      const roomName = hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+
       const roomPayload = {
-        name: roomName,
-        creatorId: currentUser.address,
+        name: newRoomName.trim(),
         creatorAddress: currentUser.address,
-        jobCid: newRoomJobCid.trim(),
-        idHash: newRoomIdHash.trim()
+        participantAddress: participantAddr
       };
       const roomResponse = await fetch('/api/chat/messages', {
         method: 'POST',
@@ -213,17 +199,16 @@ const ChatContentInner: React.FC = () => {
           lastMessage: roomData.room.lastMessage,
           chatAccepted: false,
           creatorAddress: currentUser.address,
-          participantAddress: '',
-          jobCid: newRoomJobCid.trim(),
-          idHash: newRoomIdHash.trim()
+          participantAddress: participantAddr
         };
         setRooms(prev => [...prev, newRoom]);
         setSelectedRoom(newRoom.id);
         setRoomId(newRoom.id);
-        setNewRoomJobCid('');
-        setNewRoomIdHash('');
+        setNewRoomName('');
+        setNewRoomParticipantAddress('');
         setShowCreateRoom(false);
         setCreateRoomError('');
+        loadRoomsFromFirebase();
       } else {
         setCreateRoomError(roomData.error || 'Lỗi khi tạo phòng');
       }
@@ -278,16 +263,16 @@ const ChatContentInner: React.FC = () => {
           ) : (
             <CreateRoomForm
               isCreating={isCreatingRoom}
-              newRoomJobCid={newRoomJobCid}
-              setNewRoomJobCid={setNewRoomJobCid}
-              newRoomIdHash={newRoomIdHash}
-              setNewRoomIdHash={setNewRoomIdHash}
+              newRoomName={newRoomName}
+              setNewRoomName={setNewRoomName}
+              newRoomParticipantAddress={newRoomParticipantAddress}
+              setNewRoomParticipantAddress={setNewRoomParticipantAddress}
               createRoomError={createRoomError}
               onSubmit={handleCreateRoom}
               onCancel={() => {
                 setShowCreateRoom(false);
-                setNewRoomJobCid('');
-                setNewRoomIdHash('');
+                setNewRoomName('');
+                setNewRoomParticipantAddress('');
                 setCreateRoomError('');
               }}
             />

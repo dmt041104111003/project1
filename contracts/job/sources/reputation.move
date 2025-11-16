@@ -30,7 +30,7 @@ module job_work_board::reputation {
         let store = borrow_global_mut<RepStore>(@job_work_board);
         let rep = table::borrow_mut(&mut store.table, who);
         if (delta > rep.ut) {
-            rep.ut = rep.ut - delta;
+            rep.ut = 0;
         } else {
             rep.ut = rep.ut - delta;
         };

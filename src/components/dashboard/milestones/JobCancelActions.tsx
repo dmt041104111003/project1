@@ -10,6 +10,7 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   freelancer,
   canInteract,
   isCancelled,
+  jobState,
   mutualCancelRequestedBy,
   freelancerWithdrawRequestedBy,
   onMutualCancel,
@@ -28,7 +29,7 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
 
-  if (!canInteract || isCancelled || !freelancer) return null;
+  if (!canInteract || isCancelled || !freelancer || jobState === 'Disputed') return null;
 
   return (
     <div className="mt-4 p-3 border-2 border-orange-300 bg-orange-50 rounded">

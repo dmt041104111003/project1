@@ -48,6 +48,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); 
   const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); 
   const [unlockingNonDisputed, setUnlockingNonDisputed] = useState(false);
+  const [claimedMilestones, setClaimedMilestones] = useState<Set<number>>(new Set());
 
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
@@ -64,7 +65,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     return status === 'Submitted';
   });
 
-  const shouldHideCancelActions = hasPendingConfirmMilestone || hasDisputeId;
+  const shouldHideCancelActions = hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed';
 
   const handleFileUploaded = (milestoneId: number, cid: string) => {
     setEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
@@ -84,21 +85,34 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         setHasDisputeId(!!exists);
         const did = exists ? (Array.isArray(opt?.vec) ? Number(opt.vec[0]) : Number(opt)) : 0;
         let finalWinner: boolean | null = null;
-        if (did) {
+        let votesDone = false;
+        
+        const winnerFromJob = data?.job?.dispute_winner;
+        if (winnerFromJob !== null && winnerFromJob !== undefined) {
+          if (typeof winnerFromJob === 'boolean') {
+            finalWinner = winnerFromJob;
+            votesDone = true; 
+          } else if (Array.isArray(winnerFromJob?.vec) && winnerFromJob.vec.length > 0) {
+            finalWinner = winnerFromJob.vec[0] === true;
+            votesDone = true;
+          }
+        }
+        
+        if (finalWinner === null && did) {
           const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
           if (sumRes.ok) {
             const sum = await sumRes.json();
-            if (typeof sum?.winner === 'boolean') finalWinner = sum.winner;
-            setDisputeVotesDone(Number(sum?.counts?.total || 0) >= 3);
+            if (typeof sum?.winner === 'boolean') {
+              finalWinner = sum.winner;
+              votesDone = true;
+            } else {
+              const totalVotes = Number(sum?.counts?.total || 0);
+              votesDone = totalVotes >= 3;
+            }
           }
         }
-        if (finalWinner === null) {
-          const winner = (data?.job?.dispute_winner ?? null);
-          if (typeof winner === 'boolean') finalWinner = winner;
-        }
-        if (typeof finalWinner === 'boolean') {
-          setDisputeVotesDone(true);
-        }
+        
+        setDisputeVotesDone(votesDone);
         setDisputeWinner(finalWinner);
       } catch {}
     };
@@ -279,14 +293,28 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     if (isWinnerFreelancer && !isFreelancer) return;
     if (!isWinnerFreelancer && !isPoster) return;
     try {
+      setClaimedMilestones(prev => new Set(prev).add(milestoneId));
+      
       const { escrowHelpers } = await import('@/utils/contractHelpers');
       const payload = isWinnerFreelancer 
         ? escrowHelpers.claimDisputePayment(jobId, milestoneId)
         : escrowHelpers.claimDisputeRefund(jobId, milestoneId);
       const txHash = await executeTransaction(payload);
       toast.success(`Đã claim dispute ${isWinnerFreelancer ? 'thanh toán' : 'hoàn tiền'}! TX: ${txHash}`);
-      setTimeout(() => onUpdate?.(), 1500);
+      setTimeout(() => {
+        onUpdate?.();
+        setClaimedMilestones(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(milestoneId);
+          return newSet;
+        });
+      }, 1500);
     } catch (err) {
+      setClaimedMilestones(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(milestoneId);
+        return newSet;
+      });
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Lỗi: ${errorMessage}`);
     }
@@ -589,6 +617,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               onSubmitEvidence={handleSubmitEvidence}
               onClaimDispute={handleClaimDispute}
               disputeWinner={disputeWinner}
+              isClaimed={claimedMilestones.has(Number(milestone.id))}
             />
           );
         })}
@@ -623,6 +652,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             freelancer={freelancer}
             canInteract={canInteract}
             isCancelled={isCancelled}
+            jobState={jobState}
             mutualCancelRequestedBy={mutualCancelRequestedBy || null}
             freelancerWithdrawRequestedBy={freelancerWithdrawRequestedBy || null}
             onMutualCancel={handleMutualCancel}

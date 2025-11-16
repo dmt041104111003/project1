@@ -103,7 +103,6 @@ export const ProjectsTab: React.FC = () => {
     if (account) {
       fetchJobs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
   if (!account) {
@@ -125,7 +124,6 @@ export const ProjectsTab: React.FC = () => {
           <p className="text-gray-700">Xem và quản lý dự án từ blockchain</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-300">
           <button
             onClick={() => {
@@ -159,7 +157,6 @@ export const ProjectsTab: React.FC = () => {
           </button>
         </div>
 
-        {/* Refresh Button */}
         <div className="flex items-center justify-between gap-2 mb-4">
           <Button 
             onClick={fetchJobs} 
@@ -171,7 +168,6 @@ export const ProjectsTab: React.FC = () => {
           </Button>
         </div>
 
-        {/* Jobs List */}
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
             <div className="text-center py-8">
@@ -207,7 +203,6 @@ export const ProjectsTab: React.FC = () => {
                 />
               ))}
 
-              {/* Pagination */}
               {jobs.length > pageSize && (
                 <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-300">
                   <Button 

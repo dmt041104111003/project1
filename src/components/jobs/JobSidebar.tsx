@@ -63,6 +63,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     const stateStr = parseState(jobData.state);
     const isPosted = stateStr === 'Posted';
     const isCancelled = stateStr === 'Cancelled';
+    const isCancelledByPoster = stateStr === 'CancelledByPoster';
     const freelancerStake = Number(jobData.freelancer_stake || 0);
     const applyDeadline = jobData.apply_deadline ? Number(jobData.apply_deadline) : 0;
     const applyDeadlineExpired = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
@@ -81,6 +82,14 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       : false;
 
     const isReopenedAfterTimeout = (isCancelled && freelancerStake === 0) || hasTimedOutMilestone;
+    
+    if (isCancelledByPoster) {
+      return (
+        <div className="text-center py-4">
+          <p className="text-sm text-red-700 font-bold">Job đã bị hủy bởi người đăng</p>
+        </div>
+      );
+    }
     
     if (isExpiredPosted && !isReopenedAfterTimeout) {
       return (
@@ -139,7 +148,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           onClick={onApply}
           disabled={applying}
           size="lg"
-          className="w-full bg-blue-800 text-black hover:bg-blue-900 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
+          className="w-full bg-white-800 text-black hover:bg-blue-300 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
         >
           {applying ? 'Đang apply...' : 'Apply Job'}
         </Button>
@@ -152,6 +161,9 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   const isFreelancerOfJob = account && freelancerAddr 
     ? account.toLowerCase() === freelancerAddr.toLowerCase() 
     : false;
+  const isPosterOfJob = account && jobData.poster
+    ? account.toLowerCase() === String(jobData.poster).toLowerCase()
+    : false;
   
   const applyDeadline = jobData.apply_deadline ? Number(jobData.apply_deadline) : 0;
   const applyDeadlineExpired = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
@@ -159,6 +171,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   
   const freelancerStake = Number(jobData.freelancer_stake || 0);
   const isCancelled = stateStr === 'Cancelled';
+  const isCancelledByPoster = stateStr === 'CancelledByPoster';
   const hasTimedOutMilestone = jobData.milestones && Array.isArray(jobData.milestones) 
     ? jobData.milestones.some((milestone: any) => {
         const deadline = Number(milestone.deadline || 0);
@@ -174,19 +187,22 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   
   const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer && !isReopenedAfterTimeout;
   
-  const displayState = (stateStr === 'Cancelled' && !isFreelancerOfJob) ? 'Posted' : stateStr;
+  
+  const displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
   const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
                       displayState === 'Posted' ? 'Open' :
                       displayState === 'InProgress' ? 'In Progress' :
                       displayState === 'Completed' ? 'Completed' :
                       displayState === 'Disputed' ? 'Disputed' :
                       displayState === 'Cancelled' ? 'Cancelled' :
+                      displayState === 'CancelledByPoster' ? 'Đã hủy bởi người đăng' :
                       displayState || 'Active';
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
     const base = 'px-2 py-1 text-xs font-bold border-2';
     if (isExpiredPosted) return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
     if (state === 'Cancelled') return `${base} bg-orange-100 text-orange-800 border-orange-300`;
+    if (state === 'CancelledByPoster') return `${base} bg-red-100 text-red-800 border-red-300`;
     if (state === 'Posted') return `${base} bg-green-100 text-green-800 border-green-300`;
     if (state === 'InProgress') return `${base} bg-blue-100 text-blue-800 border-blue-300`;
     if (state === 'Completed') return `${base} bg-gray-100 text-gray-800 border-gray-300`;

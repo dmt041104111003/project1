@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
 	const cid = searchParams.get('cid');
 	const jobId = searchParams.get('jobId');
 	const mode = searchParams.get('mode');
+	const decodeOnly = searchParams.get('decodeOnly') === 'true';
 	
 	let resolvedCid = cid ? await decryptCid(cid) : null;
 	
@@ -35,6 +36,12 @@ export async function GET(request: NextRequest) {
 	}
 	
 	if (!resolvedCid) return NextResponse.json({ success: false, error: 'cid là bắt buộc' }, { status: 400 });
+	
+	if (decodeOnly) {
+		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+		const ipfsUrl = `${gateway}/${resolvedCid}`;
+		return NextResponse.json({ success: true, cid: resolvedCid, url: ipfsUrl });
+	}
 	
 	const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
 	const res = await fetch(`${gateway}/${resolvedCid}`, { method: 'GET' });

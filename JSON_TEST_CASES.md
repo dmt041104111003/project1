@@ -389,7 +389,8 @@
     "Security",
     "Testing"
   ],
-  "deadline": 2592000,
+  "deadline": 30,
+  "deadlineUnit": "ngày",
   "milestones": [
     {
       "amount": "0.15",
@@ -427,7 +428,7 @@
 
  aptos move publish \
   --profile zkp \
-  --named-addresses job_work_board=0x245b3336b569a1ddb8de05aeec7f399eccdcdd0a89542cd6eb00bcca546d29c5 --assume-yes
+  --named-addresses job_work_board=0x345f210605fbfd1e4286ad513c1eb29ac08416d290bd635543be53488056bcf4 --assume-yes
 
 
 ## Tóm tắt các test case

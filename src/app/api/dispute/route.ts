@@ -136,14 +136,42 @@ export async function GET(req: Request) {
           const voted = parseVotedAddresses(dispute?.votes || []);
           const counts = parseVoteCounts(dispute?.votes || []);
           let winner: null | boolean = null;
-          if (counts.total >= 2) {
-            if (counts.forFreelancer > counts.forPoster) winner = true;
-            else if (counts.forPoster > counts.forFreelancer) winner = false;
+          if (counts.total >= 3) {
+            if (counts.forFreelancer >= 2) winner = true;
+            else if (counts.forPoster >= 2) winner = false;
           }
           return NextResponse.json({ reviewers, voted_reviewers: voted, counts, winner });
         }
+      case 'get_status':
+        {
+          let statusStr = 'open';
+          if (dispute?.status) {
+            if (typeof dispute.status === 'string') {
+              statusStr = dispute.status.toLowerCase();
+            } else if (typeof dispute.status === 'object') {
+              if (dispute.status?.__variant__) {
+                const variant = String(dispute.status.__variant__).toLowerCase();
+                statusStr = variant === 'open' ? 'open' : variant === 'voting' ? 'voting' : 'resolved';
+              } else if (dispute.status?.vec) {
+                const statusVal = dispute.status.vec[0];
+                if (typeof statusVal === 'number') {
+                  statusStr = statusVal === 0 ? 'open' : statusVal === 1 ? 'voting' : 'resolved';
+                } else if (typeof statusVal === 'string') {
+                  statusStr = statusVal.toLowerCase();
+                } else if (statusVal?.__variant__) {
+                  statusStr = String(statusVal.__variant__).toLowerCase();
+                }
+              } else if (typeof dispute.status === 'number') {
+                statusStr = dispute.status === 0 ? 'open' : dispute.status === 1 ? 'voting' : 'resolved';
+              }
+            } else if (typeof dispute.status === 'number') {
+              statusStr = dispute.status === 0 ? 'open' : dispute.status === 1 ? 'voting' : 'resolved';
+            }
+          }
+          return NextResponse.json({ status: statusStr });
+        }
       default:
-        return NextResponse.json({ error: 'Hành động không hợp lệ. Sử dụng: get_reviewers, get_evidence' }, { status: 400 });
+        return NextResponse.json({ error: 'Hành động không hợp lệ. Sử dụng: get_reviewers, get_evidence, get_status' }, { status: 400 });
     }
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Không thể lấy dữ liệu tranh chấp' }, { status: 500 });

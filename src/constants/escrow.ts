@@ -64,13 +64,14 @@ export interface DisputeData {
   jobId: number;
   milestoneIndex: number;
   disputeId: number;
-  status: 'open' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
+  status: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
   openedAt?: string;
   reason?: string;
   posterEvidenceCid?: string;
   freelancerEvidenceCid?: string;
   hasVoted?: boolean;
   votesCompleted?: boolean;
+  disputeWinner?: boolean | null;
 }
 
 export interface JobCardProps {
@@ -124,6 +125,7 @@ export interface MilestoneItemProps {
   onSubmitEvidence?: (milestoneId: number) => void;
   onClaimDispute?: (milestoneId: number) => void;
   disputeWinner?: boolean | null;
+  isClaimed?: boolean;
 }
 
 export interface MilestoneFileUploadProps {
@@ -172,6 +174,7 @@ export interface JobCancelActionsProps {
   freelancer: string | null;
   canInteract: boolean;
   isCancelled: boolean;
+  jobState?: string;
   mutualCancelRequestedBy: string | null;
   freelancerWithdrawRequestedBy: string | null;
   onMutualCancel: () => void;
@@ -200,6 +203,7 @@ export interface JsonJobParseData {
   description?: string;
   requirements?: string[];
   deadline?: number;
+  deadlineUnit?: 'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng';
   milestones?: Array<MilestoneForm>;
 }
 
@@ -217,6 +221,8 @@ export interface ManualJobFormProps {
   setJobDescription: (v: string) => void;
   jobDuration: string;
   setJobDuration: (v: string) => void;
+  jobDurationUnit: 'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng';
+  setJobDurationUnit: (v: 'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng') => void;
   skillsList: string[];
   currentSkill: string;
   setCurrentSkill: (v: string) => void;

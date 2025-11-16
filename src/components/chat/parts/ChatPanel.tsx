@@ -41,9 +41,16 @@ export const ChatPanel: React.FC<Props> = ({
 				{selectedRoom ? (
 					<div className="flex items-center space-x-3">
 						<div className="flex-1 min-w-0">
-							<h2 className="font-bold text-gray-800">{short(selectedRoom.participantAddress || selectedRoom.creatorAddress)}</h2>
-							<p className="text-xs text-gray-600">{short(selectedRoom.participantAddress)}</p>
-							<p className="text-xs text-gray-500">Verified</p>
+							<h2 className="font-bold text-gray-800">{selectedRoom.name}</h2>
+							<p className="text-xs text-gray-600">
+								{selectedRoom.participantAddress 
+									? `Với ${short(selectedRoom.participantAddress)}`
+									: `Tạo bởi ${short(selectedRoom.creatorAddress)}`
+								}
+							</p>
+							{selectedRoom.chatAccepted && (
+								<p className="text-xs text-green-600">Đã chấp nhận</p>
+							)}
 						</div>
 					</div>
 				) : (
@@ -125,7 +132,7 @@ export const ChatPanel: React.FC<Props> = ({
 					) : (
 						<div className="text-center text-gray-500 py-4">
 							<div className="space-y-3">
-								<p className="text-sm">Bạn có lời mời chat từ {selectedRoom?.name}</p>
+								<p className="text-sm">Phòng chat chưa được chấp nhận</p>
 								<Button variant="outline" size="sm" onClick={() => handleAcceptRoom(selectedRoom.id)}>ACCEPT CHAT</Button>
 							</div>
 						</div>

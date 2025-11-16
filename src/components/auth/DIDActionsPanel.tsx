@@ -111,6 +111,7 @@ export default function DIDActionsPanel() {
           <select
             className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
             value={role}
+            disabled={loading}
             onChange={e => {
               setRole(e.target.value);
               if (e.target.value === 'reviewer') {
@@ -132,6 +133,7 @@ export default function DIDActionsPanel() {
               className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
               rows={3}
               value={desc}
+              disabled={loading}
               onChange={e => setDesc(e.target.value)}
               placeholder="Giới thiệu về bạn / kỹ năng..."
             />

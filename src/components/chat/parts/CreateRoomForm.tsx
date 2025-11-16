@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 
 type Props = {
 	isCreating: boolean;
-	newRoomJobCid: string;
-	setNewRoomJobCid: (v: string) => void;
-	newRoomIdHash: string;
-	setNewRoomIdHash: (v: string) => void;
+	newRoomName: string;
+	setNewRoomName: (v: string) => void;
+	newRoomParticipantAddress: string;
+	setNewRoomParticipantAddress: (v: string) => void;
 	createRoomError: string;
 	onSubmit: (e: React.FormEvent) => void;
 	onCancel: () => void;
@@ -16,10 +16,10 @@ type Props = {
 
 export const CreateRoomForm: React.FC<Props> = ({
 	isCreating,
-	newRoomJobCid,
-	setNewRoomJobCid,
-	newRoomIdHash,
-	setNewRoomIdHash,
+	newRoomName,
+	setNewRoomName,
+	newRoomParticipantAddress,
+	setNewRoomParticipantAddress,
 	createRoomError,
 	onSubmit,
 	onCancel,
@@ -28,17 +28,17 @@ export const CreateRoomForm: React.FC<Props> = ({
 		<form onSubmit={onSubmit} className="space-y-2">
 			<input
 				type="text"
-				value={newRoomJobCid}
-				onChange={(e) => setNewRoomJobCid(e.target.value)}
-				placeholder="Job IPFS CID..."
+				value={newRoomName}
+				onChange={(e) => setNewRoomName(e.target.value)}
+				placeholder="Tên phòng chat..."
 				className="w-full px-3 py-2 border border-gray-400 focus:outline-none focus:border-gray-800"
 				disabled={isCreating}
 			/>
 			<input
 				type="text"
-				value={newRoomIdHash}
-				onChange={(e) => setNewRoomIdHash(e.target.value)}
-				placeholder="ID hash (0x...) của bạn (poster hoặc freelancer)"
+				value={newRoomParticipantAddress}
+				onChange={(e) => setNewRoomParticipantAddress(e.target.value)}
+				placeholder="Địa chỉ ví người muốn chat (0x...)"
 				className="w-full px-3 py-2 border border-gray-400 focus:outline-none focus:border-gray-800"
 				disabled={isCreating}
 			/>
@@ -55,9 +55,9 @@ export const CreateRoomForm: React.FC<Props> = ({
 					variant="primary" 
 					size="sm" 
 					className="flex-1"
-					disabled={isCreating}
+					disabled={isCreating || !newRoomName.trim() || !newRoomParticipantAddress.trim()}
 				>
-					{isCreating ? 'ĐANG KIỂM TRA...' : 'TẠO'}
+					{isCreating ? 'ĐANG TẠO...' : 'TẠO'}
 				</Button>
 				<Button 
 					type="button" 

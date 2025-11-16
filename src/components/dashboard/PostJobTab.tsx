@@ -31,6 +31,7 @@ export const PostJobTab: React.FC = () => {
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
+  const [jobDurationUnit, setJobDurationUnit] = useState<'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng'>('ngày');
   const [jobResult, setJobResult] = useState('');
   const [posterStatus, setPosterStatus] = useState('');
   const [canPostJobs, setCanPostJobs] = useState(false);
@@ -71,7 +72,15 @@ export const PostJobTab: React.FC = () => {
     if (data.title) setJobTitle(data.title);
     if (data.description) setJobDescription(data.description);
     if (Array.isArray(data.requirements)) setSkillsList(data.requirements);
-    if (data.deadline) setJobDuration((data.deadline / (24 * 60 * 60)).toString());
+    if (data.deadline !== undefined) {
+      if (data.deadlineUnit) {
+        setJobDuration(data.deadline.toString());
+        setJobDurationUnit(data.deadlineUnit);
+      } else {
+        setJobDuration((data.deadline / (24 * 60 * 60)).toString());
+        setJobDurationUnit('ngày');
+      }
+    }
     if (Array.isArray(data.milestones)) {
       setMilestonesList(
         data.milestones.map((m: { amount?: unknown; duration?: unknown; reviewPeriod?: unknown; unit?: string; reviewUnit?: string }) => ({
@@ -142,8 +151,8 @@ export const PostJobTab: React.FC = () => {
         return (rp || 0) * (TIME_MULTIPLIERS[ru as keyof typeof TIME_MULTIPLIERS] || 1);
       });
       
-      const applyDeadlineDays = parseFloat(jobDuration) || 7;
-      const applyDeadlineTimestamp = Math.floor(Date.now() / 1000) + (applyDeadlineDays * 24 * 60 * 60);
+      const applyDeadlineValue = parseFloat(jobDuration) || 7;
+      const applyDeadlineDuration = applyDeadlineValue * (TIME_MULTIPLIERS[jobDurationUnit] || 86400);
       
       const { escrowHelpers } = await import('@/utils/contractHelpers');
       
@@ -158,7 +167,7 @@ export const PostJobTab: React.FC = () => {
         contractMilestoneDurations,
         contractMilestones, 
         contractMilestoneReviewPeriods, 
-        applyDeadlineTimestamp
+        applyDeadlineDuration
       );
       
       const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction(payload);
@@ -211,6 +220,8 @@ export const PostJobTab: React.FC = () => {
               setJobDescription={setJobDescription}
               jobDuration={jobDuration}
               setJobDuration={setJobDuration}
+              jobDurationUnit={jobDurationUnit}
+              setJobDurationUnit={setJobDurationUnit}
               skillsList={skillsList}
               currentSkill={currentSkill}
               setCurrentSkill={setCurrentSkill}

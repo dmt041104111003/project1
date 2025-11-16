@@ -94,28 +94,47 @@ export function useDisputes(account?: string | null) {
 
         let hasVoted = false;
         let votesCompleted = false;
+        let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
+        let disputeWinner: boolean | null = null;
         const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
         if (sumRes.ok) {
           const sum = await sumRes.json();
           const voted: string[] = Array.isArray(sum?.voted_reviewers) ? sum.voted_reviewers : [];
           hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
-          votesCompleted = Number(sum?.counts?.total || 0) >= 3;
+          const totalVotes = Number(sum?.counts?.total || 0);
+          votesCompleted = totalVotes >= 3;
+          disputeWinner = sum?.winner;
+          if (disputeWinner !== null && disputeWinner !== undefined && totalVotes >= 3) {
+            disputeStatus = 'resolved';
+          }
         } else {
           const votesRes = await fetch(`/api/dispute?action=get_votes&dispute_id=${did}`);
           if (votesRes.ok) {
             const vjson = await votesRes.json();
             const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
             hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
-            votesCompleted = voted.length >= 3;
+            votesCompleted = voted.length >= 3; 
           }
         }
-
+        
         const milestones: any[] = Array.isArray(detail?.job?.milestones) ? detail.job.milestones : [];
         let lockedIndex = -1;
         for (let i = 0; i < milestones.length; i++) {
           const st = String(milestones[i]?.status || '');
-          if (st.toLowerCase().includes('locked')) { lockedIndex = i; break; }
+          if (st.toLowerCase().includes('locked')) { 
+            lockedIndex = i; 
+            break; 
+          }
+          if (st.toLowerCase().includes('accepted') && disputeId) {
+            if (disputeWinner === null) {
+            }
+          }
         }
+        
+        if (disputeStatus === 'resolved' && lockedIndex < 0) {
+          continue; 
+        }
+        
         if (lockedIndex < 0) continue;
         const evRes = await fetch(`/api/dispute?action=get_evidence&dispute_id=${did}`);
         let posterEvidenceCid = '';
@@ -126,7 +145,17 @@ export function useDisputes(account?: string | null) {
           freelancerEvidenceCid = String(ev?.freelancer_evidence_cid || '');
         }
 
-        results.push({ jobId: id, milestoneIndex: lockedIndex, disputeId: did, status: 'open', posterEvidenceCid, freelancerEvidenceCid, hasVoted, votesCompleted });
+        results.push({ 
+          jobId: id, 
+          milestoneIndex: lockedIndex, 
+          disputeId: did, 
+          status: disputeStatus, 
+          posterEvidenceCid, 
+          freelancerEvidenceCid, 
+          hasVoted, 
+          votesCompleted,
+          disputeWinner 
+        });
       }
 
       setDisputes(results);
@@ -175,12 +204,13 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await wallet.signAndSubmitTransaction(payload as any);
+      setTimeout(() => refresh(), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
       setResolving(null);
     }
-  }, []);
+  }, [refresh]);
 
   const resolveToFreelancer = useCallback(async (disputeIdNum: number) => {
     try {
@@ -189,12 +219,13 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await wallet.signAndSubmitTransaction(payload as any);
+      setTimeout(() => refresh(), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
       setResolving(null);
     }
-  }, []);
+  }, [refresh]);
 
   return {
     loading,

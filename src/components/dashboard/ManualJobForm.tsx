@@ -11,6 +11,8 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
   setJobDescription,
   jobDuration,
   setJobDuration,
+  jobDurationUnit,
+  setJobDurationUnit,
   skillsList,
   currentSkill,
   setCurrentSkill,
@@ -136,15 +138,20 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
             }`}
           />
           <select 
+            value={jobDurationUnit}
+            onChange={(e) => setJobDurationUnit(e.target.value as 'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng')}
             disabled={!canPostJobs || isSubmitting}
             title="Chọn đơn vị thời gian"
             className={`px-4 py-3 border border-gray-400 ${
               !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
             }`}
           >
-            <option>ngày</option>
-            <option>tuần</option>
-            <option>tháng</option>
+            <option value="giây">giây</option>
+            <option value="phút">phút</option>
+            <option value="giờ">giờ</option>
+            <option value="ngày">ngày</option>
+            <option value="tuần">tuần</option>
+            <option value="tháng">tháng</option>
           </select>
         </div>
       </div>

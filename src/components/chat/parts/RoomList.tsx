@@ -62,11 +62,7 @@ export const RoomList: React.FC<Props> = ({
                 <div className="flex items-center space-x-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-gray-800 truncate">
-                      {short(
-                        room.participantAddress === currentUserAddress
-                          ? room.creatorAddress
-                          : room.participantAddress
-                      )}
+                      {room.name}
                     </h3>
                     <p className="text-xs text-gray-600 truncate">
                       {room.lastMessage}

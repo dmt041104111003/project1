@@ -38,10 +38,8 @@ export async function GET(request: NextRequest) {
             id: string;
             name: string;
             lastMessage: string;
-            commitment: string;
             chatAccepted: boolean;
             creatorAddress: string;
-            participantCommitment: string;
             participantAddress: string;
           }> = [];
           
@@ -51,15 +49,13 @@ export async function GET(request: NextRequest) {
                 id,
                 name: (room as Record<string, unknown>).name as string,
                 lastMessage: (room as Record<string, unknown>).lastMessage as string,
-                commitment: (room as Record<string, unknown>).participantCommitment as string,
                 chatAccepted: (room as Record<string, unknown>).chatAccepted as boolean,
                 creatorAddress: (room as Record<string, unknown>).creatorAddress as string,
-                participantCommitment: (room as Record<string, unknown>).participantCommitment as string,
-                participantAddress: (room as Record<string, unknown>).participantAddress as string
+                participantAddress: (room as Record<string, unknown>).participantAddress as string || ''
               }))
               .filter(room => 
                 room.creatorAddress.toLowerCase() === userAddress.toLowerCase() ||
-                room.participantAddress.toLowerCase() === userAddress.toLowerCase()
+                (room.participantAddress && room.participantAddress.toLowerCase() === userAddress.toLowerCase())
               );
           }
           
@@ -115,36 +111,19 @@ export async function POST(request: NextRequest) {
       senderId,
       replyTo,
       name,
-      creatorId,
       creatorAddress,
-      jobCid,
-      idHash,
+      participantAddress,
       acceptRoom,
       roomIdToAccept
     } = await request.json();
 
-    if (name && creatorId && creatorAddress && jobCid && idHash) {
-      
+    if (name && creatorAddress) {
       const roomsRef = ref(database, 'chatRooms');
-      
-      const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-      const res = await fetch(`${gateway}/${jobCid}`);
-      if (!res.ok) return NextResponse.json({ success: false, error: 'Invalid job cid' }, { status: 400 });
-      const jobMeta = await res.json();
-      const posterHash = (jobMeta?.poster_id_hash as string) || '';
-      const freelancerHash = (jobMeta?.freelancer_id_hash as string) || '';
-      const provided = (idHash as string).toLowerCase();
-      if (provided !== posterHash.toLowerCase() && provided !== freelancerHash.toLowerCase()) {
-        return NextResponse.json({ success: false, error: 'ID hash không khớp metadata' }, { status: 403 });
-      }
 
       const newRoom = {
         name,
-        jobCid,
-        idHash,
-        participantAddress: '',
-        creatorId,
-        creatorAddress,
+        participantAddress: participantAddress ? participantAddress.toLowerCase() : '',
+        creatorAddress: creatorAddress.toLowerCase(),
         chatAccepted: false,
         createdAt: serverTimestamp(),
         lastMessage: 'Phòng mới được tạo'
@@ -159,7 +138,8 @@ export async function POST(request: NextRequest) {
           if (data) {
             existingRoom = Object.values(data).find((room) => {
               const r = room as Record<string, unknown>;
-              return r.jobCid === jobCid && r.creatorAddress === creatorAddress;
+              return (r.creatorAddress as string || '').toLowerCase() === creatorAddress.toLowerCase() &&
+                     (r.name as string) === name;
             });
           }
           
@@ -191,8 +171,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (acceptRoom && roomIdToAccept) {
-      
+    if (acceptRoom && roomIdToAccept && senderId) {
       const roomRef = ref(database, `chatRooms/${roomIdToAccept}`);
       
       return new Promise<NextResponse>((resolve) => {
@@ -209,9 +188,30 @@ export async function POST(request: NextRequest) {
             return;
           }
           
+          const participantAddr = (senderId as string).toLowerCase();
+          const creatorAddr = (roomData.creatorAddress as string || '').toLowerCase();
+          const expectedParticipantAddr = (roomData.participantAddress as string || '').toLowerCase();
+          
+          if (participantAddr === creatorAddr) {
+            resolve(NextResponse.json({ 
+              success: false, 
+              error: 'Bạn không thể accept phòng chat của chính mình' 
+            }));
+            return;
+          }
+          
+          if (expectedParticipantAddr && participantAddr !== expectedParticipantAddr) {
+            resolve(NextResponse.json({ 
+              success: false, 
+              error: 'Bạn không phải người được mời vào phòng chat này' 
+            }));
+            return;
+          }
+          
           const updatedRoom = {
             ...roomData,
             chatAccepted: true,
+            participantAddress: participantAddr,
             acceptedAt: serverTimestamp()
           };
           

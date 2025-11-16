@@ -28,17 +28,17 @@ export const escrowHelpers = {
     milestoneDurations: number[],
     milestones: number[],
     milestoneReviewPeriods: number[],
-    applyDeadline?: number
+    applyDeadlineDuration?: number
   ) => {
     const posterDeposit = milestones.reduce((sum, m) => sum + m, 0);
-    const finalApplyDeadline = applyDeadline || (Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60));
+    const finalApplyDeadlineDuration = applyDeadlineDuration || (7 * 24 * 60 * 60);
     return buildTransactionPayload(ESCROW.CREATE_JOB, [
       jobDetailsCid,
       milestoneDurations,
       milestones,
       milestoneReviewPeriods,
       posterDeposit,
-      finalApplyDeadline
+      finalApplyDeadlineDuration
     ]);
   },
   

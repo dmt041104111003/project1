@@ -78,11 +78,88 @@ module job_work_board::dispute {
         };
         let n_eligible = vector::length(&eligible);
         assert!(n_eligible >= MIN_REVIEWERS, 2);
-        let selected = vector::empty<address>();
+        
+        let caller_ut = reputation::get(caller);
+        
+        let highest_ut_reviewer = option::none<address>();
+        let highest_ut = 0;
         let j = 0;
         while (j < n_eligible) {
-            vector::push_back(&mut selected, *vector::borrow(&eligible, j));
+            let r = *vector::borrow(&eligible, j);
+            let r_ut = reputation::get(r);
+            if (r_ut > highest_ut) {
+                highest_ut = r_ut;
+                highest_ut_reviewer = option::some(r);
+            };
             j = j + 1;
+        };
+        if (option::is_none(&highest_ut_reviewer)) {
+            highest_ut_reviewer = option::some(*vector::borrow(&eligible, 0));
+        };
+        let highest_reviewer = *option::borrow(&highest_ut_reviewer);
+        
+        let mid_ut_reviewer = option::none<address>();
+        j = 0;
+        while (j < n_eligible) {
+            let r = *vector::borrow(&eligible, j);
+            if (r != highest_reviewer) {
+                let r_ut = reputation::get(r);
+                if (r_ut > caller_ut && r_ut < highest_ut) {
+                    mid_ut_reviewer = option::some(r);
+                    j = n_eligible; // break
+                };
+            };
+            j = j + 1;
+        };
+        
+        let low_ut_reviewer = option::none<address>();
+        j = 0;
+        while (j < n_eligible) {
+            let r = *vector::borrow(&eligible, j);
+            if (r != highest_reviewer && (option::is_none(&mid_ut_reviewer) || r != *option::borrow(&mid_ut_reviewer))) {
+                let r_ut = reputation::get(r);
+                if (r_ut < caller_ut) {
+                    low_ut_reviewer = option::some(r);
+                    j = n_eligible; // break
+                };
+            };
+            j = j + 1;
+        };
+        
+        let has_all_three = option::is_some(&mid_ut_reviewer) && option::is_some(&low_ut_reviewer);
+        
+        assert!(highest_reviewer != poster_addr && highest_reviewer != freelancer_addr, 5);
+        
+        let selected = vector::empty<address>();
+        if (has_all_three) {
+            let mid_reviewer = *option::borrow(&mid_ut_reviewer);
+            let low_reviewer = *option::borrow(&low_ut_reviewer);
+            
+            assert!(mid_reviewer != poster_addr && mid_reviewer != freelancer_addr, 6);
+            assert!(low_reviewer != poster_addr && low_reviewer != freelancer_addr, 7);
+            
+            vector::push_back(&mut selected, highest_reviewer);
+            vector::push_back(&mut selected, mid_reviewer);
+            vector::push_back(&mut selected, low_reviewer);
+        } else {
+            j = 0;
+            while (j < n_eligible) {
+                let r = *vector::borrow(&eligible, j);
+                assert!(r != poster_addr && r != freelancer_addr, 8);
+                let busy_check = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
+                assert!(busy_check == 0, 9);
+                vector::push_back(&mut selected, r);
+                j = j + 1;
+            };
+        };
+        
+        let final_selected_len = vector::length(&selected);
+        assert!(final_selected_len >= MIN_REVIEWERS, 4);
+        let check_idx = 0;
+        while (check_idx < final_selected_len) {
+            let r_check = *vector::borrow(&selected, check_idx);
+            assert!(r_check != poster_addr && r_check != freelancer_addr, 10);
+            check_idx = check_idx + 1;
         };
 
         let dispute_id = store.next_dispute_id;

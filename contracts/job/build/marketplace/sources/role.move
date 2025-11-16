@@ -44,8 +44,8 @@ module job_work_board::role {
             table::add(&mut user.roles, role_kind, true);
         };
         
-        if (option::is_some(&cid_opt)) {
-            assert!(role_kind != REVIEWER, 1);
+        if (role_kind == POSTER || role_kind == FREELANCER) {
+            assert!(option::is_some(&cid_opt), 2);
             let cid = *option::borrow(&cid_opt);
             if (table::contains(&user.cids, role_kind)) {
                 *table::borrow_mut(&mut user.cids, role_kind) = cid;
