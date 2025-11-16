@@ -16,18 +16,34 @@ module job_work_board::role {
         cids: Table<u8, String>,
     }
 
+    struct CCCDProof has store, copy, drop {
+        proof: vector<u8>,  // ZK proof (JSON serialized)
+        public_signals: vector<u8>,  // Public signals (JSON serialized)
+        timestamp: u64,
+    }
+
     struct RoleStore has key {
         users: Table<address, UserRoles>,
         reviewers: vector<address>,
+        proofs: Table<address, CCCDProof>,  // Map address -> proof
+        proof_hashes: Table<vector<u8>, address>,  // Map proof hash -> address (để check duplicate)
     }
 
     fun init_module(admin: &signer) {
-        move_to(admin, RoleStore { users: table::new(), reviewers: vector::empty<address>() });
+        move_to(admin, RoleStore { 
+            users: table::new(), 
+            reviewers: vector::empty<address>(),
+            proofs: table::new(),
+            proof_hashes: table::new(),
+        });
     }
 
     public entry fun register_role(s: &signer, role_kind: u8, cid_opt: Option<String>) acquires RoleStore {
         let addr = signer::address_of(s);
         assert!(role_kind == FREELANCER || role_kind == POSTER || role_kind == REVIEWER, 1);
+        
+        // Check xem địa chỉ đã có proof chưa (bắt buộc phải có proof để đăng ký role)
+        assert!(has_proof(addr), 5); // Error code 5: Proof required to register role
         
         let store = borrow_global_mut<RoleStore>(@job_work_board);
         
@@ -106,5 +122,39 @@ module job_work_board::role {
             i = i + 1;
         };
         out
+    }
+
+    public entry fun store_proof(
+        s: &signer,
+        proof: vector<u8>,
+        public_signals: vector<u8>
+    ) acquires RoleStore {
+        let addr = signer::address_of(s);
+        let store = borrow_global_mut<RoleStore>(@job_work_board);
+        assert!(!table::contains(&store.proofs, addr), 3);
+        assert!(!table::contains(&store.proof_hashes, public_signals), 4); 
+        table::add(&mut store.proofs, addr, CCCDProof {
+            proof,
+            public_signals: public_signals,
+            timestamp: aptos_std::timestamp::now_seconds(),
+        });
+        table::add(&mut store.proof_hashes, public_signals, addr);
+    }
+    public fun has_proof(addr: address): bool acquires RoleStore {
+        if (!exists<RoleStore>(@job_work_board)) return false;
+        let store = borrow_global<RoleStore>(@job_work_board);
+        table::contains(&store.proofs, addr)
+    }
+    public fun get_proof(addr: address): Option<CCCDProof> acquires RoleStore {
+        if (!exists<RoleStore>(@job_work_board)) return option::none();
+        let store = borrow_global<RoleStore>(@job_work_board);
+        if (!table::contains(&store.proofs, addr)) return option::none();
+        option::some(*table::borrow(&store.proofs, addr))
+    }
+    public fun get_proof_owner(public_signals: vector<u8>): Option<address> acquires RoleStore {
+        if (!exists<RoleStore>(@job_work_board)) return option::none();
+        let store = borrow_global<RoleStore>(@job_work_board);
+        if (!table::contains(&store.proof_hashes, public_signals)) return option::none();
+        option::some(*table::borrow(&store.proof_hashes, public_signals))
     }
 }

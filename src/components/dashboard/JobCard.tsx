@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
 import { JobCardProps } from '@/constants/escrow';
+import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
   const getStateDisplay = (state: unknown, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
   const stateStr = typeof state === 'string' ? state : 'Active';
@@ -50,10 +51,6 @@ import { JobCardProps } from '@/constants/escrow';
   };
 };
 
-const formatAddress = (address: string | null): string => {
-  if (!address) return '-';
-  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-};
 
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
   const handleWithdraw = async () => {
@@ -106,8 +103,24 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       <div className="space-y-2">
         <p className="text-xs text-gray-600 break-all">CID: {job.cid}</p>
         <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-          <div><span className="font-bold">Người đăng:</span> {formatAddress(job.poster)}</div>
-          <div><span className="font-bold">Freelancer:</span> {formatAddress(job.freelancer)}</div>
+          <div>
+            <span className="font-bold">Người đăng:</span>{' '}
+            <span 
+              className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+              onClick={() => copyAddress(job.poster)}
+            >
+              {formatAddress(job.poster)}
+            </span>
+          </div>
+          <div>
+            <span className="font-bold">Freelancer:</span>{' '}
+            <span 
+              className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+              onClick={() => copyAddress(job.freelancer)}
+            >
+              {formatAddress(job.freelancer)}
+            </span>
+          </div>
           <div><span className="font-bold">Tổng:</span> {job.total_amount ? `${(job.total_amount / 100_000_000).toFixed(2)} APT` : '-'}</div>
           <div><span className="font-bold">Cột mốc:</span> {job.milestones_count || 0}</div>
           <div><span className="font-bold">Đã giao:</span> {job.has_freelancer ? 'Có' : 'Chưa'}</div>

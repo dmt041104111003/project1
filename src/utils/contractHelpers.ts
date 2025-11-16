@@ -107,6 +107,16 @@ export const roleHelpers = {
   
   registerReviewer: () =>
     buildTransactionPayload(ROLE.REGISTER_ROLE, [ROLE_KIND.REVIEWER, null]),
+  
+  storeProof: (proof: string, publicSignals: string) => {
+    const proofBytes = Array.from(new TextEncoder().encode(proof));
+    const publicSignalsBytes = Array.from(new TextEncoder().encode(publicSignals));
+    
+    return buildTransactionPayload(ROLE.STORE_PROOF, [
+      proofBytes,
+      publicSignalsBytes
+    ]);
+  },
 };
 
 export const reputationHelpers = {

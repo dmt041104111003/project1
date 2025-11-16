@@ -114,31 +114,31 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           ✓ Dispute đã được giải quyết. Bên thắng có thể claim payment/refund.
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="!bg-white !text-black !border-2 !border-black"
-            size="sm"
-            disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:poster`}
-            onClick={onResolvePoster}
-          >
-            {resolvingKey === `${dispute.disputeId}:poster` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Poster'}
-          </Button>
-          <Button
-            variant="outline"
-            className="!bg-white !text-black !border-2 !border-black"
-            size="sm"
-            disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:freelancer`}
-            onClick={onResolveFreelancer}
-          >
-            {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Freelancer'}
-          </Button>
-          {dispute.votesCompleted ? (
-            <span className="text-xs text-gray-600">Bỏ phiếu đã đóng</span>
-          ) : dispute.hasVoted ? (
-            <span className="text-xs text-gray-600">Bạn đã bỏ phiếu</span>
-          ) : null}
-        </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          className="!bg-white !text-black !border-2 !border-black"
+          size="sm"
+          disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:poster`}
+          onClick={onResolvePoster}
+        >
+          {resolvingKey === `${dispute.disputeId}:poster` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Poster'}
+        </Button>
+        <Button
+          variant="outline"
+          className="!bg-white !text-black !border-2 !border-black"
+          size="sm"
+          disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:freelancer`}
+          onClick={onResolveFreelancer}
+        >
+          {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Freelancer'}
+        </Button>
+        {dispute.votesCompleted ? (
+          <span className="text-xs text-gray-600">Bỏ phiếu đã đóng</span>
+        ) : dispute.hasVoted ? (
+          <span className="text-xs text-gray-600">Bạn đã bỏ phiếu</span>
+        ) : null}
+      </div>
       )}
     </Card>
   );

@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button';
 import { NAVIGATION } from '@/constants/landing';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
+import { formatAddress, copyAddress } from '@/utils/addressUtils';
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
-  const [copiedAddress, setCopiedAddress] = useState(false);
   const pathname = usePathname();
   const { account, isConnecting, connectWallet, disconnectWallet, aptosNetwork } = useWallet();
 
@@ -31,24 +31,9 @@ export function Header() {
     };
   }, [showWalletMenu]);
 
-  useEffect(() => {
-    if (copiedAddress) {
-      const timer = setTimeout(() => {
-        setCopiedAddress(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [copiedAddress]);
-
-  const handleCopyAddress = async () => {
-    if (!account) return;
-    
-    try {
-      await navigator.clipboard.writeText(account);
-      setCopiedAddress(true);
-      toast.success('Đã sao chép địa chỉ ví!');
-    } catch {
-      toast.error('Không thể sao chép địa chỉ ví');
+  const handleCopyAddress = () => {
+    if (account) {
+      copyAddress(account);
     }
   };
 
@@ -108,7 +93,7 @@ export function Header() {
                   className="bg-green-600 border-green-600"
                 >
                   <span className="hidden sm:inline font-mono">
-                    {account.slice(0, 6)}...{account.slice(-4)}
+                    {formatAddress(account)}
                   </span>
                   <span className="sm:hidden">Wallet</span>
                 </Button>
@@ -163,11 +148,11 @@ export function Header() {
                     <div className="text-sm p-3 bg-white border-2 border-gray-300">
                       <div className="font-medium text-gray-700">Địa chỉ ví</div>
                       <div 
-                        className="text-gray-500 font-mono text-xs break-all cursor-pointer hover:bg-gray-50 px-1 py-1"
+                        className="text-gray-500 font-bold text-sm cursor-pointer hover:bg-gray-50 px-1 py-1 hover:text-blue-800 hover:underline"
                         onClick={handleCopyAddress}
                         title="Click to copy"
                       >
-                        {account}
+                        {formatAddress(account)}
                       </div>
                     </div>
                     <Link href="/auth/did-verification" onClick={() => setIsMobileMenuOpen(false)}>
@@ -194,11 +179,11 @@ export function Header() {
             <div className="text-sm">
               <div className="font-bold text-blue-800">Địa chỉ ví</div>
               <div 
-                className="text-gray-600 font-mono text-xs break-all cursor-pointer hover:bg-blue-50 px-2 py-2 border-2 border-blue-800 bg-blue-50"
+                className="text-gray-600 font-bold text-sm cursor-pointer hover:bg-blue-50 px-2 py-2 border-2 border-blue-800 bg-blue-50 hover:text-blue-800 hover:underline"
                 onClick={handleCopyAddress}
                 title="Click to copy"
               >
-                {account}
+                {formatAddress(account)}
               </div>
             </div>
             <div className="text-sm">

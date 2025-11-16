@@ -42,7 +42,10 @@ next-env.d.ts
 
 # Python virtual environments
 /Face/face_env/
-/Face/**/__pycache__/
-/Face/**/*.pyc
-/Face/**/*.pyo
-/Face/**/*.pyd
+/Face/Code/venv/
+**/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python

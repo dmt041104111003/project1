@@ -113,10 +113,10 @@ export function useDisputes(account?: string | null) {
             const vjson = await votesRes.json();
             const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
             hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
-            votesCompleted = voted.length >= 3; 
+            votesCompleted = voted.length >= 3;
           }
         }
-        
+
         const milestones: any[] = Array.isArray(detail?.job?.milestones) ? detail.job.milestones : [];
         let lockedIndex = -1;
         for (let i = 0; i < milestones.length; i++) {

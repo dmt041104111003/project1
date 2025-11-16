@@ -227,12 +227,12 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 isClaimed || disputeWinner === null ? (
                   <span className="text-xs text-green-600 font-bold">✓ Đã claim</span>
                 ) : (
-                  <button
-                    onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
-                    className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold"
-                  >
-                    Claim dispute {disputeWinner ? 'payment' : 'refund'}
-                  </button>
+                <button
+                  onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
+                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold"
+                >
+                  Claim dispute {disputeWinner ? 'payment' : 'refund'}
+                </button>
                 )
               ) : (
                 <span className="text-xs text-gray-600">(Chờ bên thắng claim)</span>
@@ -276,13 +276,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                   </button>
                 )}
                 {hasDisputeId && (
-                  <button
-                    onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
-                    disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading}
-                    className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-2 rounded border-2 border-blue-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}
-                  </button>
+                <button
+                  onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
+                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading}
+                  className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-2 rounded border-2 border-blue-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}
+                </button>
                 )}
               </div>
             )}

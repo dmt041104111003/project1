@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobListItem } from '@/constants/escrow';
+import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
 export const JobsContent: React.FC = () => {
   const router = useRouter();
@@ -143,7 +144,35 @@ export const JobsContent: React.FC = () => {
                   </div>
                   
                   <div className="space-y-2 pt-2 border-t border-gray-200">
-                    {typeof job.has_freelancer === 'boolean' && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700">Người đăng:</span>
+                      <span 
+                        className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const posterAddr = typeof job.poster === 'string' ? job.poster : String(job.poster || '');
+                          if (posterAddr) copyAddress(posterAddr);
+                        }}
+                      >
+                        {formatAddress(typeof job.poster === 'string' ? job.poster : String(job.poster || ''))}
+                      </span>
+                    </div>
+                    {job.freelancer && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-700">Người làm:</span>
+                        <span 
+                          className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const freelancerAddr = typeof job.freelancer === 'string' ? job.freelancer : String(job.freelancer || '');
+                            if (freelancerAddr) copyAddress(freelancerAddr);
+                          }}
+                        >
+                          {formatAddress(typeof job.freelancer === 'string' ? job.freelancer : String(job.freelancer || ''))}
+                        </span>
+                      </div>
+                    )}
+                    {typeof job.has_freelancer === 'boolean' && !job.freelancer && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700">Người làm:</span>
                         <span className={`font-bold ${job.has_freelancer ? 'text-blue-800' : 'text-gray-600'}`}>

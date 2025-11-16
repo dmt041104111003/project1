@@ -14,9 +14,9 @@ module job_work_board::escrow {
     friend job_work_board::dispute;
 
     const OCTA: u64 = 100_000_000;
-    const STAKE_AMOUNT: u64 = 0 * OCTA;
-    const POSTER_FEE: u64 = 0 * OCTA / 10; // 1.5 APT
-    const FREELANCER_FEE: u64 = 0 * OCTA / 10; // 0.6 APT
+    const STAKE_AMOUNT: u64 = 1 * OCTA;
+    const POSTER_FEE: u64 = 2 * OCTA / 10; // 0.2 APT
+    const FREELANCER_FEE: u64 = 1 * OCTA / 10; // 0.1 APT
 
     enum JobState has copy, drop, store {
         Posted,

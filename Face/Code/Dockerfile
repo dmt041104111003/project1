@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-dev \
     libboost-python-dev \
     tesseract-ocr \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -22,9 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY Code/apiCall_Fake_Real.py .
 COPY Code/my_test.py .
 COPY Code/anti_spoof_predict.py .
-COPY Code/embedding_faceCard_faceScan.py .
-COPY Code/utils.py .
 COPY Code/utility.py .
+COPY Code/ocr_extractor.py .
 COPY Code/model_lib/ ./model_lib/
 COPY Code/data_io/ ./data_io/
 COPY Code/generate_patches.py .

@@ -4,6 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { JobSidebarProps } from '@/constants/escrow';
+import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
 const parseState = (state: any): string => {
   if (typeof state === 'string') return state;
@@ -247,8 +248,11 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           {jobData.poster && (
             <div>
               <div className="text-xs text-gray-600 mb-1">Người đăng</div>
-              <div className="text-xs font-mono text-gray-700 break-all">
-                {jobData.poster}
+              <div 
+                className="text-sm font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline break-all"
+                onClick={() => copyAddress(String(jobData.poster))}
+              >
+                {formatAddress(String(jobData.poster))}
               </div>
             </div>
           )}
@@ -256,8 +260,11 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           {jobData.freelancer && (
             <div>
               <div className="text-xs text-gray-600 mb-1">Freelancer</div>
-              <div className="text-xs font-mono text-gray-700 break-all">
-                {freelancerAddr || 'Chưa có'}
+              <div 
+                className="text-sm font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline break-all"
+                onClick={() => copyAddress(freelancerAddr)}
+              >
+                {formatAddress(freelancerAddr)}
               </div>
             </div>
           )}

@@ -62,7 +62,6 @@ export default function DIDVerificationLayout({
           <div className="mb-8 bg-white p-6 rounded-lg shadow-sm">
             <h1 className="text-3xl font-bold text-blue-800 mb-2">{title}</h1>
             <p className="text-lg text-gray-700">{subtitle}</p>
-            <div className="mt-2 text-sm font-bold text-blue-800">Ví đã kết nối: {account.slice(0, 6)}...{account.slice(-4)}</div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm">

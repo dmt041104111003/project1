@@ -8,6 +8,7 @@ import { MilestoneItem } from './milestones/MilestoneItem';
 import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
 import { MilestonesListProps } from '@/constants/escrow';
+import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
 const executeTransaction = async (payload: unknown): Promise<string> => {
   if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
@@ -578,7 +579,33 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
   return (
     <Card variant="outlined" className="p-4 mt-4">
-      <h4 className="text-md font-bold text-blue-800 mb-3">Cột mốc ({milestones.length})</h4>
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="text-md font-bold text-blue-800">Cột mốc ({milestones.length})</h4>
+        <div className="flex gap-4 text-sm">
+          {poster && (
+            <div>
+              <span className="text-gray-600">Người đăng: </span>
+              <span 
+                className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+                onClick={() => copyAddress(poster)}
+              >
+                {formatAddress(poster)}
+              </span>
+            </div>
+          )}
+          {freelancer && (
+            <div>
+              <span className="text-gray-600">Người làm: </span>
+              <span 
+                className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+                onClick={() => copyAddress(freelancer)}
+              >
+                {formatAddress(freelancer)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="space-y-3">
         {milestones.map((milestone, index) => {
           const isFirstMilestone = index === 0;

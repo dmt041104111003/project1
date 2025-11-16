@@ -2,7 +2,7 @@ export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
 export const APTOS_API_KEY = "aptoslabs_Y2EfW2Yac23_NBduCDuMf7QRqVdARDFFYQquo2mJi9HYA";
-export const CONTRACT_ADDRESS = "0x345f210605fbfd1e4286ad513c1eb29ac08416d290bd635543be53488056bcf4";
+export const CONTRACT_ADDRESS = "0x35efd12cc6311a16245671fb8855a10e282908f773ab019b830409bbba2d849a";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
@@ -16,6 +16,8 @@ export const ROLE = {
   HAS_POSTER: `${CONTRACT_ADDRESS}::role::has_poster`,
   HAS_REVIEWER: `${CONTRACT_ADDRESS}::role::has_reviewer`,
   GET_CID: `${CONTRACT_ADDRESS}::role::get_cid`,
+  STORE_PROOF: `${CONTRACT_ADDRESS}::role::store_proof`,
+  HAS_PROOF: `${CONTRACT_ADDRESS}::role::has_proof`,
 } as const;
 
 export const ESCROW = {
