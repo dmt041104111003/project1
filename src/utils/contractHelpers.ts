@@ -15,7 +15,7 @@ export function buildTransactionPayload(
 
 const OCTA = 100_000_000;
 const STAKE_AMOUNT = 1 * OCTA;
-const POSTER_FEE = 15 * OCTA / 10;
+const POSTER_FEE = 2 * OCTA / 10;
 
 export const escrowHelpers = {
   calculateJobCreationCost: (milestones: number[]): number => {
