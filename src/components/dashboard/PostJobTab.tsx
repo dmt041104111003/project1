@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
@@ -61,7 +62,10 @@ export const PostJobTab: React.FC = () => {
   const addMilestone = () => {
     if (!currentMilestone.amount.trim() || !currentMilestone.duration.trim()) return;
     const amount = parseFloat(currentMilestone.amount);
-    if (amount <= 0) return alert('Số tiền phải lớn hơn 0');
+    if (amount <= 0) {
+      toast.error('Số tiền phải lớn hơn 0');
+      return;
+    }
     setMilestonesList(prev => [...prev, currentMilestone]);
     setCurrentMilestone({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
   };

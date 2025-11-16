@@ -11,12 +11,6 @@ import { RoomList } from './parts/RoomList';
 import { DeleteConfirm } from './parts/DeleteConfirm';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
-  const [currentUser, setCurrentUser] = useState({
-    id: '',
-    name: 'User',
-    address: '',
-    verified: true
-  });
 
   const [message, setMessage] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -24,6 +18,8 @@ const ChatContentInner: React.FC = () => {
     id: string;
     name: string;
     lastMessage: string;
+    lastMessageSender?: string;
+    lastMessageTime?: number;
     chatAccepted: boolean;
     creatorAddress: string;
     participantAddress: string;
@@ -43,7 +39,7 @@ const ChatContentInner: React.FC = () => {
     
     const messageText = message;
     
-    await sendMessage(messageText, currentUser.name, currentUser.id, replyingTo);
+    await sendMessage(messageText, account ? `User ${account.slice(0, 8)}` : 'User', account || '', replyingTo);
     setMessage('');
     setReplyingTo(null);
   };
@@ -56,7 +52,7 @@ const ChatContentInner: React.FC = () => {
         body: JSON.stringify({
           acceptRoom: true,
           roomIdToAccept: roomId,
-          senderId: currentUser.address
+          senderId: account
         })
       });
 
@@ -77,7 +73,6 @@ const ChatContentInner: React.FC = () => {
     try {
       const actualRoomId = selectedRoom || 'general';
       
-      
       const response = await fetch('/api/chat/messages', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -97,6 +92,70 @@ const ChatContentInner: React.FC = () => {
       }
     } catch {
       toast.error('Lỗi khi xóa tin nhắn');
+    }
+  };
+
+  const handleEditRoomName = async (roomId: string, newName: string) => {
+    if (!newName.trim() || newName.trim().length > 10) {
+      toast.error('Tên phòng phải từ 1-10 ký tự');
+      return;
+    }
+    
+    const short = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
+    const shortId = short(roomId);
+    const finalName = `${shortId} ${newName.trim()}`;
+    
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          updateRoomName: true,
+          roomIdToUpdate: roomId,
+          newName: finalName,
+          senderId: account
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Đã cập nhật tên phòng');
+        loadRoomsFromFirebase();
+      } else {
+        toast.error(data.error || 'Lỗi khi cập nhật tên phòng');
+      }
+    } catch {
+      toast.error('Lỗi khi cập nhật tên phòng');
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deleteRoom: true,
+          roomIdToDelete: roomId,
+          senderId: account
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Đã xóa phòng chat');
+        if (selectedRoom === roomId) {
+          setSelectedRoom('');
+          setRoomId('');
+        }
+        loadRoomsFromFirebase();
+      } else {
+        toast.error(data.error || 'Lỗi khi xóa phòng');
+      }
+    } catch {
+      toast.error('Lỗi khi xóa phòng');
     }
   };
 
@@ -124,10 +183,10 @@ const ChatContentInner: React.FC = () => {
 
 
   const loadRoomsFromFirebase = React.useCallback(async () => {
-    if (!currentUser.address) return;
+    if (!account) return;
     
     try {
-      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${currentUser.address}`);
+      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${account}`);
       const data = await response.json();
       
       if (data.success && data.rooms) {
@@ -135,47 +194,45 @@ const ChatContentInner: React.FC = () => {
       }
     } catch {
     }
-  }, [currentUser.address]);
+  }, [account]);
 
   React.useEffect(() => {
-    if (!currentUser.address) return;
+    if (!account) return;
 
     const interval = setInterval(() => {
       loadRoomsFromFirebase();
     }, 10000); 
 
     return () => clearInterval(interval);
-  }, [currentUser.address, loadRoomsFromFirebase]);
+  }, [account, loadRoomsFromFirebase]);
 
   React.useEffect(() => {
     if (account) {
-      const newCurrentUser = {
-        id: account,
-        name: `User ${account.slice(0, 8)}`,
-        address: account,
-        verified: true
-      };
-      setCurrentUser(newCurrentUser);
-    }
-  }, [account]);
-
-  React.useEffect(() => {
-    if (currentUser.address) {
       loadRoomsFromFirebase();
     }
-  }, [currentUser.address, loadRoomsFromFirebase]);
+  }, [account, loadRoomsFromFirebase]);
 
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoomName.trim() || !newRoomParticipantAddress.trim()) return;
 
+    if (newRoomName.trim().length > 10) {
+      setCreateRoomError('Tên phòng không được vượt quá 10 ký tự');
+      return;
+    }
+
     setIsCreatingRoom(true);
     setCreateRoomError('');
 
     try {
       const participantAddr = newRoomParticipantAddress.trim().toLowerCase();
-      if (participantAddr === currentUser.address.toLowerCase()) {
+      if (!account) {
+        setCreateRoomError('Bạn chưa kết nối ví');
+        setIsCreatingRoom(false);
+        return;
+      }
+      if (participantAddr === account.toLowerCase()) {
         setCreateRoomError('Bạn không thể tạo phòng chat với chính mình');
         setIsCreatingRoom(false);
         return;
@@ -183,7 +240,7 @@ const ChatContentInner: React.FC = () => {
 
       const roomPayload = {
         name: newRoomName.trim(),
-        creatorAddress: currentUser.address,
+        creatorAddress: account,
         participantAddress: participantAddr
       };
       const roomResponse = await fetch('/api/chat/messages', {
@@ -198,7 +255,7 @@ const ChatContentInner: React.FC = () => {
           name: roomData.room.name,
           lastMessage: roomData.room.lastMessage,
           chatAccepted: false,
-          creatorAddress: currentUser.address,
+          creatorAddress: account,
           participantAddress: participantAddr
         };
         setRooms(prev => [...prev, newRoom]);
@@ -236,9 +293,14 @@ const ChatContentInner: React.FC = () => {
         <RoomList
           rooms={rooms as any}
           selectedRoomId={selectedRoom}
-          onSelect={(id) => { setSelectedRoom(id); setRoomId(id); }}
+          onSelect={(id) => { 
+            setSelectedRoom(id); 
+            setRoomId(id);
+          }}
           onAccept={handleAcceptRoom}
-          currentUserAddress={currentUser.address}
+          onDelete={handleDeleteRoom}
+          onEditName={handleEditRoomName}
+          currentUserAddress={account || ''}
         />
 
 
@@ -250,7 +312,7 @@ const ChatContentInner: React.FC = () => {
               size="sm" 
               className="w-full"
               onClick={async () => {
-                if (!currentUser.address || currentUser.address === '') {
+                if (!account) {
                   toast.error('Bạn chưa có địa chỉ ví. Vui lòng kết nối ví trước khi tạo phòng chat.');
                   return;
                 }
@@ -286,7 +348,7 @@ const ChatContentInner: React.FC = () => {
           selectedRoom={rooms.find(r => r.id === selectedRoom)}
           messages={messages as any}
           isLoading={isLoading}
-          currentUserId={currentUser.id}
+          currentUserId={account || ''}
           formatTime={formatTime}
           replyingTo={replyingTo as any}
           setReplyingTo={setReplyingTo as any}

@@ -99,7 +99,9 @@ export const ChatPanel: React.FC<Props> = ({
 												<div className="text-xs font-bold text-gray-800 mb-1">{short(msg.senderId)}:</div>
 											)}
 											<div className="text-sm">{msg.text}</div>
-											<div className={`text-xs mt-1 ${isOwn ? 'text-gray-300' : 'text-gray-600'}`}>{formatTime(msg.timestamp)}</div>
+											<div className={`text-xs mt-1 ${isOwn ? 'text-gray-300' : 'text-gray-600'}`}>
+												{formatTime(msg.timestamp)}
+											</div>
 										</div>
 										{!isOwn && (
 											<button onClick={() => setReplyingTo(msg)} className="text-xs text-blue-600 hover:text-blue-800">Reply</button>
@@ -133,7 +135,9 @@ export const ChatPanel: React.FC<Props> = ({
 						<div className="text-center text-gray-500 py-4">
 							<div className="space-y-3">
 								<p className="text-sm">Phòng chat chưa được chấp nhận</p>
-								<Button variant="outline" size="sm" onClick={() => handleAcceptRoom(selectedRoom.id)}>ACCEPT CHAT</Button>
+								{selectedRoom.creatorAddress.toLowerCase() !== currentUserId.toLowerCase() && (
+									<Button variant="outline" size="sm" onClick={() => handleAcceptRoom(selectedRoom.id)}>ACCEPT CHAT</Button>
+								)}
 							</div>
 						</div>
 					)

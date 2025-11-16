@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: face-verification-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python apiCall_Fake_Real.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+    disk:
+      name: models
+      mountPath: /opt/render/project/src/resources
+      sizeGB: 1 

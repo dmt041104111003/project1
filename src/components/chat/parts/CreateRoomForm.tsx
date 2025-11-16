@@ -29,11 +29,19 @@ export const CreateRoomForm: React.FC<Props> = ({
 			<input
 				type="text"
 				value={newRoomName}
-				onChange={(e) => setNewRoomName(e.target.value)}
-				placeholder="Tên phòng chat..."
+				onChange={(e) => {
+					if (e.target.value.length <= 10) {
+						setNewRoomName(e.target.value);
+					}
+				}}
+				placeholder="Tên phòng chat (tối đa 10 ký tự)..."
+				maxLength={10}
 				className="w-full px-3 py-2 border border-gray-400 focus:outline-none focus:border-gray-800"
 				disabled={isCreating}
 			/>
+			{newRoomName.length > 0 && (
+				<p className="text-xs text-gray-500">{newRoomName.length}/10 ký tự</p>
+			)}
 			<input
 				type="text"
 				value={newRoomParticipantAddress}
@@ -55,7 +63,7 @@ export const CreateRoomForm: React.FC<Props> = ({
 					variant="primary" 
 					size="sm" 
 					className="flex-1"
-					disabled={isCreating || !newRoomName.trim() || !newRoomParticipantAddress.trim()}
+					disabled={isCreating || !newRoomName.trim() || newRoomName.trim().length > 10 || !newRoomParticipantAddress.trim()}
 				>
 					{isCreating ? 'ĐANG TẠO...' : 'TẠO'}
 				</Button>
