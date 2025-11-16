@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { copyAddress, formatAddress } from '@/utils/addressUtils';
-import { toast } from 'sonner';
 
 export const ReputationContent: React.FC = () => {
   const { account } = useWallet();
@@ -16,8 +15,6 @@ export const ReputationContent: React.FC = () => {
   const [proofData, setProofData] = useState<any>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<{ isValid: boolean; message?: string } | null>(null);
 
   const handleCheck = async () => {
     const address = checkAddress.trim() || account;
@@ -33,11 +30,13 @@ export const ReputationContent: React.FC = () => {
     setProofData(null);
     
     try {
+      // Query cả reputation và proof cùng lúc
       const [reputationRes, proofRes] = await Promise.all([
         fetch(`/api/reputation?address=${encodeURIComponent(address)}`),
         fetch(`/api/proof?address=${encodeURIComponent(address)}`)
       ]);
 
+      // Xử lý reputation
       if (reputationRes.ok) {
         const repData = await reputationRes.json();
         if (repData.success) {
@@ -45,18 +44,12 @@ export const ReputationContent: React.FC = () => {
         }
       }
 
+      // Xử lý proof
       if (proofRes.ok) {
         const proofDataRes = await proofRes.json();
         if (proofDataRes.success && proofDataRes.proof) {
           setProofData(proofDataRes.proof);
-          await verifyProof(proofDataRes.proof.proof, proofDataRes.proof.public_signals);
-        } else {
-          setProofData(null);
-          setVerifyResult(null);
         }
-      } else {
-        setProofData(null);
-        setVerifyResult(null);
       }
 
       setCheckedAddress(address);
@@ -78,44 +71,6 @@ export const ReputationContent: React.FC = () => {
 
   const handleCopyProof = async (proof: string) => {
     await copyAddress(proof);
-    toast.success('Đã copy vào clipboard');
-  };
-
-  const verifyProof = async (proof: any, publicSignals: any) => {
-    if (!proof || !publicSignals) {
-      setVerifyResult(null);
-      return;
-    }
-
-    setVerifying(true);
-    try {
-      const verifyRes = await fetch('/api/zk/verify-proof', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proof, public_signals: publicSignals })
-      });
-
-      const verifyData = await verifyRes.json();
-      
-      if (verifyRes.ok && verifyData.success) {
-        setVerifyResult({
-          isValid: verifyData.isValid === true,
-          message: verifyData.message || (verifyData.isValid ? 'Proof hợp lệ' : 'Proof không hợp lệ')
-        });
-      } else {
-        setVerifyResult({
-          isValid: false,
-          message: verifyData.error || 'Lỗi khi verify proof'
-        });
-      }
-    } catch (e: any) {
-      setVerifyResult({
-        isValid: false,
-        message: e?.message || 'Lỗi khi verify proof'
-      });
-    } finally {
-      setVerifying(false);
-    }
   };
 
   return (
@@ -168,24 +123,6 @@ export const ReputationContent: React.FC = () => {
                 <div className="p-4 bg-gray-50 rounded-md space-y-3">
                   <div className="text-sm font-bold text-gray-700 mb-2">Thông tin Proof:</div>
                   
-                  {/* Kết quả verify */}
-                  {verifying ? (
-                    <div className="p-3 bg-blue-50 rounded-md">
-                      <div className="text-sm text-blue-700">Đang verify proof...</div>
-                    </div>
-                  ) : verifyResult ? (
-                    <div className={`p-3 rounded-md ${verifyResult.isValid ? 'bg-green-50 border border-green-300' : 'bg-red-50 border border-red-300'}`}>
-                      <div className={`text-sm font-bold ${verifyResult.isValid ? 'text-green-700' : 'text-red-700'}`}>
-                        {verifyResult.isValid ? 'Proof hợp lệ' : 'Proof không hợp lệ'}
-                      </div>
-                      {verifyResult.message && (
-                        <div className={`text-xs mt-1 ${verifyResult.isValid ? 'text-green-600' : 'text-red-600'}`}>
-                          {verifyResult.message}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-
                   <div>
                     <div className="text-sm text-gray-600 mb-1">Proof (JSON):</div>
                     <div 

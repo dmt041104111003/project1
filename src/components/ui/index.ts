@@ -7,5 +7,7 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 export { Card, CardHeader, CardContent, CardFooter } from './card';
 export { Avatar, AvatarSVG } from './avatar';
 
+export { Pagination } from './pagination';
+
 export { ToastProvider, useToast, Toaster } from './toaster';
 

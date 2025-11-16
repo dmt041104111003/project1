@@ -3,9 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
+import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobListItem } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+
+const JOBS_PER_PAGE = 8;
 
 export const JobsContent: React.FC = () => {
   const router = useRouter();
@@ -13,6 +16,7 @@ export const JobsContent: React.FC = () => {
   const [jobs, setJobs] = useState<JobListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -68,8 +72,11 @@ export const JobsContent: React.FC = () => {
           <p className="text-gray-700">Hãy là người đầu tiên đăng công việc và bắt đầu kiếm tiền!</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {jobs.map((job: JobListItem) => {
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {jobs
+              .slice(currentPage * JOBS_PER_PAGE, (currentPage + 1) * JOBS_PER_PAGE)
+              .map((job: JobListItem) => {
             let stateStr = 'Posted';
             if (typeof job.state === 'string') {
               stateStr = job.state;
@@ -209,7 +216,18 @@ export const JobsContent: React.FC = () => {
               </div>
             );
           })}
-        </div>
+          </div>
+          
+          {jobs.length > JOBS_PER_PAGE && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(jobs.length / JOBS_PER_PAGE)}
+              onPageChange={setCurrentPage}
+              showAutoPlay={false}
+              showFirstLast={true}
+            />
+          )}
+        </>
       )}
     </>
   );

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
+import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 import { MilestoneItem } from './milestones/MilestoneItem';
@@ -9,6 +10,8 @@ import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
 import { MilestonesListProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+
+const MILESTONES_PER_PAGE = 4;
 
 const executeTransaction = async (payload: unknown): Promise<string> => {
   if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
@@ -50,6 +53,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); 
   const [unlockingNonDisputed, setUnlockingNonDisputed] = useState(false);
   const [claimedMilestones, setClaimedMilestones] = useState<Set<number>>(new Set());
+  const [milestonePage, setMilestonePage] = useState(0);
 
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
@@ -607,15 +611,18 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         </div>
       </div>
       <div className="space-y-3">
-        {milestones.map((milestone, index) => {
-          const isFirstMilestone = index === 0;
+        {milestones
+          .slice(milestonePage * MILESTONES_PER_PAGE, (milestonePage + 1) * MILESTONES_PER_PAGE)
+          .map((milestone, pageIndex) => {
+          const originalIndex = milestonePage * MILESTONES_PER_PAGE + pageIndex;
+          const isFirstMilestone = originalIndex === 0;
 
           return (
             <MilestoneItem
-              key={index}
+              key={originalIndex}
               milestone={milestone}
               milestones={milestones}
-              index={index}
+              index={originalIndex}
               jobId={jobId}
               account={account}
               poster={poster}
@@ -648,6 +655,16 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             />
           );
         })}
+        
+        {milestones.length > MILESTONES_PER_PAGE && (
+          <Pagination
+            currentPage={milestonePage}
+            totalPages={Math.ceil(milestones.length / MILESTONES_PER_PAGE)}
+            onPageChange={setMilestonePage}
+            showAutoPlay={false}
+            showFirstLast={true}
+          />
+        )}
 
         
         {isPoster && jobState === 'Disputed' && (
