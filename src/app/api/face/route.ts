@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const VERIFICATION_API_URL = process.env.VERIFICATION_API_URL || 'http://localhost:5000';
 
 export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
+  return requireAuth(request, async (req, user) => {
+    try {
+      const formData = await req.formData();
     const imageFile = formData.get('image') as File;
     const action = formData.get('action') as string || 'upload_id_card';
 
@@ -51,16 +53,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
+      const data = await response.json();
 
-    return NextResponse.json(data);
+      return NextResponse.json(data);
 
-  } catch (error: unknown) {
-    console.error('Face Verification API Error:', error);
-    return NextResponse.json(
-      { error: (error as Error).message || 'Lỗi khi xử lý face verification' },
-      { status: 500 }
-    );
-  }
+    } catch (error: unknown) {
+      console.error('Face Verification API Error:', error);
+      return NextResponse.json(
+        { error: (error as Error).message || 'Lỗi khi xử lý face verification' },
+        { status: 500 }
+      );
+    }
+  });
 }
 

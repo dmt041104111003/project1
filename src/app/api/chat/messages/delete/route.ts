@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, remove } from 'firebase/database';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,8 +18,9 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 export async function DELETE(request: NextRequest) {
-  try {
-    const { messageId, roomId } = await request.json();
+  return requireAuth(request, async (req, user) => {
+    try {
+      const { messageId, roomId } = await req.json();
 
     if (!messageId || !roomId) {
       return NextResponse.json({ error: 'Message ID và Room ID là bắt buộc' }, { status: 400 });
@@ -28,9 +30,10 @@ export async function DELETE(request: NextRequest) {
     
     await remove(messageRef);
 
-    return NextResponse.json({ success: true, message: 'Đã xóa tin nhắn thành công' });
-  } catch {
-    return NextResponse.json({ error: 'Không thể xóa tin nhắn' }, { status: 500 });
-  }
+      return NextResponse.json({ success: true, message: 'Đã xóa tin nhắn thành công' });
+    } catch {
+      return NextResponse.json({ error: 'Không thể xóa tin nhắn' }, { status: 500 });
+    }
+  });
 }
 

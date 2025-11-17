@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ROLE, ROLE_KIND, APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
+import { requireAuth } from '@/lib/auth/helpers';
 
 const _view = async (_functionName: string, _args: unknown[]): Promise<boolean> => {
 	try {
@@ -72,9 +73,10 @@ const queryTableItem = async (handle: string, key: string | number, keyType: str
 	}
 };
 
-export async function GET(req: Request) {
-	try {
-		const url = new URL(req.url);
+export async function GET(req: NextRequest) {
+	return requireAuth(req, async (request, user) => {
+		try {
+			const url = new URL(request.url);
 		const address = url.searchParams.get("address");
 		const debugHandle = url.searchParams.get("handle");
 		const key = url.searchParams.get("key");
@@ -136,9 +138,10 @@ export async function GET(req: Request) {
 			roles.push({ name: "reviewer", cids: [] });
 		}
 
-		return NextResponse.json({ roles });
-	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : "Không thể lấy vai trò";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
-	}
+			return NextResponse.json({ roles });
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : "Không thể lấy vai trò";
+			return NextResponse.json({ error: errorMessage }, { status: 500 });
+		}
+	});
 }

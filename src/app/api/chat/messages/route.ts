@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,8 +18,9 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
+  return requireAuth(request, async (req, user) => {
+    try {
+      const { searchParams } = new URL(req.url);
     const roomId = searchParams.get('roomId');
     const getRooms = searchParams.get('getRooms');
     const getLastViewed = searchParams.get('getLastViewed');
@@ -140,7 +142,8 @@ export async function GET(request: NextRequest) {
         resolve(NextResponse.json({ messages: [] }));
       });
     });
-  } catch {
-    return NextResponse.json({ error: 'Không thể lấy dữ liệu' }, { status: 500 });
-  }
+    } catch {
+      return NextResponse.json({ error: 'Không thể lấy dữ liệu' }, { status: 500 });
+    }
+  });
 }

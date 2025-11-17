@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getTableHandle, queryJobFromTable, parseState, parseOptionAddress, parseMilestoneStatus } from "../utils";
 
 export async function GET(
-    req: Request,
+    req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-        const { id } = await params;
-        const jobId = id;
+		const { id } = await params;
+		const jobId = id;
 		
 		if (!jobId) {
 			return NextResponse.json({ error: "job_id là bắt buộc" }, { status: 400 });

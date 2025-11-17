@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const PINATA_JWT = process.env.PINATA_JWT;
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
@@ -46,8 +47,9 @@ const uploadToPinata = async (metadata: Record<string, unknown>, fileName: strin
 };
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+  return requireAuth(request, async (req, user) => {
+    try {
+      const body = await req.json();
     const { type, title, description } = body ?? {};
 
     if (!type) return NextResponse.json({ success: false, error: 'type là bắt buộc' }, { status: 400 });
@@ -126,8 +128,9 @@ export async function POST(request: NextRequest) {
 
     const result = await uploadToPinata(metadata, fileName, type, title);
     const encCid = await encryptCid(result.IpfsHash);
-    return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata, type });
-  } catch (error: unknown) {
-    return NextResponse.json({ success: false, error: (error as Error).message || 'Tải lên thất bại' }, { status: 500 });
-  }
+      return NextResponse.json({ success: true, ipfsHash: result.IpfsHash, encCid: encCid ?? null, ipfsUrl: `${IPFS_GATEWAY}/${result.IpfsHash}`, metadata, type });
+    } catch (error: unknown) {
+      return NextResponse.json({ success: false, error: (error as Error).message || 'Tải lên thất bại' }, { status: 500 });
+    }
+  });
 }

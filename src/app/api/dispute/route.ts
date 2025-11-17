@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
+import { requireAuth } from '@/lib/auth/helpers';
 
 const getDisputeStoreHandle = async (): Promise<string | null> => {
   try {
@@ -96,9 +97,10 @@ const parseVoteCounts = (votes: any): { total: number; forFreelancer: number; fo
 };
 
 
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
+export async function GET(req: NextRequest) {
+  return requireAuth(req, async (request, user) => {
+    try {
+      const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const disputeIdParam = searchParams.get('dispute_id');
     if (!action || !disputeIdParam) {
@@ -172,10 +174,11 @@ export async function GET(req: Request) {
         }
       default:
         return NextResponse.json({ error: 'Hành động không hợp lệ. Sử dụng: get_reviewers, get_evidence, get_status' }, { status: 400 });
+      }
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message || 'Không thể lấy dữ liệu tranh chấp' }, { status: 500 });
     }
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Không thể lấy dữ liệu tranh chấp' }, { status: 500 });
-  }
+  });
 }
 
  

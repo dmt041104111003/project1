@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const PINATA_JWT = process.env.PINATA_JWT;
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
@@ -26,8 +27,9 @@ async function encryptCid(cid: string): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
+  return requireAuth(request, async (req, user) => {
+    try {
+      const formData = await req.formData();
     const file = formData.get('file') as File;
     const type = formData.get('type') as string || 'milestone_evidence';
 
@@ -71,12 +73,13 @@ export async function POST(request: NextRequest) {
       filename: file.name,
       size: file.size,
       type: file.type
-    });
-  } catch (error: unknown) {
-    return NextResponse.json(
-      { success: false, error: (error as Error).message || 'Tải lên thất bại' },
-      { status: 500 }
-    );
-  }
+      });
+    } catch (error: unknown) {
+      return NextResponse.json(
+        { success: false, error: (error as Error).message || 'Tải lên thất bại' },
+        { status: 500 }
+      );
+    }
+  });
 }
 

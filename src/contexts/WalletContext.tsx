@@ -3,7 +3,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { signIn, signOut, useSession } from 'next-auth/react';
 
 type WalletContextType = {
   account: string | null;
@@ -35,16 +34,20 @@ export const useWallet = () => useContext(WalletContext);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
-  useSession();
   const [account, setAccount] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [accountType, setAccountType] = useState<'aptos' | null>(null);
   const [aptosNetwork, setAptosNetwork] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   useEffect(() => {
     const savedAccount = localStorage.getItem('walletAccount');
+    const savedToken = localStorage.getItem('authToken');
     if (savedAccount) {
       setAccount(savedAccount);
+    }
+    if (savedToken) {
+      setAuthToken(savedToken);
     }
     const savedType = localStorage.getItem('walletType');
     if (savedType === 'aptos') {
@@ -108,31 +111,66 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         const acc = await wallet.account();
         const network = await wallet.network();
-        setAccount(acc.address);
+        const address = acc.address.toLowerCase();
+        
+        const nonceRes = await fetch(`/api/auth/nonce?address=${encodeURIComponent(address)}`);
+        if (!nonceRes.ok) {
+          throw new Error('Không thể lấy nonce từ server');
+        }
+        const { nonce, message } = await nonceRes.json();
+        
+        if (!wallet.signMessage) {
+          throw new Error('Wallet không hỗ trợ sign message');
+        }
+        
+        const signResult = await wallet.signMessage({
+          message: message,
+          nonce: nonce,
+        });
+        
+        console.log('Sign result:', {
+          signature: signResult.signature?.substring(0, 20) + '...',
+          fullMessage: signResult.fullMessage,
+          message: signResult.message,
+          nonce: signResult.nonce,
+        });
+        
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address: address,
+            signature: signResult.signature,
+            publicKey: acc.publicKey,
+            fullMessage: signResult.fullMessage,
+            message: signResult.message,
+            nonce: signResult.nonce,
+          }),
+        });
+        
+        if (!loginRes.ok) {
+          const error = await loginRes.json();
+          throw new Error(error.error || 'Đăng nhập thất bại');
+        }
+        
+        const { token } = await loginRes.json();
+        
+        setAccount(address);
         setAccountType('aptos');
         setAptosNetwork(network);
-        localStorage.setItem('walletAccount', acc.address);
+        setAuthToken(token);
+        localStorage.setItem('walletAccount', address);
         localStorage.setItem('walletType', 'aptos');
         localStorage.setItem('aptosNetwork', network);
+        localStorage.setItem('authToken', token);
         
-        try {
-          const result = await signIn('credentials', {
-            redirect: false,
-            address: acc.address,
-          });
-          
-          if (result?.error) {
-            throw new Error(result.error);
-          }
-          
-          if (result?.ok) {
-            router.push('/');
-          }
-        } catch {
-        }
-        toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
-      } catch {
-        toast.error('Không thể kết nối ví Petra. Vui lòng thử lại.');
+        toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${address.slice(0, 6)}...${address.slice(-4)}`);
+        router.push('/');
+      } catch (error: any) {
+        console.error('Connect wallet error:', error);
+        toast.error(error?.message || 'Không thể kết nối ví Petra. Vui lòng thử lại.');
       } finally {
         setIsConnecting(false);
       }
@@ -153,22 +191,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
     
-    try {
-      await signOut({ redirect: false });
-    } catch {
-    }
-    
     setAccount(null);
     setAccountType(null);
     setAptosNetwork(null);
+    setAuthToken(null);
     localStorage.removeItem('walletAccount');
     localStorage.removeItem('walletType');
     localStorage.removeItem('aptosNetwork');
+    localStorage.removeItem('authToken');
   };
 
   const getAuthToken = async (): Promise<string | null> => {
-    if (!account) return null;
-    return account;
+    return authToken;
   };
 
   return (
@@ -205,7 +239,22 @@ declare global {
         type_arguments: string[];
         arguments: unknown[];
       }) => Promise<{ hash: string }>;
-      signMessage?: (message: { message: string }) => Promise<string>;
+      signMessage?: (payload: { 
+        message: string;
+        nonce?: string;
+        address?: boolean;
+        application?: boolean;
+        chainId?: boolean;
+      }) => Promise<{
+        signature: string;
+        fullMessage: string;
+        message: string;
+        nonce: string;
+        address: string;
+        application: string;
+        chainId: number;
+        prefix: string;
+      }>;
     };
   }
 }

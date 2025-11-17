@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
+import { requireAuth } from '@/lib/auth/helpers';
 
 const getRepStoreHandle = async (): Promise<string | null> => {
 	try {
@@ -60,9 +61,10 @@ const getReputationPoints = async (address: string): Promise<number | null> => {
 	}
 };
 
-export async function GET(req: Request) {
-	try {
-		const { searchParams } = new URL(req.url);
+export async function GET(req: NextRequest) {
+	return requireAuth(req, async (request, user) => {
+		try {
+			const { searchParams } = new URL(request.url);
 		const address = searchParams.get('address');
 		
 		if (!address) {
@@ -86,11 +88,12 @@ export async function GET(req: Request) {
 			address,
 			ut,
 		});
-	} catch (err: any) {
-		return NextResponse.json({ 
-			success: false, 
-			error: err?.message || 'Lỗi máy chủ nội bộ' 
-		}, { status: 500 });
-	}
+		} catch (err: any) {
+			return NextResponse.json({ 
+				success: false, 
+				error: err?.message || 'Lỗi máy chủ nội bộ' 
+			}, { status: 500 });
+		}
+	});
 }
 

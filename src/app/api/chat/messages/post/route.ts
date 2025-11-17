@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, push, onValue, off, serverTimestamp, update, remove } from 'firebase/database';
+import { requireAuth } from '@/lib/auth/helpers';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,8 +18,9 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 export async function POST(request: NextRequest) {
-  try {
-    const { 
+  return requireAuth(request, async (req, user) => {
+    try {
+      const { 
       roomId, 
       text, 
       sender, 
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
       roomIdForLastViewed,
       userAddress,
       lastViewedTimestamp
-    } = await request.json();
+      } = await req.json();
 
     if (name && creatorAddress) {
       const roomsRef = ref(database, 'chatRooms');
@@ -316,8 +318,9 @@ export async function POST(request: NextRequest) {
         resolve(NextResponse.json({ success: true }));
       });
     });
-  } catch {
-    return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
-  }
+    } catch {
+      return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
+    }
+  });
 }
 
