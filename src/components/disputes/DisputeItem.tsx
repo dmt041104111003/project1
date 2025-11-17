@@ -11,16 +11,20 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
   const [freelancerEvidenceUrl, setFreelancerEvidenceUrl] = useState<string | null>(null);
   const [loadingPoster, setLoadingPoster] = useState(false);
   const [loadingFreelancer, setLoadingFreelancer] = useState(false);
-
   useEffect(() => {
-    const decodeCid = async (encCid: string, setUrl: (url: string | null) => void, setLoading: (loading: boolean) => void) => {
+    const decodeCid = async (
+      encCid: string,
+      setUrl: (url: string | null) => void,
+      setLoading: (loading: boolean) => void
+    ) => {
       if (!encCid || !encCid.startsWith('enc:')) {
         setUrl(encCid ? `https://ipfs.io/ipfs/${encCid}` : null);
         return;
       }
       try {
         setLoading(true);
-        const res = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(encCid)}&decodeOnly=true`);
+        const { fetchWithAuth } = await import('@/utils/api');
+        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(encCid)}&decodeOnly=true`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.url) {

@@ -42,7 +42,7 @@ export const JobDetailContent: React.FC = () => {
         
         setJobData(jobResData.job);
         
-        const res = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(cid)}`);
+        const res = await fetch(`/api/ipfs/job?cid=${encodeURIComponent(cid)}`);
         const data = await res.json();
         
         if (!data.success) {
@@ -69,13 +69,20 @@ export const JobDetailContent: React.FC = () => {
       setHasFreelancerRole(false);
       return;
     }
-    fetch(`/api/role?address=${encodeURIComponent(account)}`)
-      .then(res => res.json())
-      .then(data => {
+    (async () => {
+      try {
+        const { fetchWithAuth } = await import('@/utils/api');
+        const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
+        if (!res.ok) {
+          throw new Error('Không thể kiểm tra role');
+        }
+        const data = await res.json();
         const rolesData = data.roles || [];
         setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
-      })
-      .catch(() => setHasFreelancerRole(false));
+      } catch {
+        setHasFreelancerRole(false);
+      }
+    })();
   }, [account]);
 
   const handleApply = async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
@@ -42,10 +42,42 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 }) => {
   const [disputeUploading, setDisputeUploading] = useState(false);
   const [disputeSelectedFile, setDisputeSelectedFile] = useState<File | null>(null);
+  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+  const evidence = parseEvidenceCid(milestone.evidence_cid);
+
+  useEffect(() => {
+    const decodeEvidence = async () => {
+      if (!evidence) {
+        setEvidenceUrl(null);
+        return;
+      }
+      try {
+        setLoadingEvidence(true);
+        const { fetchWithAuth } = await import('@/utils/api');
+        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
+        if (!res.ok) {
+          setEvidenceUrl(null);
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (data?.success && data.url) {
+          setEvidenceUrl(data.url);
+        } else {
+          setEvidenceUrl(null);
+        }
+      } catch {
+        setEvidenceUrl(null);
+      } finally {
+        setLoadingEvidence(false);
+      }
+    };
+
+    decodeEvidence();
+  }, [evidence]);
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const statusStr = parseStatus(milestone.status);
-  const evidence = parseEvidenceCid(milestone.evidence_cid);
   const isPending = statusStr === 'Pending';
   const isSubmitted = statusStr === 'Submitted';
   const isAccepted = statusStr === 'Accepted';
@@ -110,7 +142,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'dispute_evidence');
-      const uploadRes = await fetch('/api/ipfs/upload-file', { method: 'POST', body: formData });
+      const { fetchWithAuth } = await import('@/utils/api');
+      const uploadRes = await fetchWithAuth('/api/ipfs/upload-file', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
       if (!uploadRes.ok || !uploadData.success) {
         throw new Error(uploadData.error || 'Upload failed');
@@ -165,7 +198,21 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       {evidence && (
         <div className="mb-2 p-2 bg-white rounded border border-gray-300">
           <p className="text-xs text-gray-600 mb-1">Evidence CID:</p>
-          <p className="text-xs font-mono break-all">{evidence}</p>
+          <p className="text-xs font-mono break-all mb-1">{evidence}</p>
+          {loadingEvidence ? (
+            <p className="text-xs text-gray-500">Đang giải mã...</p>
+          ) : evidenceUrl ? (
+            <a
+              className="text-xs text-blue-700 underline break-all hover:text-blue-900"
+              href={evidenceUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Mở file bằng chứng
+            </a>
+          ) : (
+            <p className="text-xs text-red-500">Không thể giải mã CID</p>
+          )}
         </div>
       )}
 
