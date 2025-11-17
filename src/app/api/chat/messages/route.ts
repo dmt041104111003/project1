@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
-import { requireAuth } from '@/lib/auth/helpers';
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,

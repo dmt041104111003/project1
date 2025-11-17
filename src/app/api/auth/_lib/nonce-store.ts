@@ -1,3 +1,5 @@
+import 'server-only';
+
 declare global {
   var __nonceStore: Map<string, { nonce: string; timestamp: number }> | undefined;
 }

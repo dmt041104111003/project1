@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/helpers';
-
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
 const VERIFICATION_API_URL = process.env.VERIFICATION_API_URL || 'http://localhost:5000';
 
 export async function POST(request: NextRequest) {

@@ -39,45 +39,16 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   onClaimDispute,
   disputeWinner,
   isClaimed = false,
+  interactionLocked = false,
 }) => {
   const [disputeUploading, setDisputeUploading] = useState(false);
   const [disputeSelectedFile, setDisputeSelectedFile] = useState<File | null>(null);
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
   const [loadingEvidence, setLoadingEvidence] = useState(false);
-  const evidence = parseEvidenceCid(milestone.evidence_cid);
-
-  useEffect(() => {
-    const decodeEvidence = async () => {
-      if (!evidence) {
-        setEvidenceUrl(null);
-        return;
-      }
-      try {
-        setLoadingEvidence(true);
-        const { fetchWithAuth } = await import('@/utils/api');
-        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
-        if (!res.ok) {
-          setEvidenceUrl(null);
-          return;
-        }
-        const data = await res.json().catch(() => null);
-        if (data?.success && data.url) {
-          setEvidenceUrl(data.url);
-        } else {
-          setEvidenceUrl(null);
-        }
-      } catch {
-        setEvidenceUrl(null);
-      } finally {
-        setLoadingEvidence(false);
-      }
-    };
-
-    decodeEvidence();
-  }, [evidence]);
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const statusStr = parseStatus(milestone.status);
+  const evidence = parseEvidenceCid(milestone.evidence_cid);
   const isPending = statusStr === 'Pending';
   const isSubmitted = statusStr === 'Submitted';
   const isAccepted = statusStr === 'Accepted';
@@ -130,6 +101,36 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     if (isPending) return `${base} bg-gray-100 text-gray-800 border-gray-300`;
     return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
   };
+
+  useEffect(() => {
+    const decodeEvidence = async () => {
+      if (!evidence) {
+        setEvidenceUrl(null);
+        return;
+      }
+      try {
+        setLoadingEvidence(true);
+        const { fetchWithAuth } = await import('@/utils/api');
+        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
+        if (!res.ok) {
+          setEvidenceUrl(null);
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (data?.success && data.url) {
+          setEvidenceUrl(data.url);
+        } else {
+          setEvidenceUrl(null);
+        }
+      } catch {
+        setEvidenceUrl(null);
+      } finally {
+        setLoadingEvidence(false);
+      }
+    };
+
+    decodeEvidence();
+  }, [evidence]);
 
   const handleDisputeFileChange = async (file: File | null) => {
     if (!file) {
@@ -233,13 +234,14 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             onSubmit={onSubmitMilestone}
             submitting={submitting}
             evidenceCid={evidenceCid}
+            interactionLocked={interactionLocked}
           />
         )}
 
         {isFreelancer && isSubmitted && reviewTimeout && canInteract && (
           <button
             onClick={() => onClaimTimeout(Number(milestone.id))}
-            disabled={claiming}
+            disabled={claiming || interactionLocked}
             className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-2 rounded border-2 border-orange-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {claiming ? 'Đang claim...' : 'Claim Timeout (Poster không phản hồi)'}
@@ -263,6 +265,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             onConfirm={() => onConfirmMilestone(Number(milestone.id))}
             onReject={() => onRejectMilestone(Number(milestone.id))}
             onClaimTimeout={() => onClaimTimeout(Number(milestone.id))}
+            interactionLocked={interactionLocked}
           />
         )}
 
@@ -276,7 +279,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 ) : (
                 <button
                   onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
-                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold"
+                  disabled={interactionLocked}
+                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Claim dispute {disputeWinner ? 'payment' : 'refund'}
                 </button>
@@ -300,7 +304,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                     accept="*/*"
                     title="Chọn file evidence để upload"
                     onChange={(e) => handleDisputeFileChange(e.target.files?.[0] || null)}
-                    disabled={disputeUploading}
+                    disabled={disputeUploading || interactionLocked}
                     className="w-full px-2 py-1 border border-gray-400 text-xs rounded text-gray-700 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </label>
@@ -316,7 +320,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 {!hasDisputeId && (
                   <button
                     onClick={() => onOpenDispute && onOpenDispute(Number(milestone.id))}
-                    disabled={openingDispute || !disputeEvidenceCid || disputeUploading}
+                    disabled={openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked}
                     className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-2 rounded border-2 border-red-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {openingDispute ? 'Đang mở dispute...' : 'Mở Dispute'}
@@ -325,7 +329,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 {hasDisputeId && (
                 <button
                   onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
-                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading}
+                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked}
                   className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-2 rounded border-2 border-blue-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}

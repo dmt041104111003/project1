@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ROLE, ROLE_KIND, APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY } from "@/constants/contracts";
-import { requireAuth } from '@/lib/auth/helpers';
+import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND } from "@/constants/contracts";
+
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
+import { ROLE } from "@/constants/contracts";
 
 const _view = async (_functionName: string, _args: unknown[]): Promise<boolean> => {
 	try {

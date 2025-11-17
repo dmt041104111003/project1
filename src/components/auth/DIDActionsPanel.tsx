@@ -62,24 +62,10 @@ export default function DIDActionsPanel() {
       
       (async () => {
         try {
-          const { ROLE, APTOS_NODE_URL, APTOS_API_KEY } = await import('@/constants/contracts');
-          const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': APTOS_API_KEY,
-              'Authorization': `Bearer ${APTOS_API_KEY}`
-            },
-            body: JSON.stringify({
-              function: ROLE.HAS_PROOF,
-              type_arguments: [],
-              arguments: [account]
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const hasProof = Array.isArray(data) ? data[0] === true : data === true;
+          const proofRes = await fetchWithAuth(`/api/proof?address=${encodeURIComponent(account)}`);
+          if (proofRes.ok) {
+            const proofData = await proofRes.json();
+            const hasProof = proofData?.success && !!proofData?.proof;
             setFaceVerified(hasProof);
             if (hasProof) {
               setShowFaceVerification(false);
@@ -198,25 +184,12 @@ export default function DIDActionsPanel() {
     setMessage('Đang kiểm tra proof...');
     
     try {
-      // Check xem địa chỉ đã có proof chưa
-      const { ROLE, APTOS_NODE_URL, APTOS_API_KEY } = await import('@/constants/contracts');
-      const checkProofRes = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': APTOS_API_KEY,
-          'Authorization': `Bearer ${APTOS_API_KEY}`
-        },
-        body: JSON.stringify({
-          function: ROLE.HAS_PROOF,
-          type_arguments: [],
-          arguments: [account]
-        })
-      });
+      let cidForTx = uploadedCid;
 
-      if (checkProofRes.ok) {
-        const proofData = await checkProofRes.json();
-        const hasProof = Array.isArray(proofData) ? proofData[0] === true : proofData === true;
+      const proofCheckRes = await fetchWithAuth(`/api/proof?address=${encodeURIComponent(account)}`);
+      if (proofCheckRes.ok) {
+        const proofJson = await proofCheckRes.json();
+        const hasProof = proofJson?.success && !!proofJson?.proof;
         
         if (!hasProof) {
           setMessage('Vui lòng xác minh danh tính trước khi đăng ký vai trò.');
@@ -224,10 +197,12 @@ export default function DIDActionsPanel() {
           return;
         }
       } else {
-        console.warn('Không thể kiểm tra proof, tiếp tục đăng ký...');
+        setMessage('Không thể kiểm tra trạng thái proof. Vui lòng thử lại.');
+        setLoading(false);
+        return;
       }
 
-      if ((role === 'freelancer' || role === 'poster') && !uploadedCid) {
+      if ((role === 'freelancer' || role === 'poster') && !cidForTx) {
         if (!desc.trim()) {
           setMessage('Vui lòng điền mô tả trước khi đăng ký vai trò này.');
           setLoading(false);
@@ -249,6 +224,7 @@ export default function DIDActionsPanel() {
           if (!cid) {
             throw new Error('CID là bắt buộc cho freelancer và poster');
           }
+          cidForTx = cid;
           setUploadedCid(cid);
         } catch (error: any) {
           setMessage(error?.message || 'Lỗi khi tải CID lên IPFS');
@@ -262,10 +238,14 @@ export default function DIDActionsPanel() {
       const { roleHelpers } = await import('@/utils/contractHelpers');
       
       let payload;
+      if ((role === 'freelancer' || role === 'poster') && !cidForTx) {
+        throw new Error('Không tìm thấy CID để đăng ký vai trò.');
+      }
+
       if (role === 'freelancer') {
-        payload = roleHelpers.registerFreelancer(uploadedCid);
+        payload = roleHelpers.registerFreelancer(cidForTx);
       } else if (role === 'poster') {
-        payload = roleHelpers.registerPoster(uploadedCid);
+        payload = roleHelpers.registerPoster(cidForTx);
       } else if (role === 'reviewer') {
         payload = roleHelpers.registerReviewer();
       } else {

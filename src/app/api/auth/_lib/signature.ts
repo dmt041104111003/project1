@@ -1,3 +1,4 @@
+import 'server-only';
 import nacl from 'tweetnacl';
 
 export function verifyAptosSignature(
@@ -70,4 +71,5 @@ export function generateNonce(): string {
          Math.random().toString(36).substring(2, 15) + 
          Date.now().toString(36);
 }
+
 

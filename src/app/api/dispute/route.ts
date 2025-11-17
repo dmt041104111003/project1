@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
-import { requireAuth } from '@/lib/auth/helpers';
+import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
+
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
 
 const getDisputeStoreHandle = async (): Promise<string | null> => {
   try {

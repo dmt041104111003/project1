@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAptosSignature } from '@/lib/auth/signature';
-import { generateToken } from '@/lib/auth/jwt';
-import { getNonce, deleteNonce } from '@/lib/auth/nonce-store';
+import { verifyAptosSignature } from '@/app/api/auth/_lib/signature';
+import { generateToken } from '@/app/api/auth/_lib/jwt';
+import { getNonce, deleteNonce } from '@/app/api/auth/_lib/nonce-store';
 
 export async function POST(request: NextRequest) {
   try {
@@ -89,4 +89,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 

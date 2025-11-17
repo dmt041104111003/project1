@@ -1,6 +1,7 @@
+import 'server-only';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || '';
 
 export interface JWTPayload {
   address: string;

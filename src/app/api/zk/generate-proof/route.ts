@@ -3,8 +3,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ROLE, APTOS_NODE_URL, APTOS_API_KEY } from '@/constants/contracts';
-import { requireAuth } from '@/lib/auth/helpers';
+import { APTOS_NODE_URL} from "@/constants/contracts";
+
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
 
 const execAsync = promisify(exec);
 

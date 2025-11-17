@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ROLE, APTOS_NODE_URL, APTOS_API_KEY, CONTRACT_ADDRESS } from '@/constants/contracts';
+import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
 
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

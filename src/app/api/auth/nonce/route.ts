@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateNonce } from '@/lib/auth/signature';
-import { setNonce } from '@/lib/auth/nonce-store';
+import { generateNonce } from '@/app/api/auth/_lib/signature';
+import { setNonce } from '@/app/api/auth/_lib/nonce-store';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,4 +33,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
 

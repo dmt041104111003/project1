@@ -127,6 +127,7 @@ export interface MilestoneItemProps {
   onClaimDispute?: (milestoneId: number) => void;
   disputeWinner?: boolean | null;
   isClaimed?: boolean;
+  interactionLocked?: boolean;
 }
 
 export interface MilestoneFileUploadProps {
@@ -137,6 +138,7 @@ export interface MilestoneFileUploadProps {
   onSubmit: (milestoneId: number) => void;
   submitting: boolean;
   evidenceCid?: string;
+  interactionLocked?: boolean;
 }
 
 export interface MilestoneReviewActionsProps {
@@ -155,6 +157,7 @@ export interface MilestoneReviewActionsProps {
   onConfirm: () => void;
   onReject: () => void;
   onClaimTimeout: () => void;
+  interactionLocked?: boolean;
 }
 
 export interface MilestonesListProps {

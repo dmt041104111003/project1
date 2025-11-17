@@ -83,6 +83,22 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const shouldHideCancelActions =
     hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed' || hasExpiredMilestone;
 
+  const globalActionLocked =
+    submittingId !== null ||
+    confirmingId !== null ||
+    rejectingId !== null ||
+    claimingId !== null ||
+    openingDisputeId !== null ||
+    submittingEvidenceId !== null ||
+    cancelling ||
+    withdrawing ||
+    acceptingCancel ||
+    rejectingCancel ||
+    acceptingWithdraw ||
+    rejectingWithdraw ||
+    unlockingNonDisputed ||
+    claimedMilestones.size > 0;
+
   const handleFileUploaded = (milestoneId: number, cid: string) => {
     setEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
   };
@@ -664,6 +680,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
               onClaimDispute={handleClaimDispute}
               disputeWinner={disputeWinner}
               isClaimed={claimedMilestones.has(Number(milestone.id))}
+              interactionLocked={globalActionLocked}
             />
           );
         })}

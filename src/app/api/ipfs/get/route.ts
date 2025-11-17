@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { APTOS_NODE_URL, CONTRACT_ADDRESS } from '@/constants/contracts';
-import { requireAuth } from '@/lib/auth/helpers';
-
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
 const decryptCid = async (value: string): Promise<string> => {
 	if (!value?.startsWith('enc:')) return value;
 	try {

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { APTOS_NODE_URL, CONTRACT_ADDRESS, APTOS_API_KEY, ROLE_KIND } from "@/constants/contracts";
+import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
+
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
+import { ROLE_KIND } from "@/constants/contracts";
 
 const getRepStoreHandle = async (): Promise<string | null> => {
 	try {

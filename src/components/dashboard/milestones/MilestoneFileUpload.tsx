@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { MilestoneFileUploadProps } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   milestoneId,
@@ -14,6 +13,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   onSubmit,
   submitting,
   evidenceCid,
+  interactionLocked = false,
 }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -33,6 +33,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
       formData.append('file', file);
       formData.append('type', 'milestone_evidence');
 
+      const { fetchWithAuth } = await import('@/utils/api');
       const uploadRes = await fetchWithAuth('/api/ipfs/upload-file', {
         method: 'POST',
         body: formData
@@ -81,7 +82,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
                 const file = e.target.files?.[0] || null;
                 handleFileChange(file);
               }}
-              disabled={uploading || submitting || isOverdue}
+              disabled={uploading || submitting || isOverdue || interactionLocked}
               className="w-full px-2 py-1 border border-gray-400 text-xs rounded text-gray-700 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </label>
@@ -99,7 +100,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
           <Button
             size="sm"
             onClick={() => onSubmit(milestoneId)}
-            disabled={submitting || uploading || !evidenceCid?.trim() || isOverdue}
+            disabled={submitting || uploading || !evidenceCid?.trim() || isOverdue || interactionLocked}
             className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Đang submit...' : 'Submit'}

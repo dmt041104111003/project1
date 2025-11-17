@@ -18,8 +18,9 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
   onConfirm,
   onReject,
   onClaimTimeout,
+  interactionLocked = false,
 }) => {
-  const reviewActionLocked = confirming || rejecting;
+  const reviewActionLocked = confirming || rejecting || interactionLocked;
 
   return (
     <>
@@ -27,7 +28,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
         <Button
           size="sm"
           onClick={onClaimTimeout}
-          disabled={claiming || isCancelled}
+          disabled={claiming || isCancelled || interactionLocked}
           className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {claiming ? 'Đang claim...' : 'Claim Timeout (Nhận stake freelancer)'}

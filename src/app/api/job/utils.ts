@@ -1,5 +1,6 @@
-import { CONTRACT_ADDRESS, APTOS_NODE_URL, APTOS_API_KEY } from "@/constants/contracts";
+import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
 
+const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
 export const getTableHandle = async (): Promise<{ handle: string; nextJobId: number } | null> => {
 	try {
 		const resourceType = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
