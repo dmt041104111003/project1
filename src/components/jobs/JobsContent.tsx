@@ -17,6 +17,7 @@ export const JobsContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [latestFreelancers, setLatestFreelancers] = useState<Record<number, string | null>>({});
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -24,7 +25,7 @@ export const JobsContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const res = await fetch('/api/job/list');
+        const res = await fetch('/api/job?list=true');
         const data = await res.json();
         
         if (!res.ok) {
@@ -42,6 +43,58 @@ export const JobsContent: React.FC = () => {
     
     fetchJobs();
   }, []);
+
+  useEffect(() => {
+    const jobsNeedingLookup = jobs.filter((job) => !job.freelancer && job.cid);
+    if (jobsNeedingLookup.length === 0) {
+      setLatestFreelancers({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchLatestFreelancers = async () => {
+      const results = await Promise.all(
+        jobsNeedingLookup.map(async (job) => {
+          try {
+            const res = await fetch(`/api/ipfs/job?cid=${encodeURIComponent(job.cid)}&freelancers=true`);
+            if (!res.ok) {
+              return [job.id, null] as const;
+            }
+            const data = await res.json();
+            const applicants = Array.isArray(data.applicants) ? data.applicants : [];
+            if (!applicants.length) {
+              return [job.id, null] as const;
+            }
+            const latest = [...applicants]
+              .sort((a, b) => {
+                const aTime = new Date(a?.applied_at || 0).getTime();
+                const bTime = new Date(b?.applied_at || 0).getTime();
+                return bTime - aTime;
+              })
+              .find((applicant) => applicant?.freelancer_address);
+            return [job.id, latest?.freelancer_address || null] as const;
+          } catch {
+            return [job.id, null] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        const map: Record<number, string | null> = {};
+        results.forEach(([id, addr]) => {
+          map[id] = addr;
+        });
+        setLatestFreelancers(map);
+      }
+    };
+
+    fetchLatestFreelancers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobs]);
 
   if (loading) {
     return (
@@ -82,13 +135,20 @@ export const JobsContent: React.FC = () => {
               stateStr = job.state;
             }
             
+            let freelancerAddress = '';
             let isFreelancerOfJob = false;
-            if (account && job.freelancer) {
-              const freelancerAddr = typeof job.freelancer === 'string' 
+            if (job.freelancer) {
+              freelancerAddress = typeof job.freelancer === 'string' 
                 ? job.freelancer 
-                : job.freelancer;
-              if (freelancerAddr) {
-                isFreelancerOfJob = account.toLowerCase() === freelancerAddr.toLowerCase();
+                : String(job.freelancer || '');
+              if (account && freelancerAddress) {
+                isFreelancerOfJob = account.toLowerCase() === freelancerAddress.toLowerCase();
+              }
+            }
+            if (!freelancerAddress) {
+              const latestAddr = latestFreelancers[job.id];
+              if (latestAddr) {
+                freelancerAddress = latestAddr;
               }
             }
             
@@ -117,12 +177,12 @@ export const JobsContent: React.FC = () => {
             return (
               <div 
                 key={job.id} 
-                className="cursor-pointer"
+                className="cursor-pointer h-full"
                 onClick={() => router.push(`/jobs/${job.id}`)}
               >
                 <Card 
                   variant="outlined"
-                  className="p-6 hover:bg-gray-50"
+                  className="p-6 hover:bg-gray-50 h-full flex flex-col"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -150,7 +210,7 @@ export const JobsContent: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="space-y-2 pt-2 border-t border-gray-200">
+                  <div className="space-y-2 pt-2 border-t border-gray-200 mt-auto">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700">Người đăng:</span>
                       <span 
@@ -164,29 +224,24 @@ export const JobsContent: React.FC = () => {
                         {formatAddress(typeof job.poster === 'string' ? job.poster : String(job.poster || ''))}
                       </span>
                     </div>
-                    {job.freelancer && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Người làm:</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700">Người làm (mới nhất):</span>
+                      {freelancerAddress ? (
                         <span 
                           className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const freelancerAddr = typeof job.freelancer === 'string' ? job.freelancer : String(job.freelancer || '');
-                            if (freelancerAddr) copyAddress(freelancerAddr);
+                            copyAddress(freelancerAddress);
                           }}
                         >
-                          {formatAddress(typeof job.freelancer === 'string' ? job.freelancer : String(job.freelancer || ''))}
+                          {formatAddress(freelancerAddress)}
                         </span>
-                      </div>
-                    )}
-                    {typeof job.has_freelancer === 'boolean' && !job.freelancer && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Người làm:</span>
-                        <span className={`font-bold ${job.has_freelancer ? 'text-blue-800' : 'text-gray-600'}`}>
-                          {job.has_freelancer ? 'Đã giao' : 'Mở'}
+                      ) : (
+                        <span className="font-bold text-gray-600">
+                          None
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     {job.apply_deadline && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700">Hạn đăng ký:</span>

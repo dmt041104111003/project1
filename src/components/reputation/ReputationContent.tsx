@@ -6,13 +6,19 @@ import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { copyAddress, formatAddress } from '@/utils/addressUtils';
 
+type ProfileMeta = {
+  cid: string | null;
+  url: string | null;
+  data: any | null;
+};
+
 export const ReputationContent: React.FC = () => {
   const { account } = useWallet();
   
   const [checkAddress, setCheckAddress] = useState('');
   const [checkedAddress, setCheckedAddress] = useState<string | null>(null);
   const [checkedUT, setCheckedUT] = useState<number | null>(null);
-  const [proofData, setProofData] = useState<any>(null);
+  const [profiles, setProfiles] = useState<Record<'freelancer' | 'poster', ProfileMeta | null> | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,28 +33,18 @@ export const ReputationContent: React.FC = () => {
     setError('');
     setCheckedAddress(null);
     setCheckedUT(null);
-    setProofData(null);
+    setProfiles(null);
     
     try {
-      // Query cả reputation và proof cùng lúc
-      const [reputationRes, proofRes] = await Promise.all([
-        fetch(`/api/reputation?address=${encodeURIComponent(address)}`),
-        fetch(`/api/proof?address=${encodeURIComponent(address)}`)
-      ]);
+      const reputationRes = await fetch(
+        `/api/reputation?address=${encodeURIComponent(address)}&profile=true`
+      );
 
-      // Xử lý reputation
       if (reputationRes.ok) {
         const repData = await reputationRes.json();
         if (repData.success) {
           setCheckedUT(repData.ut || 0);
-        }
-      }
-
-      // Xử lý proof
-      if (proofRes.ok) {
-        const proofDataRes = await proofRes.json();
-        if (proofDataRes.success && proofDataRes.proof) {
-          setProofData(proofDataRes.proof);
+          setProfiles(repData.profiles || null);
         }
       }
 
@@ -57,27 +53,18 @@ export const ReputationContent: React.FC = () => {
       setError(e?.message || 'Không thể kiểm tra thông tin');
       setCheckedAddress(null);
       setCheckedUT(null);
-      setProofData(null);
+      setProfiles(null);
     } finally {
       setChecking(false);
     }
   };
 
-  const formatProof = (proof: string): string => {
-    if (!proof) return '-';
-    if (proof.length <= 20) return proof;
-    return formatAddress(proof);
-  };
-
-  const handleCopyProof = async (proof: string) => {
-    await copyAddress(proof);
-  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-blue-800 mb-2">Điểm Danh Tiếng & Proof</h1>
-        <p className="text-lg text-gray-700">Kiểm tra điểm UT và ZK proof cho bất kỳ địa chỉ nào.</p>
+        <h1 className="text-3xl font-bold text-blue-800 mb-2">Điểm Danh Tiếng</h1>
+        <p className="text-lg text-gray-700">Kiểm tra điểm UT cho bất kỳ địa chỉ nào.</p>
       </div>
 
       <Card variant="outlined" className="p-6">
@@ -107,7 +94,17 @@ export const ReputationContent: React.FC = () => {
               {/* Địa chỉ */}
               <div className="p-4 bg-gray-50 rounded-md">
                 <div className="text-sm text-gray-600 mb-1">Địa chỉ:</div>
-                <div className="text-sm font-mono text-gray-800 break-all">{checkedAddress}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono text-gray-800 break-all">
+                    {formatAddress(checkedAddress)}
+                  </span>
+                  <button
+                    onClick={() => copyAddress(checkedAddress)}
+                    className="text-xs text-blue-600 underline"
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
 
               {/* Điểm UT */}
@@ -118,54 +115,78 @@ export const ReputationContent: React.FC = () => {
                 </div>
               )}
 
-              {/* Proof */}
-              {proofData ? (
-                <div className="p-4 bg-gray-50 rounded-md space-y-3">
-                  <div className="text-sm font-bold text-gray-700 mb-2">Thông tin Proof:</div>
-                  
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Proof (JSON):</div>
-                    <div 
-                      className="text-sm font-mono text-gray-800 p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-gray-100 break-all"
-                      onClick={() => handleCopyProof(JSON.stringify(proofData.proof, null, 2))}
-                      title="Click để copy toàn bộ proof"
-                    >
-                      {formatProof(JSON.stringify(proofData.proof, null, 2))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Public Signals (JSON):</div>
-                    <div 
-                      className="text-sm font-mono text-gray-800 p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-gray-100 break-all"
-                      onClick={() => handleCopyProof(JSON.stringify(proofData.public_signals, null, 2))}
-                      title="Click để copy toàn bộ public signals"
-                    >
-                      {formatProof(JSON.stringify(proofData.public_signals, null, 2))}
-                    </div>
-                  </div>
-
-                  {proofData.timestamp && (
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Timestamp:</div>
-                      <div className="text-sm text-gray-800">
-                        {(() => {
-                          const date = new Date(Number(proofData.timestamp) * 1000);
-                          const day = String(date.getDate()).padStart(2, '0');
-                          const month = String(date.getMonth() + 1).padStart(2, '0');
-                          const year = date.getFullYear();
-                          const hours = String(date.getHours()).padStart(2, '0');
-                          const minutes = String(date.getMinutes()).padStart(2, '0');
-                          const seconds = String(date.getSeconds()).padStart(2, '0');
-                          return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-                        })()}
+              {profiles && (
+                <div className="p-4 bg-gray-50 rounded-md space-y-4">
+                  <div className="text-sm text-gray-600 font-semibold">Metadata hồ sơ công khai</div>
+                  {(['freelancer', 'poster'] as const).map((role) => {
+                    const meta = profiles?.[role];
+                    if (!meta) return null;
+                    return (
+                      <div key={role} className="space-y-2 border border-gray-200 rounded-md p-3 bg-white">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                          {role === 'freelancer' ? 'Freelancer' : 'Poster'}
+                        </div>
+                        {meta.cid && (
+                          <div className="text-xs text-gray-600">
+                            CID: <span className="font-mono">{meta.cid}</span>
+                          </div>
+                        )}
+                        {meta.url && (
+                          <a
+                            href={meta.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 underline"
+                          >
+                            Mở trực tiếp trên IPFS
+                          </a>
+                        )}
+                        {meta.data ? (
+                          <>
+                            {meta.data.about && (
+                              <div>
+                                <div className="text-xs text-gray-500">Giới thiệu</div>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                  {String(meta.data.about)}
+                                </p>
+                              </div>
+                            )}
+                            {Object.entries(meta.data)
+                              .filter(([key]) =>
+                                !['about', 'type', 'version', 'created_at'].includes(key)
+                              )
+                              .map(([key, value]) => (
+                                <div key={key}>
+                                  <div className="text-xs text-gray-500 capitalize">{key}</div>
+                                  <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                    {typeof value === 'object'
+                                      ? JSON.stringify(value, null, 2)
+                                      : String(value)}
+                                  </p>
+                                </div>
+                              ))}
+                            {!meta.data.about &&
+                              Object.entries(meta.data).filter(([key]) =>
+                                !['about', 'type', 'version', 'created_at'].includes(key)
+                              ).length === 0 && (
+                                <p className="text-sm text-gray-600">
+                                  Metadata không có nội dung mô tả chi tiết.
+                                </p>
+                              )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-500">
+                            Không tìm thấy metadata công khai cho role này hoặc người dùng chưa đăng ký profile.
+                          </p>
+                        )}
                       </div>
-                    </div>
+                    );
+                  })}
+                  {!profiles.freelancer && !profiles.poster && (
+                    <p className="text-sm text-gray-500">
+                      Không có metadata hồ sơ nào cho địa chỉ này.
+                    </p>
                   )}
-                </div>
-              ) : (
-                <div className="p-4 bg-yellow-50 rounded-md">
-                  <div className="text-sm text-yellow-800">Địa chỉ này chưa có proof.</div>
                 </div>
               )}
             </div>

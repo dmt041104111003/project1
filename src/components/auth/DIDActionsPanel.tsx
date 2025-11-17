@@ -189,6 +189,8 @@ export default function DIDActionsPanel() {
     setIdInfo(null);
   };
 
+  const roleRegistered = role && roles.some(r => r.name === role);
+
   const handleRegister = async () => {
     if (!role || !window.aptos || !account) return;
 
@@ -378,7 +380,9 @@ export default function DIDActionsPanel() {
             
             {role !== 'reviewer' && (
               <div>
-                <label className="block text-sm font-bold text-gray-900 mb-1">Mô tả</label>
+                <label className="block text-sm font-bold text-gray-900 mb-1">
+                  {roleRegistered ? 'Thông tin hiện tại' : 'Mô tả'}
+                </label>
                 <textarea
                   className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
                   rows={3}
@@ -390,15 +394,21 @@ export default function DIDActionsPanel() {
               </div>
             )}
             
-            <Button
-              className="w-full"
-              size="sm"
-              variant="outline"
-              onClick={handleRegister}
-              disabled={loading || !role}
-            >
-              {loading ? 'Đang xử lý...' : 'Đăng ký vai trò'}
-            </Button>
+            {role && (role !== 'reviewer' || !roleRegistered) && (
+              <Button
+                className="w-full"
+                size="sm"
+                variant="outline"
+                onClick={handleRegister}
+                disabled={loading || !role}
+              >
+                {loading
+                  ? 'Đang xử lý...'
+                  : roleRegistered && role !== 'reviewer'
+                    ? 'Cập nhật thông tin'
+                    : 'Đăng ký vai trò'}
+              </Button>
+            )}
           </div>
         </>
       )}

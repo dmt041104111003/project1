@@ -10,7 +10,6 @@ import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
 import { MilestonesListProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
-import { fetchWithAuth } from '@/utils/api';
 
 const MILESTONES_PER_PAGE = 4;
 
@@ -61,6 +60,8 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const canInteract = jobState === 'InProgress' || jobState === 'Posted' || jobState === 'Disputed';
   const isCancelled = jobState === 'Cancelled';
   
+  const nowMs = Date.now();
+
   const hasWithdrawableMilestones = milestones.some(m => {
     const status = parseStatus(m.status);
     return status === 'Pending' || status === 'Submitted';
@@ -71,7 +72,16 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     return status === 'Submitted';
   });
 
-  const shouldHideCancelActions = hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed';
+  const hasExpiredMilestone = milestones.some(m => {
+    const deadline = Number(m.deadline || 0);
+    if (!deadline) return false;
+    const status = parseStatus(m.status);
+    const isAccepted = status === 'Accepted';
+    return deadline * 1000 < nowMs && !isAccepted;
+  });
+
+  const shouldHideCancelActions =
+    hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed' || hasExpiredMilestone;
 
   const handleFileUploaded = (milestoneId: number, cid: string) => {
     setEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
@@ -105,6 +115,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         }
         
         if (finalWinner === null && did) {
+          const { fetchWithAuth } = await import('@/utils/api');
           const sumRes = await fetchWithAuth(`/api/dispute?action=get_summary&dispute_id=${did}`);
           if (sumRes.ok) {
             const sum = await sumRes.json();

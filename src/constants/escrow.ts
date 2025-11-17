@@ -87,6 +87,7 @@ export interface JobSidebarProps {
   hasFreelancerRole: boolean;
   applying: boolean;
   onApply: () => void;
+  latestFreelancerAddress?: string | null;
 }
 
 export interface JobIPFSContentProps {
@@ -240,3 +241,4 @@ export interface ManualJobFormProps {
   jobResult: string;
 }
 
+ 

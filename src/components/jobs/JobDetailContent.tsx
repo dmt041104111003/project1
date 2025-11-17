@@ -20,6 +20,31 @@ export const JobDetailContent: React.FC = () => {
   const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [applying, setApplying] = useState(false);
 
+  const getFreelancerFromOption = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (value?.vec && Array.isArray(value.vec) && value.vec.length > 0) {
+      return value.vec[0];
+    }
+    return null;
+  };
+
+  const getLatestFreelancerFromMetadata = (): string | null => {
+    if (!jobDetails) return null;
+    const applicants = Array.isArray((jobDetails as any)?.applicants) ? (jobDetails as any).applicants : [];
+    if (!applicants.length) return null;
+    const latest = [...applicants]
+      .sort((a: any, b: any) => {
+        const aTime = new Date(a?.applied_at || 0).getTime();
+        const bTime = new Date(b?.applied_at || 0).getTime();
+        return bTime - aTime;
+      })
+      .find((applicant) => applicant?.freelancer_address);
+    return latest?.freelancer_address || null;
+  };
+
+  const latestFreelancerAddress = getFreelancerFromOption(jobData?.freelancer) || getLatestFreelancerFromMetadata();
+
   useEffect(() => {
     const fetchJobDetails = async () => {
       if (!jobId) return;
@@ -70,19 +95,12 @@ export const JobDetailContent: React.FC = () => {
       return;
     }
     (async () => {
-      try {
-        const { fetchWithAuth } = await import('@/utils/api');
-        const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
-        if (!res.ok) {
-          throw new Error('Không thể kiểm tra role');
-        }
-        const data = await res.json();
-        const rolesData = data.roles || [];
-        setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
-      } catch {
-        setHasFreelancerRole(false);
-      }
-    })();
+      const { fetchWithAuth } = await import('@/utils/api');
+      const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
+      const data = await res.json();
+      const rolesData = data.roles || [];
+      setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
+    })().catch(() => setHasFreelancerRole(false));
   }, [account]);
 
   const handleApply = async () => {
@@ -283,6 +301,7 @@ export const JobDetailContent: React.FC = () => {
           hasFreelancerRole={hasFreelancerRole}
           applying={applying}
           onApply={handleApply}
+          latestFreelancerAddress={latestFreelancerAddress}
         />
       </div>
     </>

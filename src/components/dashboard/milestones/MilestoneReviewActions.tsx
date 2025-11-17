@@ -19,6 +19,8 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
   onReject,
   onClaimTimeout,
 }) => {
+  const reviewActionLocked = confirming || rejecting;
+
   return (
     <>
       {isOverdue && isPending && canInteract && !isCancelled && (
@@ -40,7 +42,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
           <Button
             size="sm"
             onClick={onConfirm}
-            disabled={confirming}
+            disabled={reviewActionLocked}
             className="bg-green-100 text-black hover:bg-green-200 text-xs px-3 py-1"
           >
             {confirming ? 'Đang confirm...' : 'Confirm'}
@@ -49,7 +51,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
             size="sm"
             variant="outline"
             onClick={onReject}
-            disabled={rejecting}
+            disabled={reviewActionLocked}
             className="bg-red-100 text-red-800 border-red-300 hover:bg-red-200 text-xs px-3 py-1"
           >
             {rejecting ? 'Đang reject...' : 'Reject'}
