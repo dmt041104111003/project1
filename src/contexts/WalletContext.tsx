@@ -126,7 +126,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
           
           if (result?.ok) {
-            router.push('/dashboard');
+            router.push('/');
           }
         } catch {
         }
