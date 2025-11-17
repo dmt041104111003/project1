@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { DisputeData } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
@@ -31,7 +32,7 @@ export function useDisputes(account?: string | null) {
     if (!account) return;
     try {
       setCheckingRole(true);
-      const res = await fetch(`/api/role?address=${account}`);
+      const res = await fetchWithAuth(`/api/role?address=${account}`);
       if (!res.ok) {
         setIsReviewer(false);
         return;
@@ -83,7 +84,7 @@ export function useDisputes(account?: string | null) {
 
         const did = Array.isArray(disputeId?.vec) ? Number(disputeId.vec[0]) : Number(disputeId);
         if (!did) continue;
-        const revRes = await fetch(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
+        const revRes = await fetchWithAuth(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
         if (!revRes.ok) continue;
         const rev = await revRes.json();
         const selected: string[] = Array.isArray(rev?.selected_reviewers) ? rev.selected_reviewers : [];
@@ -96,7 +97,7 @@ export function useDisputes(account?: string | null) {
         let votesCompleted = false;
         let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
         let disputeWinner: boolean | null = null;
-        const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
+        const sumRes = await fetchWithAuth(`/api/dispute?action=get_summary&dispute_id=${did}`);
         if (sumRes.ok) {
           const sum = await sumRes.json();
           const voted: string[] = Array.isArray(sum?.voted_reviewers) ? sum.voted_reviewers : [];
@@ -108,7 +109,7 @@ export function useDisputes(account?: string | null) {
             disputeStatus = 'resolved';
           }
         } else {
-          const votesRes = await fetch(`/api/dispute?action=get_votes&dispute_id=${did}`);
+          const votesRes = await fetchWithAuth(`/api/dispute?action=get_votes&dispute_id=${did}`);
           if (votesRes.ok) {
             const vjson = await votesRes.json();
             const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
@@ -136,7 +137,7 @@ export function useDisputes(account?: string | null) {
         }
         
         if (lockedIndex < 0) continue;
-        const evRes = await fetch(`/api/dispute?action=get_evidence&dispute_id=${did}`);
+        const evRes = await fetchWithAuth(`/api/dispute?action=get_evidence&dispute_id=${did}`);
         let posterEvidenceCid = '';
         let freelancerEvidenceCid = '';
         if (evRes.ok) {

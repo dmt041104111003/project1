@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { fetchWithAuth } from '@/utils/api';
 
 export interface Message {
   id: string;
@@ -48,7 +49,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
 
   const fetchMessages = useCallback(async () => {
     try {
-      const response = await fetch(`/api/chat/messages?roomId=${currentRoomId}`);
+      const response = await fetchWithAuth(`/api/chat/messages?roomId=${currentRoomId}`);
       const data = await response.json();
       setMessages(data.messages || []);
     } catch {
@@ -71,7 +72,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
     if (!text.trim()) return;
 
     try {
-      const response = await fetch('/api/chat/messages/post', {
+      const response = await fetchWithAuth('/api/chat/messages/post', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

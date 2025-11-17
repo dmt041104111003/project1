@@ -10,6 +10,7 @@ import { JobCancelActions } from './milestones/JobCancelActions';
 import { parseStatus } from './milestones/MilestoneUtils';
 import { MilestonesListProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { fetchWithAuth } from '@/utils/api';
 
 const MILESTONES_PER_PAGE = 4;
 
@@ -104,7 +105,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         }
         
         if (finalWinner === null && did) {
-          const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
+          const sumRes = await fetchWithAuth(`/api/dispute?action=get_summary&dispute_id=${did}`);
           if (sumRes.ok) {
             const sum = await sumRes.json();
             if (typeof sum?.winner === 'boolean') {

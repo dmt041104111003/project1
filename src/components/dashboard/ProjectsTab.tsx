@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export const ProjectsTab: React.FC = () => {
   const { account } = useWallet();
@@ -25,7 +26,7 @@ export const ProjectsTab: React.FC = () => {
     }
     const checkRoles = async () => {
       try {
-        const res = await fetch(`/api/role?address=${encodeURIComponent(account)}`);
+        const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
         if (!res.ok) {
           setHasPosterRole(false);
           setHasFreelancerRole(false);

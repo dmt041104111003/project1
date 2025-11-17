@@ -5,6 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { FaceVerification } from './FaceVerification';
 import { VerificationResultDisplay } from './VerificationResult';
+import { fetchWithAuth } from '@/utils/api';
 
 interface Role {
   name: string;
@@ -38,8 +39,11 @@ export default function DIDActionsPanel() {
     setLoadingRoles(true);
     
     Promise.all([
-      fetch(`/api/role?address=${encodeURIComponent(account)}`)
-        .then(res => res.json())
+      fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`)
+        .then(async res => {
+          if (!res.ok) throw new Error('Unauthorized');
+          return res.json();
+        })
         .then(data => {
           const userRoles = data.roles || [];
           setRoles(userRoles);
@@ -104,7 +108,7 @@ export default function DIDActionsPanel() {
     setMessage('Đang tạo ZK proof...');
     
     try {
-      const zkRes = await fetch('/api/zk/generate-proof', {
+      const zkRes = await fetchWithAuth('/api/zk/generate-proof', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +154,7 @@ export default function DIDActionsPanel() {
       if (role && (role === 'freelancer' || role === 'poster') && desc.trim()) {
         setMessage('Đang tải CID lên IPFS...');
         try {
-          const ipfsRes = await fetch('/api/ipfs/upload', {
+          const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'profile', about: desc })
@@ -230,7 +234,7 @@ export default function DIDActionsPanel() {
         
         setMessage('Đang tải CID lên IPFS...');
         try {
-          const ipfsRes = await fetch('/api/ipfs/upload', {
+          const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'profile', about: desc })
@@ -276,7 +280,7 @@ export default function DIDActionsPanel() {
       setUploadedCid('');
       
       setLoadingRoles(true);
-      const refreshRes = await fetch(`/api/role?address=${encodeURIComponent(account!)}`);
+      const refreshRes = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account!)}`);
       const refreshData = await refreshRes.json();
       setRoles(refreshData.roles || []);
       setLoadingRoles(false);
