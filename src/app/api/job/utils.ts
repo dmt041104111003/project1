@@ -1,22 +1,15 @@
-import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
+import { CONTRACT_ADDRESS } from "@/constants/contracts";
+import { fetchContractResourceData, queryTableItem } from "@/app/api/onchain/_lib/tableClient";
 
-const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
 export const getTableHandle = async (): Promise<{ handle: string; nextJobId: number } | null> => {
 	try {
-		const resourceType = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
-		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`, {
-			headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` }
-		});
-		if (!res.ok) {
-			await res.text();
+		const data = await fetchContractResourceData("escrow::EscrowStore");
+		if (!data?.table?.handle) {
 			return null;
 		}
-		const data = await res.json();
-		const handle = data?.data?.table?.handle;
-		const nextJobId = data?.data?.next_job_id || 0;
 		return {
-			handle,
-			nextJobId: Number(nextJobId)
+			handle: data.table.handle,
+			nextJobId: Number(data?.next_job_id || 0)
 		};
 	} catch {
 		return null;
@@ -24,31 +17,12 @@ export const getTableHandle = async (): Promise<{ handle: string; nextJobId: num
 };
 
 export const queryJobFromTable = async (tableHandle: string, jobId: number): Promise<any> => {
-	try {
-		const requestBody = {
-			key_type: "u64",
-			value_type: `${CONTRACT_ADDRESS}::escrow::Job`,
-			key: String(jobId)
-		};
-		
-		const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${tableHandle}/item`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
-			body: JSON.stringify(requestBody)
-		});
-		
-		if (!res.ok) {
-			if (res.status === 404) {
-				return null;
-			}
-			await res.text();
-			return null;
-		}
-		const data = await res.json();
-		return data;
-	} catch {
-		return null;
-	}
+	return queryTableItem({
+		handle: tableHandle,
+		keyType: "u64",
+		valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
+		key: jobId
+	});
 };
 
 export const parseState = (stateData: any): string => {

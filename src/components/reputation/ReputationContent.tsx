@@ -95,14 +95,24 @@ export const ReputationContent: React.FC = () => {
     
     try {
       const reputationRes = await fetch(
-        `/api/reputation?address=${encodeURIComponent(address)}&profile=true`
+        `/api/reputation?address=${encodeURIComponent(address)}`
       );
 
       if (reputationRes.ok) {
         const repData = await reputationRes.json();
         if (repData.success) {
           setCheckedUT(repData.ut || 0);
-          setProfiles(repData.profiles || null);
+        }
+      }
+
+      const profileRes = await fetch(
+        `/api/profile?address=${encodeURIComponent(address)}`
+      );
+
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData.success) {
+          setProfiles(profileData.profiles || null);
         }
       }
 

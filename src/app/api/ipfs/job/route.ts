@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { APTOS_NODE_URL, CONTRACT_ADDRESS } from '@/constants/contracts';
+import { getTableHandle, queryJobFromTable } from '@/app/api/job/utils';
 
 const decryptCid = async (value: string): Promise<string> => {
 	if (!value?.startsWith('enc:')) return value;
@@ -23,60 +23,94 @@ const decryptCid = async (value: string): Promise<string> => {
 	}
 };
 
+async function fetchJob(jobId: string): Promise<{ cid: string | null; job: any } | null> {
+	try {
+		const table = await getTableHandle();
+		if (!table?.handle) {
+			return null;
+		}
+
+		const job = await queryJobFromTable(table.handle, Number(jobId));
+		if (!job) {
+			return null;
+		}
+
+		const cid = typeof job.cid === 'string' ? job.cid : null;
+		return {
+			cid: cid ? await decryptCid(cid) : null,
+			job,
+		};
+	} catch {
+		return null;
+	}
+}
+
 export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
-		const cid = searchParams.get('cid');
 		const jobId = searchParams.get('jobId');
 		const decodeOnly = searchParams.get('decodeOnly') === 'true';
-		
-		let resolvedCid = cid ? await decryptCid(cid) : null;
-		
-		if (!resolvedCid && jobId) {
-			const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					function: `${CONTRACT_ADDRESS}::escrow::get_job_info`,
-					type_arguments: [],
-					arguments: [CONTRACT_ADDRESS, jobId]
-				})
-			});
-			if (res.ok) {
-				const [cidBytes] = await res.json();
-				const cidString = Array.isArray(cidBytes)
-					? String.fromCharCode(...cidBytes).replace(/\0/g, '')
-					: cidBytes?.startsWith('0x')
-						? Buffer.from(cidBytes.slice(2), 'hex').toString('utf8')
-						: cidBytes;
-				resolvedCid = cidString ? await decryptCid(cidString) : null;
-			}
-		}
-		
-		if (!resolvedCid) {
+
+		if (!jobId) {
+			const cidProvided = searchParams.has('cid');
 			return NextResponse.json(
-				{ success: false, error: 'cid hoặc jobId là bắt buộc' },
+				{
+					success: false,
+					error: cidProvided
+						? 'Endpoint này chỉ hỗ trợ truy vấn bằng jobId. Vui lòng dùng jobId của job công khai.'
+						: 'jobId là bắt buộc'
+				},
 				{ status: 400 }
 			);
 		}
-		
-		if (decodeOnly) {
-			const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-			const ipfsUrl = `${gateway}/${resolvedCid}`;
-			return NextResponse.json({ success: true, cid: resolvedCid, url: ipfsUrl });
+
+		const jobRecord = await fetchJob(jobId);
+		if (!jobRecord) {
+			return NextResponse.json(
+				{ success: false, error: 'Không tìm thấy job trong EscrowStore' },
+				{ status: 404 }
+			);
 		}
-		
+
+		const { cid, job } = jobRecord;
+		if (!cid) {
+			return NextResponse.json(
+				{ success: false, error: 'Không tìm thấy CID cho job này' },
+				{ status: 404 }
+			);
+		}
+
 		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-		const res = await fetch(`${gateway}/${resolvedCid}`, { method: 'GET' });
-		if (!res.ok) return NextResponse.json({ success: false, error: 'Không tìm thấy' }, { status: 404 });
-		
-		const data = await res.json();
-		
-		if (searchParams.get('freelancers') === 'true') {
-			return NextResponse.json({ success: true, cid: resolvedCid, applicants: data?.applicants || [] });
+		const ipfsUrl = `${gateway}/${cid}`;
+
+		if (decodeOnly) {
+			return NextResponse.json({ success: true, cid, url: ipfsUrl, jobId });
 		}
-		
-		return NextResponse.json({ success: true, cid: resolvedCid, data });
+
+		const res = await fetch(ipfsUrl, { method: 'GET' });
+		if (!res.ok) {
+			return NextResponse.json({ success: false, error: 'Không tìm thấy' }, { status: 404 });
+		}
+
+		const data = await res.json();
+
+		if (searchParams.get('freelancers') === 'true') {
+			return NextResponse.json({
+				success: true,
+				cid,
+				applicants: data?.applicants || [],
+				jobId,
+				jobState: job?.state || null,
+			});
+		}
+
+		return NextResponse.json({
+			success: true,
+			cid,
+			data,
+			jobId,
+			jobState: job?.state || null,
+		});
 	} catch (error: any) {
 		return NextResponse.json(
 			{ success: false, error: error?.message || 'Lỗi khi lấy dữ liệu' },

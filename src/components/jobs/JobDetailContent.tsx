@@ -59,15 +59,9 @@ export const JobDetailContent: React.FC = () => {
         }
         
         const jobResData = await jobRes.json();
-        const cid = jobResData.job?.cid;
-        
-        if (!cid) {
-          throw new Error('Job CID not found');
-        }
-        
         setJobData(jobResData.job);
         
-        const res = await fetch(`/api/ipfs/job?cid=${encodeURIComponent(cid)}`);
+        const res = await fetch(`/api/ipfs/job?jobId=${jobId}`);
         const data = await res.json();
         
         if (!data.success) {

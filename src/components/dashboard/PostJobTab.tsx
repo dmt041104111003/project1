@@ -15,7 +15,7 @@ const APT_TO_UNITS = 100_000_000;
 
 const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
   try {
-    const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(address)}`);
+    const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`);
     if (!res.ok) return false;
     const data = await res.json();
     const rolesData = data.roles || [];

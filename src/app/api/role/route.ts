@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND } from "@/constants/contracts";
+import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND, ROLE } from "@/constants/contracts";
+import { fetchContractResourceData, queryTableItem } from "@/app/api/onchain/_lib/tableClient";
 
 const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
-import { ROLE } from "@/constants/contracts";
 
 const _view = async (_functionName: string, _args: unknown[]): Promise<boolean> => {
 	try {
@@ -39,45 +38,7 @@ const _getCid = async (_address: string, _kind: number): Promise<string | null> 
 	}
 };
 
-const getTableHandle = async (): Promise<string | null> => {
-	try {
-		const resourceType = `${CONTRACT_ADDRESS}::role::RoleStore`;
-		const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`, { headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` } });
-		if (!res.ok) {
-			return null;
-		}
-		const data = await res.json();
-		const handle = data?.data?.users?.handle || null;
-		return handle;
-	} catch {
-		return null;
-	}
-};
-
-const queryTableItem = async (handle: string, key: string | number, keyType: string, valueType: string): Promise<any> => {
-	try {
-		const url = `${APTOS_NODE_URL}/v1/tables/${handle}/item`;
-		
-		const formattedKey = keyType === "u8" || keyType === "u64" || keyType.startsWith("u") ? Number(key) : key;
-		
-		const res = await fetch(url, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
-			body: JSON.stringify({ key_type: keyType, value_type: valueType, key: formattedKey })
-		});
-		if (!res.ok) {
-			await res.text().catch(() => "");
-			return null;
-		}
-		const result = await res.json();
-		return result;
-	} catch {
-		return null;
-	}
-};
-
-export async function GET(req: NextRequest) {
-	return requireAuth(req, async (request, user) => {
+export async function GET(request: NextRequest) {
 		try {
 			const url = new URL(request.url);
 		const address = url.searchParams.get("address");
@@ -87,32 +48,38 @@ export async function GET(req: NextRequest) {
 		const valueType = url.searchParams.get("valueType");
 
 		if (debugHandle && key && keyType && valueType) {
-			const result = await queryTableItem(debugHandle, key, keyType, valueType);
+			const result = await queryTableItem({
+				handle: debugHandle,
+				keyType,
+				valueType,
+				key
+			});
 			return NextResponse.json({ handle: debugHandle, key, result });
 		}
 
 		if (!address) return NextResponse.json({ error: "Địa chỉ là bắt buộc" }, { status: 400 });
 
-		const handle = await getTableHandle();
+		const roleStore = await fetchContractResourceData("role::RoleStore");
+		const handle = roleStore?.users?.handle || null;
 		let finalHasFreelancer = false;
 		let finalHasPoster = false;
 		let finalHasReviewer = false;
 		let userRoles: any = null;
 
 		if (handle) {
-			userRoles = await queryTableItem(
+			userRoles = await queryTableItem({
 				handle,
-				address,
-				"address",
-				`${CONTRACT_ADDRESS}::role::UserRoles`
-			);
+				keyType: "address",
+				valueType: `${CONTRACT_ADDRESS}::role::UserRoles`,
+				key: address
+			});
 			
 			if (userRoles?.roles?.handle) {
 				const rolesHandle = userRoles.roles.handle;
 				const [hasFreelancerRole, hasPosterRole, hasReviewerRole] = await Promise.all([
-					queryTableItem(rolesHandle, ROLE_KIND.FREELANCER, "u8", "bool"),
-					queryTableItem(rolesHandle, ROLE_KIND.POSTER, "u8", "bool"),
-					queryTableItem(rolesHandle, ROLE_KIND.REVIEWER, "u8", "bool")
+					queryTableItem({ handle: rolesHandle, keyType: "u8", valueType: "bool", key: ROLE_KIND.FREELANCER }),
+					queryTableItem({ handle: rolesHandle, keyType: "u8", valueType: "bool", key: ROLE_KIND.POSTER }),
+					queryTableItem({ handle: rolesHandle, keyType: "u8", valueType: "bool", key: ROLE_KIND.REVIEWER })
 				]);
 				finalHasFreelancer = hasFreelancerRole === true;
 				finalHasPoster = hasPosterRole === true;
@@ -124,7 +91,12 @@ export async function GET(req: NextRequest) {
 		if (finalHasFreelancer) {
 			let cid: string | null = null;
 			if (userRoles?.cids?.handle) {
-				const cidData = await queryTableItem(userRoles.cids.handle, ROLE_KIND.FREELANCER, "u8", "0x1::string::String");
+				const cidData = await queryTableItem({
+					handle: userRoles.cids.handle,
+					keyType: "u8",
+					valueType: "0x1::string::String",
+					key: ROLE_KIND.FREELANCER
+				});
 				cid = cidData || null;
 			}
 			roles.push({ name: "freelancer", cids: cid ? [cid] : [] });
@@ -132,7 +104,12 @@ export async function GET(req: NextRequest) {
 		if (finalHasPoster) {
 			let cid: string | null = null;
 			if (userRoles?.cids?.handle) {
-				const cidData = await queryTableItem(userRoles.cids.handle, ROLE_KIND.POSTER, "u8", "0x1::string::String");
+				const cidData = await queryTableItem({
+					handle: userRoles.cids.handle,
+					keyType: "u8",
+					valueType: "0x1::string::String",
+					key: ROLE_KIND.POSTER
+				});
 				cid = cidData || null;
 			}
 			roles.push({ name: "poster", cids: cid ? [cid] : [] });
@@ -146,5 +123,4 @@ export async function GET(req: NextRequest) {
 			const errorMessage = error instanceof Error ? error.message : "Không thể lấy vai trò";
 			return NextResponse.json({ error: errorMessage }, { status: 500 });
 		}
-	});
 }

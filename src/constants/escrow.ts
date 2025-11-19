@@ -7,6 +7,8 @@ export interface LayoutProps {
 export interface Job {
   id: number;
   cid: string;
+  decodedCid?: string;
+  ipfsUrl?: string;
   poster: string;
   freelancer: string | null;
   total_amount: number;
@@ -131,6 +133,7 @@ export interface MilestoneItemProps {
 }
 
 export interface MilestoneFileUploadProps {
+  jobId: number;
   milestoneId: number;
   canSubmit: boolean;
   isOverdue: boolean;

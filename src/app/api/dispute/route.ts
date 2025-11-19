@@ -1,38 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { APTOS_NODE_URL, CONTRACT_ADDRESS } from "@/constants/contracts";
-
-const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
-
-const getDisputeStoreHandle = async (): Promise<string | null> => {
-  try {
-    const resourceType = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
-    const res = await fetch(`${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`, { headers: { "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.data?.table?.handle || null;
-  } catch {
-    return null;
-  }
-};
-
-const queryDisputeFromTable = async (tableHandle: string, disputeId: number): Promise<any> => {
-  try {
-    const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${tableHandle}/item`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": APTOS_API_KEY, "Authorization": `Bearer ${APTOS_API_KEY}` },
-      body: JSON.stringify({
-        key_type: "u64",
-        value_type: `${CONTRACT_ADDRESS}::dispute::Dispute`,
-        key: String(disputeId)
-      })
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-};
+import { CONTRACT_ADDRESS } from "@/constants/contracts";
+import { fetchContractResourceData, queryTableItem } from "@/app/api/onchain/_lib/tableClient";
 
 const parseAddressVector = (data: any): string[] => {
   if (!data) return [];
@@ -99,8 +67,7 @@ const parseVoteCounts = (votes: any): { total: number; forFreelancer: number; fo
 };
 
 
-export async function GET(req: NextRequest) {
-  return requireAuth(req, async (request, user) => {
+export async function GET(request: NextRequest) {
     try {
       const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -109,9 +76,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'action và dispute_id là bắt buộc' }, { status: 400 });
     }
     const disputeId = parseInt(disputeIdParam);
-    const handle = await getDisputeStoreHandle();
+    const disputeStore = await fetchContractResourceData('dispute::DisputeStore');
+    const handle = disputeStore?.table?.handle || null;
     if (!handle) return NextResponse.json({ error: 'Không tìm thấy DisputeStore' }, { status: 404 });
-    const dispute = await queryDisputeFromTable(handle, disputeId);
+    const dispute = await queryTableItem({
+      handle,
+      keyType: "u64",
+      valueType: `${CONTRACT_ADDRESS}::dispute::Dispute`,
+      key: disputeId
+    });
     if (!dispute) return NextResponse.json({ error: 'Không tìm thấy tranh chấp' }, { status: 404 });
 
     switch (action) {
@@ -180,7 +153,6 @@ export async function GET(req: NextRequest) {
     } catch (e: any) {
       return NextResponse.json({ error: e?.message || 'Không thể lấy dữ liệu tranh chấp' }, { status: 500 });
     }
-  });
 }
 
  

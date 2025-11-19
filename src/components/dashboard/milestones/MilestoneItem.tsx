@@ -5,6 +5,7 @@ import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
 import { MilestoneItemProps } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   milestone,
@@ -110,7 +111,6 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       }
       try {
         setLoadingEvidence(true);
-        const { fetchWithAuth } = await import('@/utils/api');
         const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
         if (!res.ok) {
           setEvidenceUrl(null);
@@ -143,8 +143,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'dispute_evidence');
-      const { fetchWithAuth } = await import('@/utils/api');
-      const uploadRes = await fetchWithAuth('/api/ipfs/upload-file', { method: 'POST', body: formData });
+      formData.append('jobId', String(jobId));
+      const uploadRes = await fetchWithAuth('/api/ipfs/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
       if (!uploadRes.ok || !uploadData.success) {
         throw new Error(uploadData.error || 'Upload failed');
@@ -227,6 +227,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       <div className="flex gap-2 flex-wrap">
         {isFreelancer && isPending && canInteract && (
           <MilestoneFileUpload
+            jobId={jobId}
             milestoneId={Number(milestone.id)}
             canSubmit={canSubmit}
             isOverdue={isOverdue}

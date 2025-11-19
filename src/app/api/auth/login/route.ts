@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { verifyAptosSignature } from '@/app/api/auth/_lib/signature';
-import { generateToken } from '@/app/api/auth/_lib/jwt';
+import { generateAccessToken, generateRefreshToken, ACCESS_TOKEN_MAX_AGE, REFRESH_TOKEN_MAX_AGE } from '@/app/api/auth/_lib/jwt';
 import { getNonce, deleteNonce } from '@/app/api/auth/_lib/nonce-store';
 
 export async function POST(request: NextRequest) {
@@ -72,15 +73,49 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const token = generateToken(normalizedAddress);
+    const accessToken = generateAccessToken(normalizedAddress);
+    const refreshToken = generateRefreshToken(normalizedAddress);
+    const csrfToken = randomBytes(32).toString('hex');
+    const response = NextResponse.json({
+      success: true,
+      address: normalizedAddress,
+    });
+
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    response.cookies.set({
+      name: 'auth_token',
+      value: accessToken,
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+
+    response.cookies.set({
+      name: 'refresh_token',
+      value: refreshToken,
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
+
+    response.cookies.set({
+      name: 'csrf_token',
+      value: csrfToken,
+      httpOnly: false,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
     
     deleteNonce(normalizedAddress);
     
-    return NextResponse.json({
-      success: true,
-      token,
-      address: normalizedAddress,
-    });
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { DisputeData } from '@/constants/escrow';
 import { fetchWithAuth } from '@/utils/api';
+import { toast } from 'sonner';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
@@ -48,13 +49,15 @@ export function useDisputes(account?: string | null) {
     }
   }, [account]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
+    const silent = options?.silent ?? true;
+    const skipLoading = options?.skipLoading ?? false;
     if (!isReviewer || !account) {
       setDisputes([]);
-      return;
+      return false;
     }
     try {
-      setLoading(true);
+      if (!skipLoading) setLoading(true);
       setErrorMsg('');
 
       const normalizeAddress = (addr?: string | null): string => {
@@ -84,7 +87,7 @@ export function useDisputes(account?: string | null) {
 
         const did = Array.isArray(disputeId?.vec) ? Number(disputeId.vec[0]) : Number(disputeId);
         if (!did) continue;
-        const revRes = await fetchWithAuth(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
+        const revRes = await fetch(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
         if (!revRes.ok) continue;
         const rev = await revRes.json();
         const selected: string[] = Array.isArray(rev?.selected_reviewers) ? rev.selected_reviewers : [];
@@ -97,7 +100,7 @@ export function useDisputes(account?: string | null) {
         let votesCompleted = false;
         let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
         let disputeWinner: boolean | null = null;
-        const sumRes = await fetchWithAuth(`/api/dispute?action=get_summary&dispute_id=${did}`);
+        const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
         if (sumRes.ok) {
           const sum = await sumRes.json();
           const voted: string[] = Array.isArray(sum?.voted_reviewers) ? sum.voted_reviewers : [];
@@ -109,7 +112,7 @@ export function useDisputes(account?: string | null) {
             disputeStatus = 'resolved';
           }
         } else {
-          const votesRes = await fetchWithAuth(`/api/dispute?action=get_votes&dispute_id=${did}`);
+          const votesRes = await fetch(`/api/dispute?action=get_votes&dispute_id=${did}`);
           if (votesRes.ok) {
             const vjson = await votesRes.json();
             const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
@@ -137,7 +140,7 @@ export function useDisputes(account?: string | null) {
         }
         
         if (lockedIndex < 0) continue;
-        const evRes = await fetchWithAuth(`/api/dispute?action=get_evidence&dispute_id=${did}`);
+        const evRes = await fetch(`/api/dispute?action=get_evidence&dispute_id=${did}`);
         let posterEvidenceCid = '';
         let freelancerEvidenceCid = '';
         if (evRes.ok) {
@@ -160,10 +163,18 @@ export function useDisputes(account?: string | null) {
       }
 
       setDisputes(results);
+      if (!silent) {
+        toast.success('Đã làm mới danh sách tranh chấp');
+      }
+      return true;
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể tải tranh chấp');
+      if (!silent) {
+        toast.error(e?.message || 'Không thể tải tranh chấp');
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (!skipLoading) setLoading(false);
     }
   }, [isReviewer, account]);
 
@@ -172,7 +183,7 @@ export function useDisputes(account?: string | null) {
   }, [account, checkReviewerRole]);
 
   useEffect(() => { 
-    if (isReviewer) refresh(); 
+    if (isReviewer) refresh({ silent: true });
   }, [isReviewer, refresh]);
 
   const openDispute = useCallback(async () => {
@@ -205,7 +216,7 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh(), 2000);
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
@@ -220,7 +231,7 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh(), 2000);
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {

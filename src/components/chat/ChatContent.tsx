@@ -239,23 +239,6 @@ const ChatContentInner: React.FC = () => {
         return;
       }
 
-      const creatorAddr = account.toLowerCase();
-      const creatorProofRes = await fetch(`/api/proof?address=${creatorAddr}`);
-      const creatorProofData = await creatorProofRes.json();
-      
-      if (!creatorProofData.success || !creatorProofData.proof) {
-        setCreateRoomError('Bạn chưa có proof. Vui lòng xác minh DID trước khi tạo phòng chat.');
-        setIsCreatingRoom(false);
-        return;
-      }
-      const participantProofRes = await fetch(`/api/proof?address=${participantAddr}`);
-      const participantProofData = await participantProofRes.json();
-      
-      if (!participantProofData.success || !participantProofData.proof) {
-        setCreateRoomError('Người dùng này chưa có proof. Chỉ có thể tạo phòng với người đã xác minh DID.');
-        setIsCreatingRoom(false);
-        return;
-      }
       const roomPayload = {
         name: newRoomName.trim(),
         creatorAddress: account,

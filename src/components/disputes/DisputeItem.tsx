@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DisputeItemProps } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
   const key = `${dispute.jobId}:${dispute.milestoneIndex}`;
@@ -14,17 +15,29 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
   useEffect(() => {
     const decodeCid = async (
       encCid: string,
+      side: 'poster' | 'freelancer',
       setUrl: (url: string | null) => void,
       setLoading: (loading: boolean) => void
     ) => {
-      if (!encCid || !encCid.startsWith('enc:')) {
-        setUrl(encCid ? `https://ipfs.io/ipfs/${encCid}` : null);
+      if (!encCid) {
+        setUrl(null);
         return;
       }
+
+      if (!encCid.startsWith('enc:')) {
+        setUrl(`https://ipfs.io/ipfs/${encCid}`);
+        return;
+      }
+
       try {
         setLoading(true);
-        const { fetchWithAuth } = await import('@/utils/api');
-        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(encCid)}&decodeOnly=true`);
+        const params = new URLSearchParams({
+          disputeId: String(dispute.disputeId),
+          role: 'reviewer',
+          side,
+          decodeOnly: 'true',
+        });
+        const res = await fetchWithAuth(`/api/ipfs/dispute?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.url) {
@@ -35,7 +48,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
         } else {
           setUrl(null);
         }
-      } catch (err) {
+      } catch {
         setUrl(null);
       } finally {
         setLoading(false);
@@ -43,12 +56,12 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
     };
 
     if (dispute.posterEvidenceCid) {
-      decodeCid(dispute.posterEvidenceCid, setPosterEvidenceUrl, setLoadingPoster);
+      decodeCid(dispute.posterEvidenceCid, 'poster', setPosterEvidenceUrl, setLoadingPoster);
     }
     if (dispute.freelancerEvidenceCid) {
-      decodeCid(dispute.freelancerEvidenceCid, setFreelancerEvidenceUrl, setLoadingFreelancer);
+      decodeCid(dispute.freelancerEvidenceCid, 'freelancer', setFreelancerEvidenceUrl, setLoadingFreelancer);
     }
-  }, [dispute.posterEvidenceCid, dispute.freelancerEvidenceCid]);
+  }, [dispute.posterEvidenceCid, dispute.freelancerEvidenceCid, dispute.disputeId]);
 
   return (
     <Card variant="outlined" className="p-4">

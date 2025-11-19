@@ -131,8 +131,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
         }
         
         if (finalWinner === null && did) {
-          const { fetchWithAuth } = await import('@/utils/api');
-          const sumRes = await fetchWithAuth(`/api/dispute?action=get_summary&dispute_id=${did}`);
+          const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
           if (sumRes.ok) {
             const sum = await sumRes.json();
             if (typeof sum?.winner === 'boolean') {

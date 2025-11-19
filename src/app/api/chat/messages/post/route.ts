@@ -1,21 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, push, onValue, off, serverTimestamp, update, remove } from 'firebase/database';
+import { ref, push, serverTimestamp, update, remove, get, set } from 'firebase/database';
 import { requireAuth } from '@/app/api/auth/_lib/helpers';
+import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
+import { fetchContractResourceData, queryTableItem } from '@/app/api/onchain/_lib/tableClient';
+import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.FIREBASE_DATABASE_URL,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID
+const database = getFirebaseDatabase();
+
+const normalizeAddress = (addr?: string | null): string => {
+  if (!addr) return '';
+  const lower = addr.toLowerCase();
+  return lower.startsWith('0x') ? lower : `0x${lower}`;
 };
 
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+const fetchRoomData = async (roomId: string) => {
+  const snapshot = await get(ref(database, `chatRooms/${roomId}`));
+  return snapshot.exists() ? snapshot.val() : null;
+};
+
+const userIsMember = (roomData: any, address: string) => {
+  if (!roomData) return false;
+  const members = roomData?.members || {};
+  const normalizedAddress = normalizeAddress(address);
+  if (members[normalizedAddress] === true) return true;
+  const creatorAddress = normalizeAddress(roomData?.creatorAddress);
+  const participantAddress = normalizeAddress(roomData?.participantAddress);
+  return normalizedAddress === creatorAddress || normalizedAddress === participantAddress;
+};
+
+const ensureRoomMembership = (roomData: any, address: string) => userIsMember(roomData, address);
+
+let cachedProofHandle: string | null | undefined;
+
+const getProofHandle = async (): Promise<string | null> => {
+  if (cachedProofHandle === undefined) {
+    const roleStore = await fetchContractResourceData('role::RoleStore');
+    cachedProofHandle = roleStore?.proofs?.handle || null;
+  }
+  return cachedProofHandle ?? null;
+};
+
+const hasProof = async (address: string): Promise<boolean> => {
+  const handle = await getProofHandle();
+  if (!handle) return false;
+  const proof = await queryTableItem({
+    handle,
+    keyType: 'address',
+    valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
+    key: address,
+  });
+  return !!proof;
+};
 
 export async function POST(request: NextRequest) {
   return requireAuth(request, async (req, user) => {
@@ -42,283 +77,182 @@ export async function POST(request: NextRequest) {
       lastViewedTimestamp
       } = await req.json();
 
+    const requester = normalizeAddress(user.address);
+
     if (name && creatorAddress) {
+      const creatorAddr = normalizeAddress(creatorAddress);
+      if (creatorAddr !== requester) {
+        return NextResponse.json({ success: false, error: 'Creator address không hợp lệ' }, { status: 403 });
+      }
+
+      const participantAddr = normalizeAddress(participantAddress);
+      if (!participantAddr || participantAddr === creatorAddr) {
+        return NextResponse.json({ success: false, error: 'participantAddress không hợp lệ' }, { status: 400 });
+      }
+
+      const [creatorHasProof, participantHasProof] = await Promise.all([
+        hasProof(creatorAddr),
+        hasProof(participantAddr),
+      ]);
+
+      if (!creatorHasProof) {
+        return NextResponse.json({ success: false, error: 'Bạn chưa có proof. Vui lòng xác minh DID trước.' }, { status: 403 });
+      }
+      if (!participantHasProof) {
+        return NextResponse.json({ success: false, error: 'Người nhận chưa có proof. Không thể tạo phòng.' }, { status: 400 });
+      }
+
+      const roomsSnapshot = await get(ref(database, 'chatRooms'));
+      const roomsData = roomsSnapshot.val() || {};
+      const duplicateRoom = Object.entries<any>(roomsData).find(([, room]) => {
+        const existingCreator = normalizeAddress(room?.creatorAddress);
+        const existingParticipant = normalizeAddress(room?.participantAddress);
+        const members = room?.members || {};
+        const hasPair =
+          (existingCreator === creatorAddr && existingParticipant === participantAddr) ||
+          (existingCreator === participantAddr && existingParticipant === creatorAddr);
+        const membersPair = members[creatorAddr] && members[participantAddr];
+        return hasPair || membersPair;
+      });
+
+      if (duplicateRoom) {
+        return NextResponse.json({ success: false, error: 'Đã tồn tại phòng chat giữa 2 địa chỉ này' }, { status: 409 });
+      }
+
       const roomsRef = ref(database, 'chatRooms');
+      const roomRef = push(roomsRef);
+      const roomId = roomRef.key;
+      if (!roomId) {
+        return NextResponse.json({ success: false, error: 'Không thể tạo phòng' }, { status: 500 });
+      }
+
+      const shortId = `${roomId.slice(0, 6)}...${roomId.slice(-4)}`;
+      const displayName = `${shortId} ${name.trim()}`;
 
       const newRoom = {
-        name,
-        participantAddress: participantAddress ? participantAddress.toLowerCase() : '',
-        creatorAddress: creatorAddress.toLowerCase(),
+        name: displayName,
+        participantAddress: participantAddr,
+        creatorAddress: creatorAddr,
         chatAccepted: false,
         createdAt: serverTimestamp(),
-        lastMessage: ''
+        lastMessage: '',
+        members: {
+          [creatorAddr]: true
+        }
       };
 
-      return new Promise<NextResponse>((resolve) => {
-        onValue(roomsRef, (snapshot) => {
-          const data = snapshot.val();
-          let existingRoom = null;
-          
-          if (data) {
-            const creatorAddrLower = creatorAddress.toLowerCase();
-            const participantAddrLower = participantAddress ? participantAddress.toLowerCase() : '';
-            
-            existingRoom = Object.values(data).find((room) => {
-              const r = room as Record<string, unknown>;
-              const rCreator = (r.creatorAddress as string || '').toLowerCase();
-              const rParticipant = (r.participantAddress as string || '').toLowerCase();
-              
-              if (participantAddrLower) {
-                return (rCreator === creatorAddrLower && rParticipant === participantAddrLower) ||
-                       (rCreator === participantAddrLower && rParticipant === creatorAddrLower);
-              }
-              return false;
-            });
-          }
-          
-          off(roomsRef, 'value');
-          
-          if (existingRoom) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Đã tồn tại phòng chat giữa 2 địa chỉ này' 
-            }));
-            return;
-          }
-          
-          push(roomsRef, newRoom).then((roomRef) => {
-            const newRoomId = roomRef.key;
-            const short = (id: string) => id ? `${id.slice(0, 6)}...${id.slice(-4)}` : '';
-            const shortId = short(newRoomId || '');
-            const finalName = `${shortId} ${name.trim()}`;
-            
-            update(roomRef, { name: finalName }).catch(() => {});
+      await set(roomRef, newRoom);
 
-            resolve(NextResponse.json({ 
-              success: true, 
-              roomId: newRoomId,
-              room: { id: newRoomId, ...newRoom, name: finalName }
-            }));
-          }).catch((error) => {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: `Không thể tạo phòng: ${error.message}` 
-            }, { status: 500 }));
-          });
-        });
+      return NextResponse.json({
+        success: true,
+        roomId,
+        room: { id: roomId, ...newRoom }
       });
     }
 
-    if (acceptRoom && roomIdToAccept && senderId) {
+    if (acceptRoom && roomIdToAccept) {
       const roomRef = ref(database, `chatRooms/${roomIdToAccept}`);
-      
-      return new Promise<NextResponse>((resolve) => {
-        onValue(roomRef, (snapshot) => {
-          const roomData = snapshot.val();
-          
-          off(roomRef, 'value');
-          
-          if (!roomData) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Room không tồn tại' 
-            }));
-            return;
-          }
-          
-          const participantAddr = (senderId as string).toLowerCase();
-          const creatorAddr = (roomData.creatorAddress as string || '').toLowerCase();
-          const expectedParticipantAddr = (roomData.participantAddress as string || '').toLowerCase();
-          
-          if (participantAddr === creatorAddr) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Bạn không thể accept phòng chat của chính mình' 
-            }));
-            return;
-          }
-          
-          if (expectedParticipantAddr && participantAddr !== expectedParticipantAddr) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Bạn không phải người được mời vào phòng chat này' 
-            }));
-            return;
-          }
-          
-          const updatedRoom = {
-            ...roomData,
-            chatAccepted: true,
-            participantAddress: participantAddr,
-            acceptedAt: serverTimestamp()
-          };
-          
-          update(roomRef, updatedRoom).then(() => {
-            resolve(NextResponse.json({ 
-              success: true, 
-              message: 'Room đã được accept' 
-            }));
-          }).catch((error) => {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: `Không thể chấp nhận phòng: ${error.message}` 
-            }, { status: 500 }));
-          });
-        });
+      const roomSnapshot = await get(roomRef);
+      if (!roomSnapshot.exists()) {
+        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
+      }
+      const roomData = roomSnapshot.val();
+      const expectedParticipant = normalizeAddress(roomData?.participantAddress);
+      if (!expectedParticipant) {
+        return NextResponse.json({ success: false, error: 'Room không hợp lệ' }, { status: 400 });
+      }
+      if (expectedParticipant !== requester) {
+        return NextResponse.json({ success: false, error: 'Bạn không phải người được mời vào room này' }, { status: 403 });
+      }
+      if (normalizeAddress(roomData?.creatorAddress) === requester) {
+        return NextResponse.json({ success: false, error: 'Không thể accept phòng của chính bạn' }, { status: 400 });
+      }
+
+      if (!(await hasProof(requester))) {
+        return NextResponse.json({ success: false, error: 'Bạn chưa có proof nên không thể accept phòng' }, { status: 403 });
+      }
+
+      await update(roomRef, {
+        chatAccepted: true,
+        acceptedAt: serverTimestamp()
       });
+      await update(ref(database, `chatRooms/${roomIdToAccept}/members`), {
+        [requester]: true
+      });
+
+      return NextResponse.json({ success: true, message: 'Room đã được accept' });
     }
 
     if (updateLastViewed && roomIdForLastViewed && userAddress && lastViewedTimestamp) {
-      const lastViewedRef = ref(database, `chatLastViewed/${userAddress.toLowerCase()}/${roomIdForLastViewed}`);
-      
-      return new Promise<NextResponse>((resolve) => {
-        update(lastViewedRef, lastViewedTimestamp).then(() => {
-          resolve(NextResponse.json({ 
-            success: true, 
-            message: 'Đã cập nhật lastViewed' 
-          }));
-        }).catch((error) => {
-          resolve(NextResponse.json({ 
-            success: false, 
-            error: `Không thể cập nhật lastViewed: ${error.message}` 
-          }, { status: 500 }));
-        });
-      });
+      if (normalizeAddress(userAddress) !== requester) {
+        return NextResponse.json({ success: false, error: 'Không thể cập nhật lastViewed cho user khác' }, { status: 403 });
+      }
+      const lastViewedRef = ref(database, `chatLastViewed/${requester}/${roomIdForLastViewed}`);
+      await set(lastViewedRef, lastViewedTimestamp);
+      return NextResponse.json({ success: true, message: 'Đã cập nhật lastViewed' });
     }
 
-    if (updateRoomName && roomIdToUpdate && newName && senderId) {
-      const roomRef = ref(database, `chatRooms/${roomIdToUpdate}`);
-      
-      return new Promise<NextResponse>((resolve) => {
-        onValue(roomRef, (snapshot) => {
-          const roomData = snapshot.val();
-          
-          off(roomRef, 'value');
-          
-          if (!roomData) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Room không tồn tại' 
-            }));
-            return;
-          }
-          
-          const userAddr = (senderId as string).toLowerCase();
-          const creatorAddr = (roomData.creatorAddress as string || '').toLowerCase();
-          const participantAddr = (roomData.participantAddress as string || '').toLowerCase();
-          
-          if (userAddr !== creatorAddr && userAddr !== participantAddr) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Bạn không có quyền sửa phòng này' 
-            }));
-            return;
-          }
-          
-          const updatedRoom = {
-            ...roomData,
-            name: newName
-          };
-          
-          update(roomRef, updatedRoom).then(() => {
-            resolve(NextResponse.json({ 
-              success: true, 
-              message: 'Đã cập nhật tên phòng' 
-            }));
-          }).catch((error) => {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: `Không thể cập nhật tên phòng: ${error.message}` 
-            }, { status: 500 }));
-          });
-        });
-      });
+    if (updateRoomName && roomIdToUpdate && newName) {
+      const roomData = await fetchRoomData(roomIdToUpdate);
+      if (!roomData) {
+        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
+      }
+      if (!ensureRoomMembership(roomData, requester)) {
+        return NextResponse.json({ success: false, error: 'Bạn không có quyền sửa phòng này' }, { status: 403 });
+      }
+      const trimmedName = String(newName).trim();
+      if (!trimmedName) {
+        return NextResponse.json({ success: false, error: 'Tên phòng không hợp lệ' }, { status: 400 });
+      }
+      await update(ref(database, `chatRooms/${roomIdToUpdate}`), { name: trimmedName });
+      return NextResponse.json({ success: true, message: 'Đã cập nhật tên phòng' });
     }
 
-    if (deleteRoom && roomIdToDelete && senderId) {
-      const roomRef = ref(database, `chatRooms/${roomIdToDelete}`);
-      
-      return new Promise<NextResponse>((resolve) => {
-        onValue(roomRef, (snapshot) => {
-          const roomData = snapshot.val();
-          
-          off(roomRef, 'value');
-          
-          if (!roomData) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Room không tồn tại' 
-            }));
-            return;
-          }
-          
-          const userAddr = (senderId as string).toLowerCase();
-          const creatorAddr = (roomData.creatorAddress as string || '').toLowerCase();
-          const participantAddr = (roomData.participantAddress as string || '').toLowerCase();
-          
-          if (userAddr !== creatorAddr && userAddr !== participantAddr) {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: 'Bạn không có quyền xóa phòng này' 
-            }));
-            return;
-          }
-          
-          remove(roomRef).then(() => {
-            const messagesRef = ref(database, `chats/${roomIdToDelete}/messages`);
-            remove(messagesRef).catch(() => {});
-            
-            resolve(NextResponse.json({ 
-              success: true, 
-              message: 'Đã xóa phòng chat' 
-            }));
-          }).catch((error) => {
-            resolve(NextResponse.json({ 
-              success: false, 
-              error: `Không thể xóa phòng: ${error.message}` 
-            }, { status: 500 }));
-          });
-        });
-      });
+    if (deleteRoom && roomIdToDelete) {
+      const roomData = await fetchRoomData(roomIdToDelete);
+      if (!roomData) {
+        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
+      }
+      if (!ensureRoomMembership(roomData, requester)) {
+        return NextResponse.json({ success: false, error: 'Bạn không có quyền xóa phòng này' }, { status: 403 });
+      }
+      await remove(ref(database, `chatRooms/${roomIdToDelete}`));
+      await remove(ref(database, `chats/${roomIdToDelete}/messages`)).catch(() => {});
+      return NextResponse.json({ success: true, message: 'Đã xóa phòng chat' });
     }
 
-    if (!text || !sender || !senderId) {
-      return NextResponse.json({ error: 'Thiếu các trường bắt buộc' }, { status: 400 });
+    if (!text || !roomId) {
+      return NextResponse.json({ error: 'Thiếu roomId hoặc text' }, { status: 400 });
     }
 
-    const messagesRef = ref(database, `chats/${roomId || 'general'}/messages`);
+    const roomData = await fetchRoomData(roomId);
+    if (!roomData) {
+      return NextResponse.json({ error: 'Room không tồn tại' }, { status: 404 });
+    }
+    if (!ensureRoomMembership(roomData, requester)) {
+      return NextResponse.json({ error: 'Bạn không thể gửi tin trong phòng này' }, { status: 403 });
+    }
+
+    const messagesRef = ref(database, `chats/${roomId}/messages`);
     
     const newMessage = {
       text: text.trim(),
-      sender,
-      senderId,
+      sender: sender || requester,
+      senderId: requester,
       timestamp: serverTimestamp(),
       replyTo: replyTo || null,
     };
 
     await push(messagesRef, newMessage);
 
-    const roomRef = ref(database, `chatRooms/${roomId || 'general'}`);
-    
-    return new Promise<NextResponse>((resolve) => {
-      onValue(roomRef, async (snapshot) => {
-        const roomData = snapshot.val();
-        off(roomRef, 'value');
-        
-        if (roomData) {
-          await update(roomRef, { 
-            lastMessage: text.trim(),
-            lastMessageSender: senderId.toLowerCase()
-          });
-        }
-        
-        resolve(NextResponse.json({ success: true }));
-      }, (error) => {
-        off(roomRef, 'value');
-        resolve(NextResponse.json({ success: true }));
-      });
+    await update(ref(database, `chatRooms/${roomId}`), {
+      lastMessage: text.trim(),
+      lastMessageSender: requester,
+      lastMessageAt: serverTimestamp()
     });
-    } catch {
+
+    return NextResponse.json({ success: true });
+    } catch (error: any) {
       return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
     }
   });

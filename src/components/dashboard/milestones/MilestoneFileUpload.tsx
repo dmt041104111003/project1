@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { MilestoneFileUploadProps } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
+  jobId,
   milestoneId,
   canSubmit,
   isOverdue,
@@ -32,9 +34,9 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'milestone_evidence');
+      formData.append('jobId', String(jobId));
 
-      const { fetchWithAuth } = await import('@/utils/api');
-      const uploadRes = await fetchWithAuth('/api/ipfs/upload-file', {
+      const uploadRes = await fetchWithAuth('/api/ipfs/upload', {
         method: 'POST',
         body: formData
       });

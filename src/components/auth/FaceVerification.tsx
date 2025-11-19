@@ -252,7 +252,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ onVerified, 
                   formData.append("image", idCardFile);
                   formData.append("action", "upload_id_card");
 
-                  const response = await fetch("/api/face", {
+                  const response = await fetchWithAuth("/api/face", {
                     method: "POST",
                     body: formData
                   });

@@ -57,7 +57,7 @@ export const JobsContent: React.FC = () => {
       const results = await Promise.all(
         jobsNeedingLookup.map(async (job) => {
           try {
-            const res = await fetch(`/api/ipfs/job?cid=${encodeURIComponent(job.cid)}&freelancers=true`);
+            const res = await fetch(`/api/ipfs/job?jobId=${job.id}&freelancers=true`);
             if (!res.ok) {
               return [job.id, null] as const;
             }

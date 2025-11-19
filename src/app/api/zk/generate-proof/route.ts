@@ -3,9 +3,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { APTOS_NODE_URL} from "@/constants/contracts";
-
-const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
+import { CONTRACT_ADDRESS } from "@/constants/contracts";
+import { fetchContractResourceData, queryTableItem } from '@/app/api/onchain/_lib/tableClient';
 import { requireAuth } from '@/app/api/auth/_lib/helpers';
 
 const execAsync = promisify(exec);
@@ -35,6 +34,8 @@ function simpleHash(str: string): string {
 export async function POST(request: NextRequest) {
   return requireAuth(request, async (req, user) => {
     try {
+      const requester = (user.address || '').toLowerCase();
+      console.log('[ZK Proof] Request initiated by', requester);
       console.log('[ZK Proof] ========== Bắt đầu tạo ZK Proof ==========');
       const body: CCCDData = await req.json();
       console.log('[ZK Proof] Nhận được dữ liệu CCCD:', {
@@ -169,84 +170,50 @@ export async function POST(request: NextRequest) {
 
       console.log('[ZK Proof] Bắt đầu kiểm tra duplicate proof...');
       try {
-        const { CONTRACT_ADDRESS } = await import('@/constants/contracts');
-        const resourceType = `${CONTRACT_ADDRESS}::role::RoleStore`;
-        console.log('[ZK Proof] Lấy RoleStore resource...');
-        const resourceRes = await fetch(
-          `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`,
-          {
-            headers: {
-              'x-api-key': APTOS_API_KEY,
-              'Authorization': `Bearer ${APTOS_API_KEY}`
-            }
-          }
-        );
-
-        if (!resourceRes.ok) {
-          console.log('[ZK Proof] Không thể lấy RoleStore resource, tiếp tục');
+        const roleStore = await fetchContractResourceData('role::RoleStore');
+        const proofHashesHandle = roleStore?.proof_hashes?.handle;
+        
+        if (!proofHashesHandle) {
+          console.log('[ZK Proof] Không có proof_hashes table handle, tiếp tục');
         } else {
-          const resourceData = await resourceRes.json();
-          const proofHashesHandle = resourceData?.data?.proof_hashes?.handle;
+          const publicSignalsJson = JSON.stringify(publicSignals);
+          const publicSignalsBytes = new TextEncoder().encode(publicSignalsJson);
+          const publicSignalsHex = Array.from(publicSignalsBytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
           
-          if (!proofHashesHandle) {
-            console.log('[ZK Proof] Không có proof_hashes table handle, tiếp tục');
-          } else {
-            const publicSignalsJson = JSON.stringify(publicSignals);
-            const publicSignalsBytes = new TextEncoder().encode(publicSignalsJson);
-            const publicSignalsHex = Array.from(publicSignalsBytes)
-              .map(b => b.toString(16).padStart(2, '0'))
-              .join('');
-            
-            console.log('[ZK Proof] Querying proof_hashes table với public signals...');
-            console.log('[ZK Proof] Public signals hex length:', publicSignalsHex.length);
-            console.log('[ZK Proof] Public signals hex (first 50):', publicSignalsHex.substring(0, 50));
-            
-            const tableRes = await fetch(`${APTOS_NODE_URL}/v1/tables/${proofHashesHandle}/item`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': APTOS_API_KEY,
-                'Authorization': `Bearer ${APTOS_API_KEY}`
-              },
-              body: JSON.stringify({
-                key_type: `vector<u8>`,
-                value_type: 'address',
-                key: `0x${publicSignalsHex}`
-              })
-            });
+          console.log('[ZK Proof] Querying proof_hashes table với public signals...');
+          console.log('[ZK Proof] Public signals hex length:', publicSignalsHex.length);
+          console.log('[ZK Proof] Public signals hex (first 50):', publicSignalsHex.substring(0, 50));
+          
+          const tableData = await queryTableItem({
+            handle: proofHashesHandle,
+            keyType: 'vector<u8>',
+            valueType: 'address',
+            key: `0x${publicSignalsHex}`,
+          });
 
-            console.log('[ZK Proof] Table query response status:', tableRes.status);
+          if (tableData && tableData !== null) {
+            const existingAddress = tableData;
+            console.log('[ZK Proof] Proof đã tồn tại với địa chỉ:', existingAddress);
             
-            if (tableRes.ok) {
-              const tableData = await tableRes.json();
-              console.log('[ZK Proof] Table query response data:', JSON.stringify(tableData));
-              
-              if (tableData && tableData !== null) {
-                const existingAddress = tableData;
-                console.log('[ZK Proof] Proof đã tồn tại với địa chỉ:', existingAddress);
-                
-                try {
-                  await fs.unlink(uniqueInputPath);
-                  await fs.unlink(uniqueWitnessPath);
-                  await fs.unlink(uniqueProofPath);
-                  await fs.unlink(uniquePublicPath);
-                } catch {}
-                
-                return NextResponse.json(
-                  { 
-                    error: `Thông tin CCCD này đã được xác minh bởi địa chỉ khác (${existingAddress}). Vui lòng xác minh lại với thông tin khác hoặc liên hệ hỗ trợ.`,
-                    existing_address: existingAddress,
-                    requires_reauth: true
-                  },
-                  { status: 409 }
-                );
-              } else {
-                console.log('[ZK Proof] Proof chưa tồn tại trong table, có thể tiếp tục');
-              }
-            } else {
-              const errorText = await tableRes.text().catch(() => '');
-              console.log('[ZK Proof] Table query không tìm thấy:', tableRes.status, errorText);
-            }
+            try {
+              await fs.unlink(uniqueInputPath);
+              await fs.unlink(uniqueWitnessPath);
+              await fs.unlink(uniqueProofPath);
+              await fs.unlink(uniquePublicPath);
+            } catch {}
+            
+            return NextResponse.json(
+              { 
+                error: `Thông tin CCCD này đã được xác minh bởi địa chỉ khác (${existingAddress}). Vui lòng xác minh lại với thông tin khác hoặc liên hệ hỗ trợ.`,
+                existing_address: existingAddress,
+                requires_reauth: true
+              },
+              { status: 409 }
+            );
+          } else {
+            console.log('[ZK Proof] Proof chưa tồn tại trong table, có thể tiếp tục');
           }
         }
       } catch (error: any) {

@@ -1,12 +1,12 @@
 'use client';
 
 import { DisputesLayout } from '@/components/disputes/DisputesLayout';
-import { DisputesContentWithAuth } from '@/components/disputes/DisputesContentWithAuth';
+import { DisputesContent } from '@/components/disputes/DisputesContent';
 
 export default function DisputesPage() {
   return (
     <DisputesLayout>
-      <DisputesContentWithAuth />
+      <DisputesContent />
     </DisputesLayout>
   );
 }

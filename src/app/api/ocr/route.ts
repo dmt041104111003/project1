@@ -1,42 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/app/api/auth/_lib/helpers';
+
 const VERIFICATION_API_URL = process.env.VERIFICATION_API_URL || 'http://localhost:5000';
 
 export async function POST(request: NextRequest) {
   return requireAuth(request, async (req, user) => {
     try {
+      const requester = (user.address || '').toLowerCase();
+      console.debug('[OCR] Handling request for', requester);
+
       const formData = await req.formData();
-    const imageFile = formData.get('image') as File;
+      const imageFile = formData.get('image') as File | null;
 
-    if (!imageFile) {
-      return NextResponse.json(
-        { error: 'Không có ảnh' },
-        { status: 400 }
-      );
-    }
-    const pythonFormData = new FormData();
-    pythonFormData.append('image', imageFile);
-    const response = await fetch(`${VERIFICATION_API_URL}/ocr/extract`, {
-      method: 'POST',
-      body: pythonFormData,
-    });
+      if (!imageFile) {
+        return NextResponse.json(
+          { error: 'Không có ảnh' },
+          { status: 400 }
+        );
+      }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Lỗi OCR từ API Python' }));
-      return NextResponse.json(
-        { error: errorData.error || 'Lỗi OCR từ API Python' },
-        { status: response.status }
-      );
-    }
+      const pythonFormData = new FormData();
+      pythonFormData.append('image', imageFile);
+      const response = await fetch(`${VERIFICATION_API_URL}/ocr/extract`, {
+        method: 'POST',
+        body: pythonFormData,
+      });
 
-    const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Lỗi OCR từ API Python' }));
+        return NextResponse.json(
+          { error: errorData.error || 'Lỗi OCR từ API Python' },
+          { status: response.status }
+        );
+      }
 
-    if (!data.success || !data.data) {
-      return NextResponse.json(
-        { error: 'Không đọc được thông tin từ ảnh' },
-        { status: 500 }
-      );
-    }
+      const data = await response.json();
+
+      if (!data.success || !data.data) {
+        return NextResponse.json(
+          { error: 'Không đọc được thông tin từ ảnh' },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         id_number: data.data.id_number,
@@ -48,7 +53,6 @@ export async function POST(request: NextRequest) {
         expiry_status: data.data.expiry_status,
         expiry_message: data.data.expiry_message,
       });
-
     } catch (error: unknown) {
       console.error('OCR API Error:', error);
       return NextResponse.json(
@@ -58,4 +62,3 @@ export async function POST(request: NextRequest) {
     }
   });
 }
-

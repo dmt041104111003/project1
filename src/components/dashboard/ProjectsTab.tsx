@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
+
+const JOBS_PER_PAGE = 1;
 
 export const ProjectsTab: React.FC = () => {
   const { account } = useWallet();
@@ -15,8 +17,7 @@ export const ProjectsTab: React.FC = () => {
   const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeTab, setActiveTab] = useState<'posted' | 'applied'>('posted');
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     if (!account) {
@@ -26,7 +27,7 @@ export const ProjectsTab: React.FC = () => {
     }
     const checkRoles = async () => {
       try {
-        const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
+        const res = await fetch(`/api/role?address=${encodeURIComponent(account)}`);
         if (!res.ok) {
           setHasPosterRole(false);
           setHasFreelancerRole(false);
@@ -78,21 +79,37 @@ export const ProjectsTab: React.FC = () => {
         }
       });
 
-      const jobsWithMilestones = await Promise.all(
+      const jobsWithMetadata = await Promise.all(
         filteredJobs.map(async (job: Job) => {
+          let enrichedJob: Job = job;
           try {
-            const detailRes = await fetch(`/api/job/${job.id}`);
+            const [detailRes, cidRes] = await Promise.all([
+              fetch(`/api/job/${job.id}`),
+              fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`),
+            ]);
+
             if (detailRes.ok) {
               const detailData = await detailRes.json();
-              return { ...job, ...detailData.job };
+              enrichedJob = { ...enrichedJob, ...detailData.job };
+            }
+
+            if (cidRes.ok) {
+              const cidData = await cidRes.json();
+              if (cidData?.success) {
+                enrichedJob = {
+                  ...enrichedJob,
+                  decodedCid: cidData.cid,
+                  ipfsUrl: cidData.url,
+                };
+              }
             }
           } catch {
           }
-          return job;
+          return enrichedJob;
         })
       );
 
-      setJobs(jobsWithMilestones);
+      setJobs(jobsWithMetadata);
     } catch {
       setJobs([]);
     } finally {
@@ -106,6 +123,19 @@ export const ProjectsTab: React.FC = () => {
     }
   }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
+  const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
+  const displayedJobs = jobs.slice(
+    currentPage * JOBS_PER_PAGE,
+    (currentPage + 1) * JOBS_PER_PAGE
+  );
+
+  useEffect(() => {
+    const maxPageIndex = Math.max(0, Math.ceil(jobs.length / JOBS_PER_PAGE) - 1);
+    if (currentPage > maxPageIndex) {
+      setCurrentPage(maxPageIndex);
+    }
+  }, [jobs.length, currentPage]);
+
   if (!account) {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
@@ -113,9 +143,6 @@ export const ProjectsTab: React.FC = () => {
       </div>
     );
   }
-
-  const displayedJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -129,7 +156,7 @@ export const ProjectsTab: React.FC = () => {
           <button
             onClick={() => {
               setActiveTab('posted');
-              setCurrentPage(1);
+              setCurrentPage(0);
             }}
             className={`flex-1 py-2 px-4 font-bold transition-colors ${
               activeTab === 'posted'
@@ -144,7 +171,7 @@ export const ProjectsTab: React.FC = () => {
           <button
             onClick={() => {
               setActiveTab('applied');
-              setCurrentPage(1);
+              setCurrentPage(0);
             }}
             className={`flex-1 py-2 px-4 font-bold transition-colors ${
               activeTab === 'applied'
@@ -204,27 +231,18 @@ export const ProjectsTab: React.FC = () => {
                 />
               ))}
 
-              {jobs.length > pageSize && (
-                <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-300">
-                  <Button 
-                    variant="outline" 
-                    disabled={currentPage === 1} 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-                    className="!bg-white !text-black !border-2 !border-black py-2 px-4"
-                  >
-                    Trước
-                  </Button>
+              {jobs.length > JOBS_PER_PAGE && (
+                <div className="flex flex-col items-center gap-2 pt-4 border-t border-gray-300">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    showAutoPlay={false}
+                    showFirstLast
+                  />
                   <div className="text-sm text-gray-700">
-                    Trang {currentPage} / {totalPages}
+                    Trang {currentPage + 1} / {totalPages}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    disabled={currentPage >= totalPages} 
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-                    className="!bg-white !text-black !border-2 !border-black py-2 px-4"
-                  >
-                    Sau
-                  </Button>
                 </div>
               )}
             </>

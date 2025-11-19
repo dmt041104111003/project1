@@ -168,7 +168,7 @@ Các endpoints sau **không cần authentication** (thông tin công khai):
 
 ### Client Side (React)
 
-#### Cách 1: Sử dụng `fetchWithAuth()` (Khuyến nghị)
+#### Sử dụng `fetchWithAuth()` (Khuyến nghị)
 
 ```typescript
 import { fetchWithAuth } from '@/utils/api';
@@ -177,19 +177,19 @@ import { useWallet } from '@/contexts/WalletContext';
 function MyComponent() {
   const { account, connectWallet } = useWallet();
   
-  // Connect wallet (tự động sign message và lưu token)
+  // Connect wallet (tự động sign message và server set HttpOnly cookie)
   const handleLogin = async () => {
     await connectWallet();
   };
   
-  // Gọi API với JWT token tự động
+  // Gọi API với JWT token (HttpOnly cookie) + CSRF header tự động
   const callProtectedAPI = async () => {
     if (!account) {
       // User chưa login
       return;
     }
     
-    // fetchWithAuth tự động thêm JWT token vào header
+    // fetchWithAuth tự động gửi credentials và thêm header CSRF
     const response = await fetchWithAuth('/api/ipfs/upload', {
       method: 'POST',
       headers: {
@@ -202,30 +202,6 @@ function MyComponent() {
     });
     
     const data = await response.json();
-  };
-}
-```
-
-#### Cách 2: Sử dụng `getAuthToken()` thủ công
-
-```typescript
-import { useWallet } from '@/contexts/WalletContext';
-
-function MyComponent() {
-  const { account, getAuthToken, connectWallet } = useWallet();
-  
-  const callProtectedAPI = async () => {
-    const token = await getAuthToken();
-    if (!token) {
-      // User chưa login
-      return;
-    }
-    
-    const response = await fetch('/api/protected', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
   };
 }
 ```
@@ -270,10 +246,10 @@ export async function GET(request: NextRequest) {
 2. **Nonce Expiration** - Nonce hết hạn sau 5 phút
 3. **Replay Attack Protection** - Nonce bị xóa sau khi dùng (không thể dùng lại)
 4. **Cryptographic Verification** - Verify signature với Ed25519 (tweetnacl)
-5. **JWT Token** - Session token có expiration (7 ngày)
+5. **JWT Token** - Session token có expiration (7 ngày) lưu trong HttpOnly cookie
 6. **Address Normalization** - Tất cả address được lowercase để tránh case-sensitivity issues
 7. **Protected API Routes** - Các API routes quan trọng (upload, chat) yêu cầu JWT authentication
-8. **Automatic Token Injection** - `fetchWithAuth()` tự động thêm JWT token vào header, giảm lỗi quên token
+8. **Cookie + CSRF Protection** - JWT nằm trong HttpOnly cookie, `fetchWithAuth()` tự động gửi credentials và header CSRF
 
 ### Theo Petra Docs:
 
@@ -317,7 +293,7 @@ Hiện tại dùng in-memory Map với global variable để share state giữa 
 
 1. Kiểm tra user đã login chưa (có JWT token trong localStorage)
 2. Kiểm tra token có hết hạn chưa (JWT token hết hạn sau 7 ngày)
-3. Đảm bảo sử dụng `fetchWithAuth()` hoặc thêm `Authorization: Bearer <token>` vào header
+3. Đảm bảo sử dụng `fetchWithAuth()` để tự động gửi credentials + CSRF header
 4. Nếu token hết hạn, cần connect wallet lại để lấy token mới
 
 ### Lỗi khi upload file

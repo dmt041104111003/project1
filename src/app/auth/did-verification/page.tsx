@@ -2,11 +2,14 @@
 
 import DIDVerificationLayout from '@/components/auth/DIDVerificationLayout';
 import DIDActionsPanel from '@/components/auth/DIDActionsPanel';
+import { WalletConnectGate } from '@/components/common/WalletConnectGate';
 
 export default function DIDVerificationPage() {
   return (
     <DIDVerificationLayout>
-      <DIDActionsPanel />
+      <WalletConnectGate>
+        <DIDActionsPanel />
+      </WalletConnectGate>
     </DIDVerificationLayout>
   );
 }
