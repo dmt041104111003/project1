@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
 
       let metadata: Record<string, unknown> = { created_at: new Date().toISOString(), version: '1.0.0' };
     let fileName = 'metadata.json';
-      let responseExtras: Record<string, unknown> = {};
+      const responseExtras: Record<string, unknown> = {};
 
     if (type === 'job') {
         if (!(await ensureRole(ROLE_KIND.POSTER))) {

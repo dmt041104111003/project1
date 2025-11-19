@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       roomId, 
       text, 
       sender, 
-      senderId,
       replyTo,
       name,
       creatorAddress,
@@ -252,7 +251,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch {
       return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
     }
   });
