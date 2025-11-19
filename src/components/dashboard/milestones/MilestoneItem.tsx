@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
 import { MilestoneItemProps } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   milestone,
@@ -39,9 +40,12 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   onClaimDispute,
   disputeWinner,
   isClaimed = false,
+  interactionLocked = false,
 }) => {
   const [disputeUploading, setDisputeUploading] = useState(false);
   const [disputeSelectedFile, setDisputeSelectedFile] = useState<File | null>(null);
+  const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const statusStr = parseStatus(milestone.status);
@@ -99,6 +103,35 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
   };
 
+  useEffect(() => {
+    const decodeEvidence = async () => {
+      if (!evidence) {
+        setEvidenceUrl(null);
+        return;
+      }
+      try {
+        setLoadingEvidence(true);
+        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
+        if (!res.ok) {
+          setEvidenceUrl(null);
+          return;
+        }
+        const data = await res.json().catch(() => null);
+        if (data?.success && data.url) {
+          setEvidenceUrl(data.url);
+        } else {
+          setEvidenceUrl(null);
+        }
+      } catch {
+        setEvidenceUrl(null);
+      } finally {
+        setLoadingEvidence(false);
+      }
+    };
+
+    decodeEvidence();
+  }, [evidence]);
+
   const handleDisputeFileChange = async (file: File | null) => {
     if (!file) {
       setDisputeSelectedFile(null);
@@ -110,7 +143,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'dispute_evidence');
-      const uploadRes = await fetch('/api/ipfs/upload-file', { method: 'POST', body: formData });
+      formData.append('jobId', String(jobId));
+      const uploadRes = await fetchWithAuth('/api/ipfs/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
       if (!uploadRes.ok || !uploadData.success) {
         throw new Error(uploadData.error || 'Upload failed');
@@ -165,7 +199,21 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       {evidence && (
         <div className="mb-2 p-2 bg-white rounded border border-gray-300">
           <p className="text-xs text-gray-600 mb-1">Evidence CID:</p>
-          <p className="text-xs font-mono break-all">{evidence}</p>
+          <p className="text-xs font-mono break-all mb-1">{evidence}</p>
+          {loadingEvidence ? (
+            <p className="text-xs text-gray-500">Đang giải mã...</p>
+          ) : evidenceUrl ? (
+            <a
+              className="text-xs text-blue-700 underline break-all hover:text-blue-900"
+              href={evidenceUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Mở file bằng chứng
+            </a>
+          ) : (
+            <p className="text-xs text-red-500">Không thể giải mã CID</p>
+          )}
         </div>
       )}
 
@@ -179,6 +227,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       <div className="flex gap-2 flex-wrap">
         {isFreelancer && isPending && canInteract && (
           <MilestoneFileUpload
+            jobId={jobId}
             milestoneId={Number(milestone.id)}
             canSubmit={canSubmit}
             isOverdue={isOverdue}
@@ -186,13 +235,14 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             onSubmit={onSubmitMilestone}
             submitting={submitting}
             evidenceCid={evidenceCid}
+            interactionLocked={interactionLocked}
           />
         )}
 
         {isFreelancer && isSubmitted && reviewTimeout && canInteract && (
           <button
             onClick={() => onClaimTimeout(Number(milestone.id))}
-            disabled={claiming}
+            disabled={claiming || interactionLocked}
             className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-2 rounded border-2 border-orange-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {claiming ? 'Đang claim...' : 'Claim Timeout (Poster không phản hồi)'}
@@ -216,6 +266,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             onConfirm={() => onConfirmMilestone(Number(milestone.id))}
             onReject={() => onRejectMilestone(Number(milestone.id))}
             onClaimTimeout={() => onClaimTimeout(Number(milestone.id))}
+            interactionLocked={interactionLocked}
           />
         )}
 
@@ -229,7 +280,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 ) : (
                 <button
                   onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
-                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold"
+                  disabled={interactionLocked}
+                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Claim dispute {disputeWinner ? 'payment' : 'refund'}
                 </button>
@@ -253,7 +305,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                     accept="*/*"
                     title="Chọn file evidence để upload"
                     onChange={(e) => handleDisputeFileChange(e.target.files?.[0] || null)}
-                    disabled={disputeUploading}
+                    disabled={disputeUploading || interactionLocked}
                     className="w-full px-2 py-1 border border-gray-400 text-xs rounded text-gray-700 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </label>
@@ -269,7 +321,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 {!hasDisputeId && (
                   <button
                     onClick={() => onOpenDispute && onOpenDispute(Number(milestone.id))}
-                    disabled={openingDispute || !disputeEvidenceCid || disputeUploading}
+                    disabled={openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked}
                     className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-2 rounded border-2 border-red-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {openingDispute ? 'Đang mở dispute...' : 'Mở Dispute'}
@@ -278,7 +330,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 {hasDisputeId && (
                 <button
                   onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
-                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading}
+                  disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked}
                   className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-2 rounded border-2 border-blue-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}

@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Wallet } from 'lucide-react';
-import { useWallet } from '@/contexts/WalletContext';
+import { ArrowLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type DIDVerificationLayoutProps = {
@@ -17,8 +16,6 @@ export default function DIDVerificationLayout({
   title = "Đăng ký vai trò",
   subtitle = "Đăng ký vai trò của bạn để sử dụng các tính năng marketplace"
 }: DIDVerificationLayoutProps) {
-  const { account, connectWallet, isConnecting } = useWallet();
-
   const BackToHome = ({ size = "sm" }: { size?: "sm" | "lg" }) => (
     <Link href="/">
       <Button variant="outline" size={size} className="flex items-center gap-2">
@@ -27,31 +24,6 @@ export default function DIDVerificationLayout({
       </Button>
     </Link>
   );
-
-  if (!account) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-8 px-4">
-          <div className="max-w-4xl mx-auto">
-
-            <div className="text-center py-20 bg-white rounded-lg shadow-sm">
-              <div className="space-y-6">
-                <Wallet className="w-16 h-16 mx-auto text-gray-600" />
-                <h2 className="text-3xl font-bold text-blue-800">Yêu cầu kết nối ví</h2>
-                <p className="text-lg text-gray-700">Vui lòng kết nối ví Petra để tiếp tục</p>
-                <div className="flex justify-center gap-4">
-                  <Button variant="primary" size="lg" onClick={connectWallet} disabled={isConnecting}>
-                    {isConnecting ? 'Đang kết nối...' : 'Kết nối ví Petra'}
-                  </Button>
-                  <BackToHome size="lg" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

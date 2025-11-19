@@ -1,146 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, off } from 'firebase/database';
+import { ref, get } from 'firebase/database';
+import { requireAuth } from '@/app/api/auth/_lib/helpers';
+import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
 
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.FIREBASE_DATABASE_URL,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID
+const database = getFirebaseDatabase();
+
+const normalizeAddress = (addr?: string | null): string => {
+  if (!addr) return '';
+  const lower = addr.toLowerCase();
+  return lower.startsWith('0x') ? lower : `0x${lower}`;
 };
 
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+const fetchRoomData = async (roomId: string) => {
+  const snapshot = await get(ref(database, `chatRooms/${roomId}`));
+  return snapshot.exists() ? snapshot.val() : null;
+};
+
+const userIsMember = (roomData: any, address: string) => {
+  if (!roomData) return false;
+  const members = roomData?.members || {};
+  if (members[address] === true) return true;
+  const creatorAddress = normalizeAddress(roomData?.creatorAddress);
+  const participantAddress = normalizeAddress(roomData?.participantAddress);
+  const normalizedAddress = normalizeAddress(address);
+  return normalizedAddress === creatorAddress || normalizedAddress === participantAddress;
+};
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const roomId = searchParams.get('roomId');
-    const getRooms = searchParams.get('getRooms');
-    const getLastViewed = searchParams.get('getLastViewed');
-    const userAddress = searchParams.get('userAddress');
+  return requireAuth(request, async (req, user) => {
+    try {
+      const { searchParams } = new URL(req.url);
+      const roomId = searchParams.get('roomId');
+      const getRooms = searchParams.get('getRooms');
+      const getLastViewed = searchParams.get('getLastViewed');
+      const requestedUserAddress = searchParams.get('userAddress');
 
-    if (getRooms === 'true') {
-      const userAddressForRooms = searchParams.get('userAddress');
-      
-      if (!userAddressForRooms) {
-        return NextResponse.json({ error: 'User address is required' }, { status: 400 });
-      }
-      
-      return new Promise<NextResponse>((resolve) => {
-        const roomsRef = ref(database, 'chatRooms');
-        let resolved = false;
-        
-        const unsubscribe = onValue(roomsRef, (snapshot) => {
-          if (resolved) return;
-          resolved = true;
-          
-          const data = snapshot.val();
-          let rooms: Array<{
-            id: string;
-            name: string;
-            lastMessage: string;
-            lastMessageSender?: string;
-            lastMessageTime: number;
-            chatAccepted: boolean;
-            creatorAddress: string;
-            participantAddress: string;
-          }> = [];
-          
-          if (data) {
-            rooms = Object.entries(data)
-              .map(([id, room]) => {
-                const roomData = room as Record<string, unknown>;
-                return {
-                  id,
-                  name: roomData.name as string,
-                  lastMessage: roomData.lastMessage as string || '',
-                  lastMessageSender: roomData.lastMessageSender as string || '',
-                  lastMessageTime: 0,
-                  chatAccepted: roomData.chatAccepted as boolean,
-                  creatorAddress: roomData.creatorAddress as string,
-                  participantAddress: roomData.participantAddress as string || ''
-                };
-              })
-              .filter(room => 
-                room.creatorAddress.toLowerCase() === userAddressForRooms.toLowerCase() ||
-                (room.participantAddress && room.participantAddress.toLowerCase() === userAddressForRooms.toLowerCase())
-              );
-          }
-          
-          off(roomsRef, 'value');
-          resolve(NextResponse.json({ success: true, rooms }));
-        }, (error) => {
-          if (resolved) return;
-          resolved = true;
-          off(roomsRef, 'value');
-          resolve(NextResponse.json({ error: 'Không thể lấy danh sách phòng' }, { status: 500 }));
-        });
-      });
-    }
+      const requester = normalizeAddress(user.address);
 
-    if (getLastViewed === 'true' && userAddress && roomId) {
-      const lastViewedRef = ref(database, `chatLastViewed/${userAddress.toLowerCase()}/${roomId}`);
-      
-      return new Promise<NextResponse>((resolve) => {
-        onValue(lastViewedRef, (snapshot) => {
-          const data = snapshot.val();
-          off(lastViewedRef, 'value');
-          
-          resolve(NextResponse.json({ 
-            success: true, 
-            lastViewed: data || 0 
-          }));
-        });
-      });
-    }
-
-    const roomIdForMessages = roomId || 'general';
-    return new Promise<NextResponse>((resolve) => {
-      const messagesRef = ref(database, `chats/${roomIdForMessages}/messages`);
-      let resolved = false;
-      
-      onValue(messagesRef, (snapshot) => {
-        if (resolved) return;
-        resolved = true;
-        
-        const data = snapshot.val();
-        let messages: Array<{
-          id: string;
-          text: string;
-          sender: string;
-          timestamp: number;
-          senderId: string;
-          replyTo: string | null;
-        }> = [];
-        
-        if (data) {
-          messages = Object.entries(data).map(([id, message]) => ({
-            id,
-            text: (message as Record<string, unknown>).text as string,
-            sender: (message as Record<string, unknown>).sender as string,
-            timestamp: (message as Record<string, unknown>).timestamp as number,
-            senderId: (message as Record<string, unknown>).senderId as string,
-            replyTo: ((message as Record<string, unknown>).replyTo as string) || null,
-          }));
-          
-          messages.sort((a, b) => a.timestamp - b.timestamp);
+      if (getRooms === 'true') {
+        if (requestedUserAddress && normalizeAddress(requestedUserAddress) !== requester) {
+          return NextResponse.json({ error: 'Không thể xem phòng của user khác' }, { status: 403 });
         }
-        
-        off(messagesRef, 'value');
-        resolve(NextResponse.json({ messages }));
-      }, (error) => {
-        if (resolved) return;
-        resolved = true;
-        off(messagesRef, 'value');
-        resolve(NextResponse.json({ messages: [] }));
-      });
-    });
-  } catch {
-    return NextResponse.json({ error: 'Không thể lấy dữ liệu' }, { status: 500 });
-  }
+
+        const snapshot = await get(ref(database, 'chatRooms'));
+        const data = snapshot.val() || {};
+
+        const rooms = Object.entries<any>(data)
+          .filter(([, room]) => userIsMember(room, requester))
+          .map(([id, room]) => ({
+            id,
+            name: room?.name || '',
+            lastMessage: room?.lastMessage || '',
+            lastMessageSender: room?.lastMessageSender || '',
+            lastMessageTime: room?.lastMessageAt || 0,
+            chatAccepted: !!room?.chatAccepted,
+            creatorAddress: room?.creatorAddress || '',
+            participantAddress: room?.participantAddress || '',
+          }));
+
+        return NextResponse.json({ success: true, rooms });
+      }
+
+      if (getLastViewed === 'true') {
+        if (!roomId) {
+          return NextResponse.json({ error: 'roomId là bắt buộc' }, { status: 400 });
+        }
+        if (requestedUserAddress && normalizeAddress(requestedUserAddress) !== requester) {
+          return NextResponse.json({ error: 'Không thể lấy lastViewed của user khác' }, { status: 403 });
+        }
+        const snapshot = await get(ref(database, `chatLastViewed/${requester}/${roomId}`));
+        return NextResponse.json({
+          success: true,
+          lastViewed: snapshot.exists() ? snapshot.val() : 0,
+        });
+      }
+
+      if (!roomId) {
+        return NextResponse.json({ error: 'roomId là bắt buộc' }, { status: 400 });
+      }
+
+      const roomData = await fetchRoomData(roomId);
+      if (!roomData) {
+        return NextResponse.json({ error: 'Room không tồn tại' }, { status: 404 });
+      }
+      if (!userIsMember(roomData, requester)) {
+        return NextResponse.json({ error: 'Bạn không có quyền truy cập phòng này' }, { status: 403 });
+      }
+
+      const snapshot = await get(ref(database, `chats/${roomId}/messages`));
+      const data = snapshot.val() || {};
+      const messages = Object.entries<any>(data)
+        .map(([id, message]) => ({
+          id,
+          text: message?.text || '',
+          sender: message?.sender || '',
+          timestamp: Number(message?.timestamp || 0),
+          senderId: message?.senderId || '',
+          replyTo: message?.replyTo || null,
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      return NextResponse.json({ success: true, messages });
+    } catch (error: any) {
+      return NextResponse.json({ error: error?.message || 'Không thể lấy dữ liệu' }, { status: 500 });
+    }
+  });
 }

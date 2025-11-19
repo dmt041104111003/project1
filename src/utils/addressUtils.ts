@@ -19,3 +19,21 @@ export const copyAddress = async (address: string | null | undefined): Promise<v
   }
 };
 
+export const copyText = async (
+  text: string | null | undefined,
+  successMessage = 'Đã copy nội dung',
+  errorMessage = 'Không thể copy nội dung'
+): Promise<void> => {
+  if (text === undefined || text === null || text === '') {
+    toast.error(errorMessage);
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(successMessage);
+  } catch (err) {
+    toast.error(errorMessage);
+  }
+};
+

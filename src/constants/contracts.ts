@@ -1,7 +1,6 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
-export const APTOS_API_KEY = "aptoslabs_Y2EfW2Yac23_NBduCDuMf7QRqVdARDFFYQquo2mJi9HYA";
 export const CONTRACT_ADDRESS = "0x35efd12cc6311a16245671fb8855a10e282908f773ab019b830409bbba2d849a";
 
 export const ROLE_KIND = {

@@ -7,6 +7,8 @@ export interface LayoutProps {
 export interface Job {
   id: number;
   cid: string;
+  decodedCid?: string;
+  ipfsUrl?: string;
   poster: string;
   freelancer: string | null;
   total_amount: number;
@@ -87,6 +89,7 @@ export interface JobSidebarProps {
   hasFreelancerRole: boolean;
   applying: boolean;
   onApply: () => void;
+  latestFreelancerAddress?: string | null;
 }
 
 export interface JobIPFSContentProps {
@@ -126,9 +129,11 @@ export interface MilestoneItemProps {
   onClaimDispute?: (milestoneId: number) => void;
   disputeWinner?: boolean | null;
   isClaimed?: boolean;
+  interactionLocked?: boolean;
 }
 
 export interface MilestoneFileUploadProps {
+  jobId: number;
   milestoneId: number;
   canSubmit: boolean;
   isOverdue: boolean;
@@ -136,6 +141,7 @@ export interface MilestoneFileUploadProps {
   onSubmit: (milestoneId: number) => void;
   submitting: boolean;
   evidenceCid?: string;
+  interactionLocked?: boolean;
 }
 
 export interface MilestoneReviewActionsProps {
@@ -154,6 +160,7 @@ export interface MilestoneReviewActionsProps {
   onConfirm: () => void;
   onReject: () => void;
   onClaimTimeout: () => void;
+  interactionLocked?: boolean;
 }
 
 export interface MilestonesListProps {
@@ -240,3 +247,4 @@ export interface ManualJobFormProps {
   jobResult: string;
 }
 
+ 

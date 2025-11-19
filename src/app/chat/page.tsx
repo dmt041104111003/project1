@@ -1,12 +1,18 @@
 'use client';
 
 import { ChatLayout } from '@/components/chat/ChatLayout';
-import { ChatContentWithAuth } from '@/components/chat/ChatContentWithAuth';
+import { ChatContent } from '@/components/chat/ChatContent';
+import { WalletConnectGate } from '@/components/common/WalletConnectGate';
 
 export default function ChatPage() {
   return (
     <ChatLayout>
-      <ChatContentWithAuth />
+       <WalletConnectGate
+        title="Kết nối ví để truy cập Dashboard"
+        description="Vui lòng kết nối ví Petra để quản lý dự án và ứng viên."
+      >
+        <ChatContent />
+      </WalletConnectGate>
     </ChatLayout>
   );
 }

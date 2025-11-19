@@ -8,16 +8,14 @@ import { toast } from 'sonner';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
 
 const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`);
     if (!res.ok) return false;
     const data = await res.json();
     const rolesData = data.roles || [];
@@ -136,7 +134,7 @@ export const PostJobTab: React.FC = () => {
       setIsSubmitting(true);
       setJobResult('Đang tạo job...');
       
-      const ipfsRes = await fetch('/api/ipfs/upload', {
+      const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList })

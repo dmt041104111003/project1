@@ -28,6 +28,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   hasFreelancerRole,
   applying,
   onApply,
+  latestFreelancerAddress,
 }) => {
   if (!jobData) return null;
 
@@ -159,6 +160,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
 
   const stateStr = parseState(jobData.state);
   const freelancerAddr = getFreelancerAddr(jobData.freelancer);
+  const displayFreelancerAddr = freelancerAddr || latestFreelancerAddress || null;
   const isFreelancerOfJob = account && freelancerAddr 
     ? account.toLowerCase() === freelancerAddr.toLowerCase() 
     : false;
@@ -257,14 +259,14 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
             </div>
           )}
           
-          {jobData.freelancer && (
+          {displayFreelancerAddr && (
             <div>
-              <div className="text-xs text-gray-600 mb-1">Freelancer</div>
+              <div className="text-xs text-gray-600 mb-1">Người làm (mới nhất)</div>
               <div 
                 className="text-sm font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline break-all"
-                onClick={() => copyAddress(freelancerAddr)}
+                onClick={() => copyAddress(displayFreelancerAddr)}
               >
-                {formatAddress(freelancerAddr)}
+                {formatAddress(displayFreelancerAddr)}
               </div>
             </div>
           )}

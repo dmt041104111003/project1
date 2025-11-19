@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { DisputeData } from '@/constants/escrow';
+import { fetchWithAuth } from '@/utils/api';
+import { toast } from 'sonner';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export function useDisputes(account?: string | null) {
     if (!account) return;
     try {
       setCheckingRole(true);
-      const res = await fetch(`/api/role?address=${account}`);
+      const res = await fetchWithAuth(`/api/role?address=${account}`);
       if (!res.ok) {
         setIsReviewer(false);
         return;
@@ -47,13 +49,15 @@ export function useDisputes(account?: string | null) {
     }
   }, [account]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
+    const silent = options?.silent ?? true;
+    const skipLoading = options?.skipLoading ?? false;
     if (!isReviewer || !account) {
       setDisputes([]);
-      return;
+      return false;
     }
     try {
-      setLoading(true);
+      if (!skipLoading) setLoading(true);
       setErrorMsg('');
 
       const normalizeAddress = (addr?: string | null): string => {
@@ -159,10 +163,18 @@ export function useDisputes(account?: string | null) {
       }
 
       setDisputes(results);
+      if (!silent) {
+        toast.success('Đã làm mới danh sách tranh chấp');
+      }
+      return true;
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể tải tranh chấp');
+      if (!silent) {
+        toast.error(e?.message || 'Không thể tải tranh chấp');
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (!skipLoading) setLoading(false);
     }
   }, [isReviewer, account]);
 
@@ -171,7 +183,7 @@ export function useDisputes(account?: string | null) {
   }, [account, checkReviewerRole]);
 
   useEffect(() => { 
-    if (isReviewer) refresh(); 
+    if (isReviewer) refresh({ silent: true });
   }, [isReviewer, refresh]);
 
   const openDispute = useCallback(async () => {
@@ -204,7 +216,7 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh(), 2000);
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
@@ -219,7 +231,7 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh(), 2000);
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {

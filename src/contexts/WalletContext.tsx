@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { fetchWithAuth } from '@/utils/api';
 
 type WalletContextType = {
   account: string | null;
@@ -12,7 +12,9 @@ type WalletContextType = {
   disconnectWallet: () => void;
   accountType: 'aptos' | null;
   aptosNetwork: string | null;
-  getAuthToken: () => Promise<string | null>;
+  isAuthenticated: boolean;
+  isAuthReady: boolean;
+  refreshSession: () => Promise<void>;
 };
 
 type WalletEventListener = (network: string) => void;
@@ -28,39 +30,92 @@ const WalletContext = createContext<WalletContextType>({
   disconnectWallet: () => {},
   accountType: null,
   aptosNetwork: null,
-  getAuthToken: async () => null,
+  isAuthenticated: false,
+  isAuthReady: false,
+  refreshSession: async () => {},
 });
 
 export const useWallet = () => useContext(WalletContext);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
-  useSession();
   const [account, setAccount] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [accountType, setAccountType] = useState<'aptos' | null>(null);
   const [aptosNetwork, setAptosNetwork] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
 
-  useEffect(() => {
-    const savedAccount = localStorage.getItem('walletAccount');
-    if (savedAccount) {
-      setAccount(savedAccount);
-    }
-    const savedType = localStorage.getItem('walletType');
-    if (savedType === 'aptos') {
-      setAccountType('aptos');
-    }
-    const savedNetwork = localStorage.getItem('aptosNetwork');
-    if (savedNetwork) {
-      setAptosNetwork(savedNetwork);
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/session', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsAuthenticated(true);
+        if (data?.address) {
+          setAccount(data.address);
+          setAccountType('aptos');
+        }
+      } else {
+        setIsAuthenticated(false);
+        setAccount(null);
+        setAccountType(null);
+        setAptosNetwork(null);
+      }
+    } catch {
+      setIsAuthenticated(false);
+      setAccount(null);
+      setAccountType(null);
+      setAptosNetwork(null);
+    } finally {
+      setIsAuthReady(true);
     }
   }, []);
 
   useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSession();
+      }
+    };
+
+    window.addEventListener('focus', refreshSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshSession]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      refreshSession();
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, refreshSession]);
+
+  useEffect(() => {
     if (accountType === 'aptos' && window.aptos) {
-      const handleNetworkChange = (network: string) => {
+      const handleNetworkChange: WalletEventListener = (network) => {
         setAptosNetwork(network);
-        localStorage.setItem('aptosNetwork', network);
       };
       
       if (window.aptos.on) {
@@ -77,7 +132,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (window.aptos.network) {
         window.aptos.network().then((network: string) => {
           setAptosNetwork(network);
-          localStorage.setItem('aptosNetwork', network);
         });
       }
       
@@ -108,31 +162,65 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         const acc = await wallet.account();
         const network = await wallet.network();
-        setAccount(acc.address);
+        const address = acc.address.toLowerCase();
+        
+        const nonceRes = await fetch(`/api/auth/nonce?address=${encodeURIComponent(address)}`);
+        if (!nonceRes.ok) {
+          throw new Error('Không thể lấy nonce từ server');
+        }
+        const { nonce, message } = await nonceRes.json();
+        
+        if (!wallet.signMessage) {
+          throw new Error('Wallet không hỗ trợ sign message');
+        }
+        
+        const signResult = await wallet.signMessage({
+          message: message,
+          nonce: nonce,
+        });
+        
+        console.log('Sign result:', {
+          signature: signResult.signature?.substring(0, 20) + '...',
+          fullMessage: signResult.fullMessage,
+          message: signResult.message,
+          nonce: signResult.nonce,
+        });
+        
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            address: address,
+            signature: signResult.signature,
+            publicKey: acc.publicKey,
+            fullMessage: signResult.fullMessage,
+            message: signResult.message,
+            nonce: signResult.nonce,
+          }),
+        });
+        
+        if (!loginRes.ok) {
+          const error = await loginRes.json();
+          throw new Error(error.error || 'Đăng nhập thất bại');
+        }
+        
+        await loginRes.json();
+        
+        setAccount(address);
         setAccountType('aptos');
         setAptosNetwork(network);
-        localStorage.setItem('walletAccount', acc.address);
-        localStorage.setItem('walletType', 'aptos');
-        localStorage.setItem('aptosNetwork', network);
+        setIsAuthenticated(true);
+        setIsAuthReady(true);
+        await refreshSession();
         
-        try {
-          const result = await signIn('credentials', {
-            redirect: false,
-            address: acc.address,
-          });
-          
-          if (result?.error) {
-            throw new Error(result.error);
-          }
-          
-          if (result?.ok) {
-            router.push('/');
-          }
-        } catch {
-        }
-        toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${acc.address.slice(0, 6)}...${acc.address.slice(-4)}`);
-      } catch {
-        toast.error('Không thể kết nối ví Petra. Vui lòng thử lại.');
+        toast.success(`Đã kết nối ví Petra thành công! Địa chỉ: ${address.slice(0, 6)}...${address.slice(-4)}`);
+        router.push('/');
+      } catch (error: any) {
+        console.error('Connect wallet error:', error);
+        toast.error(error?.message || 'Không thể kết nối ví Petra. Vui lòng thử lại.');
       } finally {
         setIsConnecting(false);
       }
@@ -143,6 +231,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const disconnectWallet = async () => {
+    try {
+      await fetchWithAuth('/api/auth/logout', {
+        method: 'POST',
+      });
+    } catch {
+      // ignore
+    }
+
     if (accountType === 'aptos' && 'aptos' in window) {
       try {
         const wallet = window.aptos!;
@@ -153,22 +249,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
     
-    try {
-      await signOut({ redirect: false });
-    } catch {
-    }
-    
     setAccount(null);
     setAccountType(null);
     setAptosNetwork(null);
-    localStorage.removeItem('walletAccount');
-    localStorage.removeItem('walletType');
-    localStorage.removeItem('aptosNetwork');
-  };
-
-  const getAuthToken = async (): Promise<string | null> => {
-    if (!account) return null;
-    return account;
+    setIsAuthenticated(false);
   };
 
   return (
@@ -180,7 +264,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         disconnectWallet,
         accountType,
         aptosNetwork,
-        getAuthToken,
+        isAuthenticated,
+        isAuthReady,
+        refreshSession,
       }}
     >
       {children}
@@ -205,7 +291,23 @@ declare global {
         type_arguments: string[];
         arguments: unknown[];
       }) => Promise<{ hash: string }>;
-      signMessage?: (message: { message: string }) => Promise<string>;
+      signMessage?: (payload: { 
+        message: string;
+        nonce?: string;
+        address?: boolean;
+        application?: boolean;
+        chainId?: boolean;
+      }) => Promise<{
+        signature: string;
+        fullMessage: string;
+        message: string;
+        nonce: string;
+        address: string;
+        application: string;
+        chainId: number;
+        prefix: string;
+      }>;
     };
   }
 }
+

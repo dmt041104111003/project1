@@ -5,6 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { FaceVerification } from './FaceVerification';
 import { VerificationResultDisplay } from './VerificationResult';
+import { fetchWithAuth } from '@/utils/api';
 
 interface Role {
   name: string;
@@ -38,8 +39,11 @@ export default function DIDActionsPanel() {
     setLoadingRoles(true);
     
     Promise.all([
-      fetch(`/api/role?address=${encodeURIComponent(account)}`)
-        .then(res => res.json())
+      fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`)
+        .then(async res => {
+          if (!res.ok) throw new Error('Unauthorized');
+          return res.json();
+        })
         .then(data => {
           const userRoles = data.roles || [];
           setRoles(userRoles);
@@ -58,24 +62,10 @@ export default function DIDActionsPanel() {
       
       (async () => {
         try {
-          const { ROLE, APTOS_NODE_URL, APTOS_API_KEY } = await import('@/constants/contracts');
-          const res = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': APTOS_API_KEY,
-              'Authorization': `Bearer ${APTOS_API_KEY}`
-            },
-            body: JSON.stringify({
-              function: ROLE.HAS_PROOF,
-              type_arguments: [],
-              arguments: [account]
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const hasProof = Array.isArray(data) ? data[0] === true : data === true;
+          const proofRes = await fetchWithAuth(`/api/proof?address=${encodeURIComponent(account)}`);
+          if (proofRes.ok) {
+            const proofData = await proofRes.json();
+            const hasProof = proofData?.success && !!proofData?.proof;
             setFaceVerified(hasProof);
             if (hasProof) {
               setShowFaceVerification(false);
@@ -104,7 +94,7 @@ export default function DIDActionsPanel() {
     setMessage('Đang tạo ZK proof...');
     
     try {
-      const zkRes = await fetch('/api/zk/generate-proof', {
+      const zkRes = await fetchWithAuth('/api/zk/generate-proof', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +140,7 @@ export default function DIDActionsPanel() {
       if (role && (role === 'freelancer' || role === 'poster') && desc.trim()) {
         setMessage('Đang tải CID lên IPFS...');
         try {
-          const ipfsRes = await fetch('/api/ipfs/upload', {
+          const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'profile', about: desc })
@@ -185,6 +175,8 @@ export default function DIDActionsPanel() {
     setIdInfo(null);
   };
 
+  const roleRegistered = role && roles.some(r => r.name === role);
+
   const handleRegister = async () => {
     if (!role || !window.aptos || !account) return;
 
@@ -192,25 +184,12 @@ export default function DIDActionsPanel() {
     setMessage('Đang kiểm tra proof...');
     
     try {
-      // Check xem địa chỉ đã có proof chưa
-      const { ROLE, APTOS_NODE_URL, APTOS_API_KEY } = await import('@/constants/contracts');
-      const checkProofRes = await fetch(`${APTOS_NODE_URL}/v1/view`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': APTOS_API_KEY,
-          'Authorization': `Bearer ${APTOS_API_KEY}`
-        },
-        body: JSON.stringify({
-          function: ROLE.HAS_PROOF,
-          type_arguments: [],
-          arguments: [account]
-        })
-      });
+      let cidForTx = uploadedCid;
 
-      if (checkProofRes.ok) {
-        const proofData = await checkProofRes.json();
-        const hasProof = Array.isArray(proofData) ? proofData[0] === true : proofData === true;
+      const proofCheckRes = await fetchWithAuth(`/api/proof?address=${encodeURIComponent(account)}`);
+      if (proofCheckRes.ok) {
+        const proofJson = await proofCheckRes.json();
+        const hasProof = proofJson?.success && !!proofJson?.proof;
         
         if (!hasProof) {
           setMessage('Vui lòng xác minh danh tính trước khi đăng ký vai trò.');
@@ -218,10 +197,12 @@ export default function DIDActionsPanel() {
           return;
         }
       } else {
-        console.warn('Không thể kiểm tra proof, tiếp tục đăng ký...');
+        setMessage('Không thể kiểm tra trạng thái proof. Vui lòng thử lại.');
+        setLoading(false);
+        return;
       }
 
-      if ((role === 'freelancer' || role === 'poster') && !uploadedCid) {
+      if ((role === 'freelancer' || role === 'poster') && !cidForTx) {
         if (!desc.trim()) {
           setMessage('Vui lòng điền mô tả trước khi đăng ký vai trò này.');
           setLoading(false);
@@ -230,7 +211,7 @@ export default function DIDActionsPanel() {
         
         setMessage('Đang tải CID lên IPFS...');
         try {
-          const ipfsRes = await fetch('/api/ipfs/upload', {
+          const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'profile', about: desc })
@@ -243,6 +224,7 @@ export default function DIDActionsPanel() {
           if (!cid) {
             throw new Error('CID là bắt buộc cho freelancer và poster');
           }
+          cidForTx = cid;
           setUploadedCid(cid);
         } catch (error: any) {
           setMessage(error?.message || 'Lỗi khi tải CID lên IPFS');
@@ -256,10 +238,14 @@ export default function DIDActionsPanel() {
       const { roleHelpers } = await import('@/utils/contractHelpers');
       
       let payload;
+      if ((role === 'freelancer' || role === 'poster') && !cidForTx) {
+        throw new Error('Không tìm thấy CID để đăng ký vai trò.');
+      }
+
       if (role === 'freelancer') {
-        payload = roleHelpers.registerFreelancer(uploadedCid);
+        payload = roleHelpers.registerFreelancer(cidForTx);
       } else if (role === 'poster') {
-        payload = roleHelpers.registerPoster(uploadedCid);
+        payload = roleHelpers.registerPoster(cidForTx);
       } else if (role === 'reviewer') {
         payload = roleHelpers.registerReviewer();
       } else {
@@ -276,7 +262,7 @@ export default function DIDActionsPanel() {
       setUploadedCid('');
       
       setLoadingRoles(true);
-      const refreshRes = await fetch(`/api/role?address=${encodeURIComponent(account!)}`);
+      const refreshRes = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account!)}`);
       const refreshData = await refreshRes.json();
       setRoles(refreshData.roles || []);
       setLoadingRoles(false);
@@ -374,7 +360,9 @@ export default function DIDActionsPanel() {
             
             {role !== 'reviewer' && (
               <div>
-                <label className="block text-sm font-bold text-gray-900 mb-1">Mô tả</label>
+                <label className="block text-sm font-bold text-gray-900 mb-1">
+                  {roleRegistered ? 'Thông tin hiện tại' : 'Mô tả'}
+                </label>
                 <textarea
                   className="w-full px-3 py-2 border border-gray-400 bg-white text-sm"
                   rows={3}
@@ -386,15 +374,21 @@ export default function DIDActionsPanel() {
               </div>
             )}
             
-            <Button
-              className="w-full"
-              size="sm"
-              variant="outline"
-              onClick={handleRegister}
-              disabled={loading || !role}
-            >
-              {loading ? 'Đang xử lý...' : 'Đăng ký vai trò'}
-            </Button>
+            {role && (role !== 'reviewer' || !roleRegistered) && (
+              <Button
+                className="w-full"
+                size="sm"
+                variant="outline"
+                onClick={handleRegister}
+                disabled={loading || !role}
+              >
+                {loading
+                  ? 'Đang xử lý...'
+                  : roleRegistered && role !== 'reviewer'
+                    ? 'Cập nhật thông tin'
+                    : 'Đăng ký vai trò'}
+              </Button>
+            )}
           </div>
         </>
       )}

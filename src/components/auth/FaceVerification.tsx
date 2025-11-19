@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/utils/api';
 
 interface FaceVerificationProps {
   onVerified: (sessionId: string, idInfo: any) => void;
@@ -42,7 +43,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ onVerified, 
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch("/api/ocr", {
+      const response = await fetchWithAuth("/api/ocr", {
         method: "POST",
         body: formData
       });
@@ -251,7 +252,7 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ onVerified, 
                   formData.append("image", idCardFile);
                   formData.append("action", "upload_id_card");
 
-                  const response = await fetch("/api/face", {
+                  const response = await fetchWithAuth("/api/face", {
                     method: "POST",
                     body: formData
                   });

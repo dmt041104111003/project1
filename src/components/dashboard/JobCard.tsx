@@ -101,7 +101,20 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       </div>
       
       <div className="space-y-2">
-        <p className="text-xs text-gray-600 break-all">CID: {job.cid}</p>
+        <div className="text-xs text-gray-600 break-all">
+          <span className="font-semibold">{job.decodedCid ? 'CID (đã giải mã):' : 'CID:'}</span>{' '}
+          {job.decodedCid || job.cid}
+          {job.ipfsUrl && (
+            <a
+              href={job.ipfsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-2 text-blue-700 underline hover:text-blue-900"
+            >
+              Mở metadata
+            </a>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
           <div>
             <span className="font-bold">Người đăng:</span>{' '}

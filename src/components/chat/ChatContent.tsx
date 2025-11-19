@@ -9,6 +9,7 @@ import { CreateRoomForm } from './parts/CreateRoomForm';
 import { ChatPanel } from './parts/ChatPanel';
 import { RoomList } from './parts/RoomList';
 import { DeleteConfirm } from './parts/DeleteConfirm';
+import { fetchWithAuth } from '@/utils/api';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
 
@@ -46,7 +47,7 @@ const ChatContentInner: React.FC = () => {
 
   const handleAcceptRoom = async (roomId: string) => {
     try {
-      const response = await fetch('/api/chat/messages/post', {
+      const response = await fetchWithAuth('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,7 +74,7 @@ const ChatContentInner: React.FC = () => {
     try {
       const actualRoomId = selectedRoom || 'general';
       
-      const response = await fetch('/api/chat/messages/delete', {
+      const response = await fetchWithAuth('/api/chat/messages/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +107,7 @@ const ChatContentInner: React.FC = () => {
     const finalName = `${shortId} ${newName.trim()}`;
     
     try {
-      const response = await fetch('/api/chat/messages/post', {
+      const response = await fetchWithAuth('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,7 +133,7 @@ const ChatContentInner: React.FC = () => {
 
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      const response = await fetch('/api/chat/messages/post', {
+      const response = await fetchWithAuth('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -186,7 +187,7 @@ const ChatContentInner: React.FC = () => {
     if (!account) return;
     
     try {
-      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${account}`);
+      const response = await fetchWithAuth(`/api/chat/messages?getRooms=true&userAddress=${account}`);
       const data = await response.json();
       
       if (data.success && data.rooms) {
@@ -238,29 +239,12 @@ const ChatContentInner: React.FC = () => {
         return;
       }
 
-      const creatorAddr = account.toLowerCase();
-      const creatorProofRes = await fetch(`/api/proof?address=${creatorAddr}`);
-      const creatorProofData = await creatorProofRes.json();
-      
-      if (!creatorProofData.success || !creatorProofData.proof) {
-        setCreateRoomError('Bạn chưa có proof. Vui lòng xác minh DID trước khi tạo phòng chat.');
-        setIsCreatingRoom(false);
-        return;
-      }
-      const participantProofRes = await fetch(`/api/proof?address=${participantAddr}`);
-      const participantProofData = await participantProofRes.json();
-      
-      if (!participantProofData.success || !participantProofData.proof) {
-        setCreateRoomError('Người dùng này chưa có proof. Chỉ có thể tạo phòng với người đã xác minh DID.');
-        setIsCreatingRoom(false);
-        return;
-      }
       const roomPayload = {
         name: newRoomName.trim(),
         creatorAddress: account,
         participantAddress: participantAddr
       };
-      const roomResponse = await fetch('/api/chat/messages/post', {
+      const roomResponse = await fetchWithAuth('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roomPayload)

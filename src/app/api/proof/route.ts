@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ROLE, APTOS_NODE_URL, APTOS_API_KEY, CONTRACT_ADDRESS } from '@/constants/contracts';
+import { CONTRACT_ADDRESS } from "@/constants/contracts";
+import { fetchContractResourceData, queryTableItem } from "@/app/api/onchain/_lib/tableClient";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,28 +14,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Query proof từ table thay vì view function
-    // Lấy table handle từ RoleStore
-    const resourceType = `${CONTRACT_ADDRESS}::role::RoleStore`;
-    const resourceRes = await fetch(
-      `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`,
-      {
-        headers: {
-          'x-api-key': APTOS_API_KEY,
-          'Authorization': `Bearer ${APTOS_API_KEY}`
-        }
-      }
-    );
-
-    if (!resourceRes.ok) {
-      return NextResponse.json(
-        { success: false, error: 'Không thể lấy RoleStore resource' },
-        { status: 500 }
-      );
-    }
-
-    const resourceData = await resourceRes.json();
-    const proofsHandle = resourceData?.data?.proofs?.handle;
+    const roleStore = await fetchContractResourceData('role::RoleStore');
+    const proofsHandle = roleStore?.proofs?.handle;
 
     if (!proofsHandle) {
       return NextResponse.json({
@@ -44,34 +25,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Query proof từ table
-    const tableRes = await fetch(`${APTOS_NODE_URL}/v1/tables/${proofsHandle}/item`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': APTOS_API_KEY,
-        'Authorization': `Bearer ${APTOS_API_KEY}`
-      },
-      body: JSON.stringify({
-        key_type: 'address',
-        value_type: `${CONTRACT_ADDRESS}::role::CCCDProof`,
-        key: address
-      })
+    const proofStruct = await queryTableItem({
+      handle: proofsHandle,
+      keyType: 'address',
+      valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
+      key: address
     });
 
-    if (!tableRes.ok) {
-      const errorText = await tableRes.text().catch(() => '');
-      console.error('Table query error:', tableRes.status, errorText);
-      // Nếu không tìm thấy (404 hoặc không có proof)
-      return NextResponse.json({
-        success: true,
-        proof: null,
-        message: 'Địa chỉ này chưa có proof'
-      });
-    }
-
-    const proofStruct = await tableRes.json();
-    
     if (!proofStruct) {
       return NextResponse.json({
         success: true,
@@ -82,11 +42,9 @@ export async function GET(request: NextRequest) {
 
     console.log('Proof struct:', JSON.stringify(proofStruct, null, 2));
 
-    // Decode proof và public_signals từ vector<u8> về JSON
     const decodeVectorU8 = (vec: any): any => {
       if (!vec) return null;
       
-      // Nếu là array of numbers (vector<u8>)
       if (Array.isArray(vec)) {
         try {
           const jsonString = String.fromCharCode(...vec).replace(/\0/g, '');
@@ -96,13 +54,10 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Nếu là string (hex hoặc base64)
       if (typeof vec === 'string') {
         try {
-          // Thử parse trực tiếp nếu là JSON string
           return JSON.parse(vec);
         } catch {
-          // Thử decode từ hex
           if (vec.startsWith('0x')) {
             const hexString = vec.slice(2);
             const bytes: number[] = [];
@@ -153,4 +108,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

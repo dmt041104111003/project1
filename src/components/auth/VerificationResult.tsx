@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/utils/api';
 
 interface VerificationResult {
   success: boolean;
@@ -120,7 +121,7 @@ export const VerificationResultDisplay: React.FC<VerificationResultProps> = ({
       formData.append("session_id", sessionId);
 
       const startTime = Date.now();
-      const response = await fetch("/api/face", {
+      const response = await fetchWithAuth("/api/face", {
         method: "POST",
         body: formData
       });
