@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { SegmentedTabs } from '@/components/ui';
 import { useWallet } from '@/contexts/WalletContext';
 import { useDisputes } from './useDisputes';
 import { DisputeItem } from './DisputeItem';
@@ -54,28 +55,15 @@ export const DisputesContent: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-300">
-        <button
-          onClick={() => setActiveTab('current')}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
-            activeTab === 'current'
-              ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Tranh chấp đang xử lý
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 text-sm font-bold transition-colors ${
-            activeTab === 'history'
-              ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Lịch sử đã tham gia
-        </button>
-      </div>
+      <SegmentedTabs
+        stretch
+        tabs={[
+          { value: 'current', label: 'Tranh chấp đang xử lý' },
+          { value: 'history', label: 'Lịch sử đã tham gia' },
+        ]}
+        activeTab={activeTab}
+        onChange={(value) => setActiveTab(value as 'current' | 'history')}
+      />
 
       {errorMsg && <div className="p-2 bg-red-100 text-red-800 text-sm border border-red-300">{errorMsg}</div>}
 

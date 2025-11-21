@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PostJobTab } from './PostJobTab';
 import { ProjectsTab } from './ProjectsTab';
 import { useRoles } from '@/contexts/RolesContext';
+import { SegmentedTabs } from '@/components/ui';
 
 type TabType = 'post' | 'projects';
 
@@ -44,31 +44,29 @@ export const DashboardContent: React.FC = () => {
         <p className="text-lg text-gray-700">Quản lý dự án và người làm tự do của bạn</p>
       </div>
 
-      <Tabs className="w-full">
-        <TabsList 
-          className="flex w-full mb-6"
-          activeTab={activeTab}
-          setActiveTab={(value) => setActiveTab(value as TabType)}
-        >
-          {hasPosterRole && <TabsTrigger value="post">Đăng Dự Án</TabsTrigger>}
-          {(hasPosterRole || hasFreelancerRole) && <TabsTrigger value="projects">Dự Án</TabsTrigger>}
-        </TabsList>
+      <SegmentedTabs
+        stretch
+        className="w-full mb-6"
+        tabs={[
+          ...(hasPosterRole ? [{ value: 'post' as TabType, label: 'Đăng Dự Án' }] : []),
+          ...((hasPosterRole || hasFreelancerRole)
+            ? [{ value: 'projects' as TabType, label: 'Dự Án' }]
+            : []),
+        ]}
+        activeTab={activeTab}
+        onChange={(value) => setActiveTab(value as TabType)}
+      />
 
-        {hasPosterRole && (
-          <TabsContent value="post">
-            <PostJobTab hasPosterRole={hasPosterRole} />
-          </TabsContent>
-        )}
+      {activeTab === 'post' && hasPosterRole && (
+        <PostJobTab hasPosterRole={hasPosterRole} />
+      )}
 
-        {(hasPosterRole || hasFreelancerRole) && (
-          <TabsContent value="projects">
-            <ProjectsTab
-              hasPosterRole={hasPosterRole}
-              hasFreelancerRole={hasFreelancerRole}
-            />
-          </TabsContent>
-        )}
-      </Tabs>
+      {activeTab === 'projects' && (hasPosterRole || hasFreelancerRole) && (
+        <ProjectsTab
+          hasPosterRole={hasPosterRole}
+          hasFreelancerRole={hasFreelancerRole}
+        />
+      )}
     </>
   );
 };
