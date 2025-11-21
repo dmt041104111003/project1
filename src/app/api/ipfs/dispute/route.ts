@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
-import { fetchContractResourceData, queryTableItem } from '@/app/api/onchain/_lib/tableClient';
+import { fetchContractResource, queryTableItem, getDisputeData } from '@/lib/aptosClient';
+import { parseOptionString, parseAddressVector } from '@/lib/aptosParsers';
 
 const decryptCid = async (value: string): Promise<string> => {
 	if (!value?.startsWith('enc:')) return value;
@@ -15,21 +15,6 @@ const decryptCid = async (value: string): Promise<string> => {
 	}
 };
 
-const parseOptionString = (data: any): string | null => {
-	if (!data) return null;
-	if (typeof data === 'string') return data;
-	if (typeof data === 'object' && data?.vec && data.vec.length > 0) return data.vec[0];
-	return null;
-};
-
-const parseAddressVector = (data: any): string[] => {
-	if (!data) return [];
-	if (Array.isArray(data)) return data.filter((item) => typeof item === 'string');
-	if (typeof data === 'object' && data?.vec && Array.isArray(data.vec)) {
-		return data.vec.filter((item: any) => typeof item === 'string');
-	}
-	return [];
-};
 
 const normalizeAddress = (addr?: string | null): string => {
 	if (!addr) return '';
@@ -41,65 +26,57 @@ const normalizeAddress = (addr?: string | null): string => {
 };
 
 export async function GET(request: NextRequest) {
-	return requireAuth(request, async (req, user) => {
-		const { searchParams } = new URL(req.url);
-		const cidParam = searchParams.get('cid');
-		const disputeIdParam = searchParams.get('disputeId');
-		const role = (searchParams.get('role') || '').toLowerCase();
-		const side = (searchParams.get('side') || '').toLowerCase();
-		const decodeOnly = searchParams.get('decodeOnly') === 'true';
+	const { searchParams } = new URL(request.url);
+	const cidParam = searchParams.get('cid');
+	const disputeIdParam = searchParams.get('disputeId');
+	const role = (searchParams.get('role') || '').toLowerCase();
+	const side = (searchParams.get('side') || '').toLowerCase();
+	const decodeOnly = searchParams.get('decodeOnly') === 'true';
+	const requesterAddress = searchParams.get('address');
 
-		if (!disputeIdParam) {
-			return NextResponse.json({ success: false, error: 'disputeId là bắt buộc' }, { status: 400 });
-		}
+	if (!disputeIdParam) {
+		return NextResponse.json({ success: false, error: 'disputeId là bắt buộc' }, { status: 400 });
+	}
 
-		const disputeId = Number(disputeIdParam);
-		if (!Number.isFinite(disputeId) || disputeId <= 0) {
-			return NextResponse.json({ success: false, error: 'disputeId không hợp lệ' }, { status: 400 });
-		}
+	const disputeId = Number(disputeIdParam);
+	if (!Number.isFinite(disputeId) || disputeId <= 0) {
+		return NextResponse.json({ success: false, error: 'disputeId không hợp lệ' }, { status: 400 });
+	}
 
-		const isReviewerRole = role === 'reviewer';
+	const isReviewerRole = role === 'reviewer';
 
-		if (role !== 'poster' && role !== 'freelancer' && !isReviewerRole) {
-			return NextResponse.json(
-				{ success: false, error: 'role phải là poster, freelancer hoặc reviewer' },
-				{ status: 400 },
-			);
-		}
+	if (role !== 'poster' && role !== 'freelancer' && !isReviewerRole) {
+		return NextResponse.json(
+			{ success: false, error: 'role phải là người thuê, người làm tự do hoặc người đánh giá' },
+			{ status: 400 },
+		);
+	}
 
-		if (isReviewerRole && side !== 'poster' && side !== 'freelancer') {
-			return NextResponse.json(
-				{ success: false, error: 'Reviewer cần chỉ định side=poster hoặc side=freelancer' },
-				{ status: 400 },
-			);
-		}
+	if (isReviewerRole && side !== 'poster' && side !== 'freelancer') {
+		return NextResponse.json(
+			{ success: false, error: 'Người đánh giá cần chỉ định side=người thuê hoặc side=người làm tự do' },
+			{ status: 400 },
+		);
+	}
 
-		const disputeStore = await fetchContractResourceData('dispute::DisputeStore');
-		const storeHandle = disputeStore?.table?.handle || null;
-		if (!storeHandle) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy DisputeStore' }, { status: 500 });
-		}
+	const dispute = await getDisputeData(disputeId);
+	if (!dispute) {
+		return NextResponse.json({ success: false, error: 'Không tìm thấy tranh chấp' }, { status: 404 });
+	}
 
-		const dispute = await queryTableItem({
-			handle: storeHandle,
-			keyType: 'u64',
-			valueType: `${CONTRACT_ADDRESS}::dispute::Dispute`,
-			key: disputeId,
-		});
-		if (!dispute) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy tranh chấp' }, { status: 404 });
-		}
-
-		const posterAddr = normalizeAddress(dispute?.poster);
-		const freelancerAddr = normalizeAddress(dispute?.freelancer);
-		const requester = normalizeAddress(user.address);
+	const posterAddr = normalizeAddress(dispute?.poster);
+	const freelancerAddr = normalizeAddress(dispute?.freelancer);
+	const requester = normalizeAddress(requesterAddress);
+	if (!requester) {
+		return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+	}
 
 		let storedCid: string | null = null;
 
 		if (role === 'poster') {
 			if (requester !== posterAddr) {
 				return NextResponse.json(
-					{ success: false, error: 'Bạn không phải poster của tranh chấp này' },
+					{ success: false, error: 'Bạn không phải người thuê của tranh chấp này' },
 					{ status: 403 },
 				);
 			}
@@ -107,7 +84,7 @@ export async function GET(request: NextRequest) {
 		} else if (role === 'freelancer') {
 			if (requester !== freelancerAddr) {
 				return NextResponse.json(
-					{ success: false, error: 'Bạn không phải freelancer của tranh chấp này' },
+					{ success: false, error: 'Bạn không phải người làm tự do của tranh chấp này' },
 					{ status: 403 },
 				);
 			}
@@ -149,8 +126,7 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ success: false, error: 'Không tìm thấy' }, { status: 404 });
 		}
 
-		const data = await res.json();
-		return NextResponse.json({ success: true, cid: decryptedCid, data });
-	});
+	const data = await res.json();
+	return NextResponse.json({ success: true, cid: decryptedCid, data });
 }
 

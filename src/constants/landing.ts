@@ -10,44 +10,44 @@ export const NAVIGATION = [
 export const HOW_IT_WORKS_STEPS = [
   {
     id: 1,
-    title: "Xác minh danh tính với ZK Proof",
-    description: "Upload CCCD, xác minh khuôn mặt với AI, tạo ZK proof để đảm bảo mỗi người chỉ có 1 ví",
+    title: "Xác minh danh tính với xác minh không kiến thức",
+    description: "Upload CCCD, xác minh khuôn mặt với AI, tạo xác minh không kiến thức để đảm bảo mỗi người chỉ có 1 ví",
     icon: "shield-check"
   },
   {
     id: 2,
     title: "Đăng ký vai trò",
-    description: "Chọn vai trò Freelancer, Poster hoặc Reviewer và upload hồ sơ lên IPFS",
+    description: "Chọn vai trò Người làm tự do, Người thuê hoặc Người đánh giá và upload hồ sơ lên IPFS",
     icon: "user-circle"
   },
   {
     id: 3,
-    title: "Tạo job với milestones",
-    description: "Poster tạo job, chia thành nhiều milestones, gửi tiền vào escrow và đặt cọc",
+    title: "Tạo công việc với cột mốc",
+    description: "Người thuê tạo công việc, chia thành nhiều cột mốc, gửi tiền vào ký quỹ và đặt cọc",
     icon: "briefcase"
   },
   {
     id: 4,
-    title: "Apply & Đặt cọc",
-    description: "Freelancer ứng tuyển, đặt cọc 1 APT để cam kết và bắt đầu làm việc",
+    title: "Ứng tuyển & Đặt cọc",
+    description: "Người làm tự do ứng tuyển, đặt cọc 1 APT để cam kết và bắt đầu làm việc",
     icon: "hand-raised"
   },
   {
     id: 5,
-    title: "Submit & Review milestones",
-    description: "Freelancer nộp bài từng milestone, Poster duyệt hoặc từ chối. Mỗi milestone được accept = +1 điểm uy tín",
+    title: "Nộp & Đánh giá cột mốc",
+    description: "Người làm tự do nộp bài từng cột mốc, Người thuê duyệt hoặc từ chối. Mỗi cột mốc được chấp nhận = +1 điểm uy tín",
     icon: "document-check"
   },
   {
     id: 6,
     title: "Thanh toán tự động",
-    description: "Khi milestone được accept, tiền tự động chuyển từ escrow đến Freelancer",
+    description: "Khi milestone được accept, tiền tự động chuyển từ ký quỹ đến Người làm tự do",
     icon: "currency-dollar"
   },
   {
     id: 7,
     title: "Giải quyết tranh chấp",
-    description: "Nếu có tranh chấp, phân cấp 3 reviewer uy tín đã xác minh sẽ bỏ phiếu để quyết định",
+    description: "Nếu có tranh chấp, phân cấp 3 người đánh giá uy tín đã xác minh sẽ bỏ phiếu để quyết định",
     icon: "scale"
   }
 ];
@@ -57,23 +57,23 @@ export const PERSONAS = {
   poster: {
     title: "Bạn là khách hàng?",
     benefits: [
-      "Bảo vệ thanh toán 100% qua escrow với milestones",
-      "Chỉ làm việc với freelancer đã xác minh danh tính (ZK proof)",
-      "Kiểm soát từng milestone, duyệt hoặc từ chối trước khi thanh toán",
-      "Giải quyết tranh chấp công bằng với 3 reviewer đã xác minh",
+      "Bảo vệ thanh toán 100% qua ký quỹ với cột mốc",
+      "Chỉ làm việc với người làm tự do đã xác minh danh tính (xác minh không kiến thức)",
+      "Kiểm soát từng cột mốc, duyệt hoặc từ chối trước khi thanh toán",
+      "Giải quyết tranh chấp công bằng với 3 người đánh giá đã xác minh",
       "Xây dựng uy tín qua hệ thống điểm danh tiếng"
     ],
     cta: "Đăng công việc",
     icon: "plus"
   },
   freelancer: {
-    title: "Bạn là freelancer?",
+    title: "Bạn là người làm tự do?",
     benefits: [
-      "Thanh toán tự động khi milestone được accept",
-      "Xác minh danh tính một lần với ZK proof, dùng cho mọi vai trò",
-      "Nhận thanh toán từng milestone, không cần chờ job hoàn thành",
-      "Xây dựng uy tín qua điểm danh tiếng (mỗi milestone +1 điểm)",
-      "Tham gia giải quyết tranh chấp với vai trò Reviewer để kiếm thêm điểm"
+      "Thanh toán tự động khi cột mốc được chấp nhận",
+      "Xác minh danh tính một lần với xác minh không kiến thức, dùng cho mọi vai trò",
+      "Nhận thanh toán từng cột mốc, không cần chờ công việc hoàn thành",
+      "Xây dựng uy tín qua điểm danh tiếng (mỗi cột mốc +1 điểm)",
+      "Tham gia giải quyết tranh chấp với vai trò Người đánh giá để kiếm thêm điểm"
     ],
     cta: "Tạo hồ sơ",
     icon: "user"
@@ -108,27 +108,27 @@ export const FAQS = [
   },
   {
     question: "Escrow hoạt động như thế nào?",
-    answer: "Khi Poster tạo job, họ chia thành nhiều milestones và gửi tiền vào escrow. Freelancer apply và đặt cọc 1 APT. Khi Freelancer submit milestone, Poster có thể accept hoặc reject. Nếu accept, tiền tự động chuyển từ escrow đến Freelancer và cả 2 bên nhận +1 điểm uy tín. Nếu reject, chuyển sang tranh chấp."
+    answer: "Khi Người thuê tạo công việc, họ chia thành nhiều cột mốc và gửi tiền vào ký quỹ. Người làm tự do ứng tuyển và đặt cọc 1 APT. Khi Người làm tự do nộp cột mốc, Người thuê có thể chấp nhận hoặc từ chối. Nếu chấp nhận, tiền tự động chuyển từ ký quỹ đến Người làm tự do và cả 2 bên nhận +1 điểm uy tín. Nếu từ chối, chuyển sang tranh chấp."
   },
   {
     question: "Phí là bao nhiêu?",
-    answer: "Poster trả 1.2 APT phí khi tạo job (ngoài tiền escrow và stake 1 APT). Freelancer trả 0.1 APT phí khi apply job (ngoài stake 1 APT). Không có phí ẩn hoặc phí đăng ký."
+    answer: "Người thuê trả 1.2 APT phí khi tạo công việc (ngoài tiền ký quỹ và cọc 1 APT). Người làm tự do trả 0.1 APT phí khi ứng tuyển công việc (ngoài cọc 1 APT). Không có phí ẩn hoặc phí đăng ký."
   },
   {
     question: "Tranh chấp được giải quyết như thế nào?",
-    answer: "Khi Poster reject milestone, hệ thống tự động chọn 3 reviewer đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi reviewer bỏ phiếu. Nếu 2/3 reviewer đồng ý, quyết định được thực thi tự động. Reviewer vote đúng +2 điểm, vote sai -1 điểm."
+    answer: "Khi Người thuê reject milestone, hệ thống tự động chọn 3 người đánh giá đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi người đánh giá bỏ phiếu. Nếu 2/3 người đánh giá đồng ý, quyết định được thực thi tự động. Người đánh giá vote đúng +2 điểm, vote sai -1 điểm."
   },
   {
     question: "Khi nào tôi có thể nhận thanh toán?",
-    answer: "Freelancer nhận thanh toán ngay khi milestone được accept. Tiền tự động chuyển từ escrow đến ví của Freelancer. Không cần chờ job hoàn thành, mỗi milestone được thanh toán độc lập."
+    answer: "Người làm tự do nhận thanh toán ngay khi cột mốc được chấp nhận. Tiền tự động chuyển từ ký quỹ đến ví của Người làm tự do. Không cần chờ công việc hoàn thành, mỗi cột mốc được thanh toán độc lập."
   },
   {
     question: "Hệ thống điểm uy tín hoạt động như thế nào?",
-    answer: "Mỗi milestone được accept = +1 điểm cho cả Freelancer và Poster. Job hoàn thành = không có điểm thêm (vì đã cộng điểm từng milestone). Thắng tranh chấp = +2 điểm, thua = -1 điểm. Reviewer vote đúng = +2 điểm, vote sai = -1 điểm. Điểm uy tín giúp bạn được ưu tiên trong disputes và tăng độ tin cậy."
+    answer: "Mỗi cột mốc được chấp nhận = +1 điểm cho cả Người làm tự do và Người thuê. Công việc hoàn thành = không có điểm thêm (vì đã cộng điểm từng cột mốc). Thắng tranh chấp = +2 điểm, thua = -1 điểm. Người đánh giá bỏ phiếu đúng = +2 điểm, bỏ phiếu sai = -1 điểm. Điểm uy tín giúp bạn được ưu tiên trong tranh chấp và tăng độ tin cậy."
   },
   {
     question: "Tôi có thể đăng ký nhiều vai trò không?",
-    answer: "Có, bạn có thể đăng ký cả 3 vai trò: Freelancer, Poster và Reviewer. Mỗi vai trò chỉ đăng ký 1 lần. Bạn chỉ cần xác minh danh tính 1 lần với ZK proof, sau đó có thể đăng ký nhiều vai trò."
+    answer: "Có, bạn có thể đăng ký cả 3 vai trò: Người làm tự do, Người thuê và Người đánh giá. Mỗi vai trò chỉ đăng ký 1 lần. Bạn chỉ cần xác minh danh tính 1 lần với xác minh không kiến thức, sau đó có thể đăng ký nhiều vai trò."
   }
 ];
 
@@ -155,12 +155,12 @@ export const FOOTER_LINKS = {
 export const HERO_DATA = {
   title: "Marketplace2vn",
   subtitle: "Nền tảng Freelancer Web3",
-  description: "Marketplace phi tập trung với xác minh danh tính bằng ZK Proof, escrow với milestones, và giải quyết tranh chấp công bằng. Mỗi người chỉ có 1 ví, mỗi milestone được thanh toán tự động.",
-  primaryCta: "Đăng Job với Escrow",
-  secondaryCta: "Xác Minh & Nhận Job",
+  description: "Marketplace phi tập trung với xác minh danh tính bằng xác minh không kiến thức, ký quỹ với cột mốc, và giải quyết tranh chấp công bằng. Mỗi người chỉ có 1 ví, mỗi cột mốc được thanh toán tự động.",
+  primaryCta: "Đăng Công việc với Ký quỹ",
+  secondaryCta: "Xác Minh & Nhận Công việc",
   trustIndicators: [
-    { label: "Xác minh ZK Proof", icon: "shield-check" },
-    { label: "Escrow với Milestones", icon: "lock-closed" },
+    { label: "Xác minh không kiến thức", icon: "shield-check" },
+    { label: "Ký quỹ với Cột mốc", icon: "lock-closed" },
     { label: "Thanh toán tự động", icon: "currency-dollar" }
   ]
 };

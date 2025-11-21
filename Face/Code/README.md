@@ -5,7 +5,7 @@ API Flask để xử lý OCR và Face Verification với anti-spoofing.
 ## Thư viện sử dụng
 
 - **Flask**: https://github.com/pallets/flask
-- **PaddleOCR**: https://github.com/PaddlePaddle/PaddleOCR
+- **RapidOCR**: https://github.com/RapidAI/RapidOCR
 - **DeepFace**: https://github.com/serengil/deepface
 - **OpenCV**: https://github.com/opencv/opencv
 - **PyTorch**: https://github.com/pytorch/pytorch
@@ -50,7 +50,7 @@ Verify khuôn mặt từ webcam
 
 ## Tài liệu
 
-- PaddleOCR: https://github.com/PaddlePaddle/PaddleOCR/blob/main/README.md
+- RapidOCR: https://github.com/RapidAI/RapidOCR
 - DeepFace: https://github.com/serengil/deepface
 - Silent-Face-Anti-Spoofing: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing
 - Flask: https://flask.palletsprojects.com/
@@ -58,7 +58,5 @@ Verify khuôn mặt từ webcam
 
 ## Lưu ý
 
-- Code tự động xử lý conflict protobuf giữa TensorFlow và PaddlePaddle
-- PaddleOCR cấu hình `ir_optim=False` để tránh lỗi OneDNN
-- Lần đầu chạy PaddleOCR sẽ tải models (mất vài phút)
+- Lần đầu chạy RapidOCR sẽ tải models (mất vài phút)
 

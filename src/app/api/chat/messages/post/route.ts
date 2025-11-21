@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, push, serverTimestamp, update, remove, get, set } from 'firebase/database';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
-import { fetchContractResourceData, queryTableItem } from '@/app/api/onchain/_lib/tableClient';
+import { fetchContractResource, queryTableItem } from '@/lib/aptosClient';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
 const database = getFirebaseDatabase();
@@ -34,7 +33,7 @@ let cachedProofHandle: string | null | undefined;
 
 const getProofHandle = async (): Promise<string | null> => {
   if (cachedProofHandle === undefined) {
-    const roleStore = await fetchContractResourceData('role::RoleStore');
+    const roleStore = await fetchContractResource('role::RoleStore');
     cachedProofHandle = roleStore?.proofs?.handle || null;
   }
   return cachedProofHandle ?? null;
@@ -53,11 +52,12 @@ const hasProof = async (address: string): Promise<boolean> => {
 };
 
 export async function POST(request: NextRequest) {
-  return requireAuth(request, async (req, user) => {
-    try {
-      const { 
+  try {
+    const body = await request.json();
+    const {
       roomId, 
-      text, 
+      text,
+      address: userAddress,
       sender, 
       replyTo,
       name,
@@ -72,11 +72,13 @@ export async function POST(request: NextRequest) {
       newName,
       updateLastViewed,
       roomIdForLastViewed,
-      userAddress,
       lastViewedTimestamp
-      } = await req.json();
+    } = body;
 
-    const requester = normalizeAddress(user.address);
+    const requester = normalizeAddress(userAddress);
+    if (!requester) {
+      return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+    }
 
     if (name && creatorAddress) {
       const creatorAddr = normalizeAddress(creatorAddress);
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
       ]);
 
       if (!creatorHasProof) {
-        return NextResponse.json({ success: false, error: 'Bạn chưa có proof. Vui lòng xác minh DID trước.' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.' }, { status: 403 });
       }
       if (!participantHasProof) {
         return NextResponse.json({ success: false, error: 'Người nhận chưa có proof. Không thể tạo phòng.' }, { status: 400 });
@@ -251,9 +253,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-    } catch {
-      return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
-    }
-  });
+  } catch {
+    return NextResponse.json({ error: 'Không thể gửi tin nhắn' }, { status: 500 });
+  }
 }
 

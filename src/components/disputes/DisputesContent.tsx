@@ -21,6 +21,26 @@ export const DisputesContent: React.FC = () => {
     resolveToFreelancer,
   } = useDisputes(account);
 
+  if (!account) {
+    return (
+      <div className="space-y-6">
+        <Card variant="outlined" className="p-6 text-sm text-gray-700">
+          Vui lòng kết nối ví để truy cập trang tranh chấp.
+        </Card>
+      </div>
+    );
+  }
+
+  if (!checkingRole && !isReviewer) {
+    return (
+      <div className="space-y-6">
+        <Card variant="outlined" className="p-6 text-sm text-gray-700">
+          Bạn cần đăng ký vai trò Người đánh giá để xem và bỏ phiếu tranh chấp.
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

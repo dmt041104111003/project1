@@ -25,15 +25,9 @@ export const JobsContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const res = await fetch('/api/job?list=true');
-        const data = await res.json();
-        
-        if (!res.ok) {
-          throw new Error(data.error || `HTTP ${res.status}: Không thể tải danh sách công việc`);
-        }
-        
-        const jobsList = data.jobs || [];
-        setJobs(jobsList);
+        const { getJobsList } = await import('@/lib/aptosClient');
+        const { jobs } = await getJobsList();
+        setJobs(jobs || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Không thể tải danh sách công việc');
       } finally {
@@ -171,7 +165,7 @@ export const JobsContent: React.FC = () => {
                                displayState === 'Completed' ? 'Hoàn thành' :
                                displayState === 'Disputed' ? 'Tranh chấp' :
                                displayState === 'Cancelled' ? 'Đã hủy' :
-                               displayState === 'CancelledByPoster' ? 'Đã hủy bởi người đăng' :
+                               displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
                                displayState || 'Hoạt động';
             
             return (
@@ -186,7 +180,7 @@ export const JobsContent: React.FC = () => {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="text-lg font-bold text-blue-800">Job #{job.id}</h3>
+                      <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
                       <p className="text-sm text-gray-700">
                         {typeof job.total_amount === 'number' 
                           ? `${(job.total_amount / 100_000_000).toFixed(2)} APT` 
@@ -212,7 +206,7 @@ export const JobsContent: React.FC = () => {
                   
                   <div className="space-y-2 pt-2 border-t border-gray-200 mt-auto">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-700">Người đăng:</span>
+                      <span className="text-gray-700">Người thuê:</span>
                       <span 
                         className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
                         onClick={(e) => {

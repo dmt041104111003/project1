@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -8,32 +8,23 @@ import { toast } from 'sonner';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
 
-const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
-  try {
-    const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    const rolesData = data.roles || [];
-    return rolesData.some((r: { name: string }) => r.name === 'poster');
-  } catch {
-    return false;
-  }
-};
+interface PostJobTabProps {
+  hasPosterRole: boolean;
+}
 
-export const PostJobTab: React.FC = () => {
+export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
   const { account } = useWallet();
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
   const [jobDurationUnit, setJobDurationUnit] = useState<'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng'>('ngày');
   const [jobResult, setJobResult] = useState('');
-  const [posterStatus, setPosterStatus] = useState('');
-  const [canPostJobs, setCanPostJobs] = useState(false);
+  const posterStatus = hasPosterRole ? 'Bạn có role Người thuê.' : 'Bạn chưa có role Người thuê. Vào trang Role để đăng ký.';
+  const canPostJobs = Boolean(account) && hasPosterRole;
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<MilestoneForm[]>([]);
   const [currentSkill, setCurrentSkill] = useState('');
@@ -41,16 +32,6 @@ export const PostJobTab: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!account) return;
-    const check = async () => {
-      const hasPoster = await checkPosterRoleFromTable(account);
-      setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-      setCanPostJobs(hasPoster);
-    };
-    check();
-  }, [account]);
 
   const addSkill = () => {
     const trimmed = currentSkill.trim();
@@ -106,12 +87,9 @@ export const PostJobTab: React.FC = () => {
       setJobResult('Vui lòng kết nối ví!');
       return;
     }
-    
-    const hasPoster = await checkPosterRoleFromTable(account);
-    if (!hasPoster) {
-      setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-      setCanPostJobs(false);
-      setJobResult('Bạn không có quyền đăng job. Vui lòng đăng ký role Poster trước!');
+
+    if (!hasPosterRole) {
+      setJobResult('Bạn không có quyền đăng công việc. Vui lòng đăng ký role Người thuê trước!');
       return;
     }
 
@@ -134,10 +112,21 @@ export const PostJobTab: React.FC = () => {
       setIsSubmitting(true);
       setJobResult('Đang tạo job...');
       
-      const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
+      if (!account) {
+        toast.error('Vui lòng kết nối ví trước');
+        return;
+      }
+      
+      const ipfsRes = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList })
+        body: JSON.stringify({ 
+          address: account,
+          type: 'job', 
+          title: jobTitle, 
+          description: jobDescription, 
+          requirements: skillsList 
+        })
       });
       const ipfsData = await ipfsRes.json();
       if (!ipfsData.success) throw new Error(ipfsData.error);

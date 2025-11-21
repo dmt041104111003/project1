@@ -53,26 +53,27 @@ export const JobDetailContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const jobRes = await fetch(`/api/job/${jobId}`);
-        if (!jobRes.ok) {
+        const { getParsedJobData } = await import('@/lib/aptosClient');
+        const jobData = await getParsedJobData(Number(jobId));
+        
+        if (!jobData) {
           throw new Error('Job not found');
         }
         
-        const jobResData = await jobRes.json();
-        setJobData(jobResData.job);
+        setJobData(jobData);
         
         const res = await fetch(`/api/ipfs/job?jobId=${jobId}`);
         const data = await res.json();
         
         if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch job details from IPFS');
+          throw new Error(data.error || 'Không thể tải chi tiết công việc từ IPFS');
         }
         
         if (data.data) {
           setJobDetails(data.data);
         }
       } catch (err: unknown) {
-        const errorMsg = (err as Error).message || 'Failed to fetch job details';
+        const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';
         setError(errorMsg);
         toast.error(errorMsg);
       } finally {
@@ -89,17 +90,15 @@ export const JobDetailContent: React.FC = () => {
       return;
     }
     (async () => {
-      const { fetchWithAuth } = await import('@/utils/api');
-      const res = await fetchWithAuth(`/api/role?address=${encodeURIComponent(account)}`);
-      const data = await res.json();
-      const rolesData = data.roles || [];
-      setHasFreelancerRole(rolesData.some((r: any) => r.name === 'freelancer'));
+      const { getUserRoles } = await import('@/lib/aptosClient');
+      const { roles } = await getUserRoles(account);
+      setHasFreelancerRole(roles.some((r: any) => r.name === 'freelancer'));
     })().catch(() => setHasFreelancerRole(false));
   }, [account]);
 
   const handleApply = async () => {
     if (!account || !hasFreelancerRole || !jobId) {
-      toast.error('Bạn cần có role Freelancer để apply job. Vui lòng đăng ký role Freelancer trước!');
+      toast.error('Bạn cần có role Người làm tự do để ứng tuyển công việc. Vui lòng đăng ký role Người làm tự do trước!');
       return;
     }
 
@@ -111,7 +110,7 @@ export const JobDetailContent: React.FC = () => {
       
       const wallet = (window as any).aptos;
       if (!wallet) {
-        throw new Error('Wallet not found. Please connect your wallet first.');
+        throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
       }
       
       const tx = await wallet.signAndSubmitTransaction(payload);
@@ -274,10 +273,10 @@ export const JobDetailContent: React.FC = () => {
                         )}
                         {reviewDeadline > 0 && (
                           <div>
-                            <div className="text-xs text-gray-600 mb-1">Deadline review</div>
+                            <div className="text-xs text-gray-600 mb-1">Hạn đánh giá</div>
                             <div className={`font-medium ${reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' ? 'text-orange-600' : 'text-gray-900'}`}>
                               {formatDeadline(reviewDeadline)}
-                              {reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' && ' (Có thể claim timeout)'}
+                              {reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' && ' (Có thể yêu cầu hết hạn)'}
                             </div>
                           </div>
                         )}

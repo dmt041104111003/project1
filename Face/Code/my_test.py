@@ -35,27 +35,71 @@ def test(image, model_dir, device_id):
     model_test = AntiSpoofPredict(device_id)
     image_cropper = CropImage()
     
-
-    #image = cv2.imread(image_name)
-    # if image is None:
-    #     print(f"Error: Cannot read image: {image_name}")
-    #     return
+    original_image = image.copy()
+    image_bbox = model_test.get_bbox(original_image)
+    if image_bbox is None or len(image_bbox) != 4:
+        print("Failed to detect face!")
+        return None
     
-    # Resize ảnh theo yêu cầu (3:4)
-    image = cv2.resize(image, (int(image.shape[0] * 3 / 4), image.shape[0]))
+    x, y, w, h = image_bbox
+    x2 = x + w
+    y2 = y + h
     
-    result = check_image(image)
-    if result is False:
-        return
+    if w <= 0 or h <= 0:
+        print(f"Invalid bbox! width={w}, height={h} must be > 0")
+        return None
     
-    image_bbox = model_test.get_bbox(image)
+    if x < 0 or y < 0 or x2 > original_image.shape[1] or y2 > original_image.shape[0]:
+        print(f"Bbox out of bounds! Image shape: {original_image.shape}, bbox: {image_bbox}")
+        x = max(0, x)
+        y = max(0, y)
+        x2 = min(original_image.shape[1], x2)
+        y2 = min(original_image.shape[0], y2)
+        w = x2 - x
+        h = y2 - y
+        image_bbox = [x, y, w, h]
+        print(f"Clamped bbox to: {image_bbox}")
+    
+    img_height, img_width = original_image.shape[0], original_image.shape[1]
+    face_area_ratio = (w * h) / (img_width * img_height)
+    
+    print(f"Detected face bbox: {image_bbox} (x={x}, y={y}, w={w}, h={h}, x2={x2}, y2={y2})")
+    print(f"Face area ratio: {face_area_ratio:.2%}")
+    
+    if face_area_ratio < 0.05:
+        print(f"WARNING: Face very small ({face_area_ratio:.2%}). Model may be less accurate, but continuing...")
+    elif face_area_ratio > 0.80:
+        print(f"WARNING: Face very large ({face_area_ratio:.2%}). Model may be less accurate, but continuing...")
+    
+    face_roi = original_image[y:y2, x:x2]
+    gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
+    mean_brightness = np.mean(gray_roi)
+    
+    if mean_brightness < 50:
+        face_roi = cv2.convertScaleAbs(face_roi, alpha=1.3, beta=30)
+        print(f"Enhanced brightness (was {mean_brightness:.1f})")
+    elif mean_brightness > 200:
+        face_roi = cv2.convertScaleAbs(face_roi, alpha=0.8, beta=-20)
+        print(f"Reduced brightness (was {mean_brightness:.1f})")
+    
+    enhanced_image = original_image.copy()
+    enhanced_image[y:y2, x:x2] = face_roi
+    
     prediction = np.zeros((1, 3))
     test_speed = 0
+    model_count = 0
+    
+    print(f"Original image stats: min={original_image.min()}, max={original_image.max()}, dtype={original_image.dtype}")
     
     for model_name in os.listdir(model_dir):
+        if not model_name.endswith('.pth'):
+            continue
+            
         h_input, w_input, model_type, scale = parse_model_name(model_name)
+        print(f"Processing model: {model_name}, scale: {scale}, output size: {w_input}x{h_input}")
+        
         param = {
-            "org_img": image,
+            "org_img": enhanced_image,
             "bbox": image_bbox,
             "scale": scale,
             "out_w": w_input,
@@ -64,14 +108,41 @@ def test(image, model_dir, device_id):
         }
         if scale is None:
             param["crop"] = False
+        
         img = image_cropper.crop(**param)
+        print(f"Cropped patch shape: {img.shape}, min={img.min()}, max={img.max()}")
+        
         start = time.time()
-        prediction += model_test.predict(img, os.path.join(model_dir, model_name))
+        pred = model_test.predict(img, os.path.join(model_dir, model_name))
+        print(f"Model {model_name} prediction: {pred[0]}")
+        prediction += pred
         test_speed += time.time() - start
+        model_count += 1
+
+    if model_count == 0:
+        print("No models found in model_dir!")
+        return None
+    
+    prediction = prediction / model_count
 
     label = np.argmax(prediction)
-    value = prediction[0][label] / 2
-    print(f"Prediction label: {label}, value: {value}")
+    value = prediction[0][label]
+    
+    print(f"Final prediction - Label: {label}, Confidence: {value:.4f}")
+    print(f"All scores: [REAL={prediction[0][0]:.6f}, PAPER={prediction[0][1]:.6f}, DIGITAL={prediction[0][2]:.6f}]")
+    
+    real_score = prediction[0][0]
+    paper_score = prediction[0][1]
+    digital_score = prediction[0][2]
+    
+    print(f"Model prediction - REAL: {real_score:.6f}, PAPER: {paper_score:.6f}, DIGITAL: {digital_score:.6f}")
+    print(f"Original label: {label} (0=REAL, 1=PAPER, 2=DIGITAL)")
+    
+    if label == 0 or label == 1:
+        print(f"Accepting label {label} as REAL (0=REAL, 1=PAPER both acceptable)")
+        return 0
+    else:
+        print(f"Rejecting label {label} (DIGITAL SPOOF)")
     return label
 
 

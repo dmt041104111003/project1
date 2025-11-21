@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DisputeItemProps } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
   const key = `${dispute.jobId}:${dispute.milestoneIndex}`;
@@ -37,7 +36,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           side,
           decodeOnly: 'true',
         });
-        const res = await fetchWithAuth(`/api/ipfs/dispute?${params.toString()}`);
+        const res = await fetch(`/api/ipfs/dispute?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.url) {
@@ -66,7 +65,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
   return (
     <Card variant="outlined" className="p-4">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-blue-800 font-bold">Job #{dispute.jobId} — Cột mốc {dispute.milestoneIndex}</div>
+        <div className="text-blue-800 font-bold">Công việc #{dispute.jobId} — Cột mốc {dispute.milestoneIndex}</div>
         <div className="text-xs text-gray-600">{dispute.openedAt || ''}</div>
       </div>
       <div className="text-sm text-gray-700 mb-2">
@@ -75,7 +74,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
             Đã giải quyết
             {dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
               <span className="ml-2 text-xs">
-                ({dispute.disputeWinner ? 'Freelancer thắng' : 'Poster thắng'})
+                ({dispute.disputeWinner ? 'Người làm tự do thắng' : 'Người thuê thắng'})
               </span>
             )}
           </span>
@@ -88,7 +87,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
         <div className="mb-3 text-xs text-gray-700">
           {dispute.posterEvidenceCid && (
             <div className="mb-2">
-              Bằng chứng của Poster:{' '}
+              Bằng chứng của Người thuê:{' '}
               {loadingPoster ? (
                 <span className="text-gray-500">Đang tải...</span>
               ) : posterEvidenceUrl ? (
@@ -107,7 +106,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           )}
           {dispute.freelancerEvidenceCid && (
             <div>
-              Bằng chứng của Freelancer:{' '}
+              Bằng chứng của Người làm tự do:{' '}
               {loadingFreelancer ? (
                 <span className="text-gray-500">Đang tải...</span>
               ) : freelancerEvidenceUrl ? (
@@ -128,7 +127,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       )}
       {dispute.status === 'resolved' ? (
         <div className="text-sm text-green-700 font-bold">
-          ✓ Dispute đã được giải quyết. Bên thắng có thể claim payment/refund.
+          ✓ Tranh chấp đã được giải quyết. Bên thắng có thể yêu cầu thanh toán/hoàn tiền.
         </div>
       ) : (
       <div className="flex items-center gap-2">
@@ -139,7 +138,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:poster`}
           onClick={onResolvePoster}
         >
-          {resolvingKey === `${dispute.disputeId}:poster` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Poster'}
+          {resolvingKey === `${dispute.disputeId}:poster` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Người thuê'}
         </Button>
         <Button
           variant="outline"
@@ -148,7 +147,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           disabled={dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:freelancer`}
           onClick={onResolveFreelancer}
         >
-          {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Freelancer'}
+          {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Người làm tự do'}
         </Button>
         {dispute.votesCompleted ? (
           <span className="text-xs text-gray-600">Bỏ phiếu đã đóng</span>

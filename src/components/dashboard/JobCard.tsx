@@ -54,7 +54,7 @@ import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
   const handleWithdraw = async () => {
-    toast.warning('Bạn có chắc muốn rút lại job này? Stake và escrow sẽ được hoàn về ví của bạn.', {
+    toast.warning('Bạn có chắc muốn rút lại công việc này? Cọc và ký quỹ sẽ được hoàn về ví của bạn.', {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
@@ -63,11 +63,11 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
             const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-            if (!wallet) throw new Error('Wallet not found');
+            if (!wallet) throw new Error('Không tìm thấy ví');
 
             const tx = await wallet.signAndSubmitTransaction(payload);
 
-            toast.success(`Rút job thành công! TX: ${tx?.hash || 'N/A'}`);
+            toast.success(`Rút công việc thành công! TX: ${tx?.hash || 'N/A'}`);
             setTimeout(() => {
               onUpdate();
             }, 2000);
@@ -94,7 +94,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
   return (
     <div className="border border-gray-400 bg-gray-50 p-4 rounded">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-bold text-blue-800">Job #{job.id}</h3>
+        <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
         <span className={`px-2 py-1 text-xs font-bold border-2 ${stateDisplay.classes}`}>
           {stateDisplay.text}
         </span>
@@ -117,7 +117,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
           <div>
-            <span className="font-bold">Người đăng:</span>{' '}
+            <span className="font-bold">Người thuê:</span>{' '}
             <span 
               className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
               onClick={() => copyAddress(job.poster)}
@@ -126,7 +126,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             </span>
           </div>
           <div>
-            <span className="font-bold">Freelancer:</span>{' '}
+            <span className="font-bold">Người làm tự do:</span>{' '}
             <span 
               className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
               onClick={() => copyAddress(job.freelancer)}
@@ -153,14 +153,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       {canShowWithdraw && (
         <div className="mt-3 mb-3 p-3 border-2 border-orange-300 bg-orange-50 rounded">
           <p className="text-xs text-orange-800 mb-2">
-            ⚠ Job chưa có freelancer apply. Bạn có thể rút lại stake và escrow về ví.
+            ⚠ Công việc chưa có người làm tự do ứng tuyển. Bạn có thể rút lại cọc và ký quỹ về ví.
           </p>
           <Button
             size="sm"
             onClick={handleWithdraw}
             className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1"
           >
-            Rút lại job (Nhận stake + escrow)
+            Rút lại công việc (Nhận cọc + ký quỹ)
           </Button>
         </div>
       )}

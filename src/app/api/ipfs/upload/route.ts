@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND } from '@/constants/contracts';
-import { getTableHandle as getEscrowTableHandle, queryJobFromTable, parseOptionAddress } from '@/app/api/job/utils';
+import { fetchContractResource, queryTableItem, getEscrowStore, getJobData } from '@/lib/aptosClient';
+import { parseOptionAddress } from '@/lib/aptosParsers';
 
 const PINATA_JWT = process.env.PINATA_JWT;
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
 const ALLOWED_METADATA_TYPES = new Set(['job', 'dispute', 'apply', 'finalize', 'profile']);
 const ALLOWED_FILE_TYPES = new Set(['milestone_evidence', 'dispute_evidence', 'profile_attachment']);
 const MAX_TEXT_LENGTH = 2000;
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const APTOS_API_KEY = process.env.APTOS_API_KEY || '';
 
 async function getAesKey(): Promise<CryptoKey | null> {
@@ -210,45 +210,81 @@ const hasRole = async (address: string, roleKind: number): Promise<boolean> => {
   return roleValue === true;
 };
 
+const hasProof = async (address: string): Promise<boolean> => {
+  try {
+    const roleStore = await fetchContractResource('role::RoleStore');
+    const proofsHandle = roleStore?.proofs?.handle;
+    if (!proofsHandle) return false;
+    
+    const proof = await queryTableItem({
+      handle: proofsHandle,
+      keyType: 'address',
+      valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
+      key: normalizeAddress(address),
+    });
+    return !!proof;
+  } catch {
+    return false;
+  }
+};
+
 const fetchEscrowJob = async (jobId: number) => {
-  const table = await getEscrowTableHandle();
-  if (!table?.handle) return null;
-  return queryJobFromTable(table.handle, jobId);
+  return getJobData(jobId);
 };
 
 export async function POST(request: NextRequest) {
-  return requireAuth(request, async (req, user) => {
-    try {
+  try {
+    const addressParam = new URL(request.url).searchParams.get('address');
+    let userAddress = addressParam;
+    let formData: FormData | null = null;
+    let body: any = null;
+    
+    const contentType = request.headers.get('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      formData = await request.formData();
+      if (!userAddress) {
+        userAddress = formData.get('address') as string | null;
+      }
+    } else {
+      try {
+        body = await request.json();
+        if (!userAddress) {
+          userAddress = body?.address;
+        }
+      } catch {
+        return NextResponse.json({ success: false, error: 'Payload không hợp lệ' }, { status: 400 });
+      }
+    }
+    
+    if (!userAddress) {
+      return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+    }
+
       if (!PINATA_JWT || !IPFS_GATEWAY) {
         return NextResponse.json({ success: false, error: 'Thiếu cấu hình IPFS' }, { status: 500 });
       }
 
-      const contentType = req.headers.get('content-type') || '';
-      if (contentType.includes('multipart/form-data')) {
-        const formData = await req.formData();
-        return handleFileUpload(formData, user.address);
+    if (contentType.includes('multipart/form-data')) {
+      if (!formData) {
+        formData = await request.formData();
       }
-
-      let body: any;
-      try {
-        body = await req.json();
-      } catch {
-        return NextResponse.json({ success: false, error: 'Payload không hợp lệ' }, { status: 400 });
-      }
+      return handleFileUpload(formData, userAddress);
+    }
 
       const { type } = body ?? {};
       if (!ALLOWED_METADATA_TYPES.has(type)) {
         return NextResponse.json({ success: false, error: 'Loại metadata không hợp lệ' }, { status: 400 });
       }
 
-      const roleCheckCache = new Map<number, boolean>();
-      const ensureRole = async (roleKind: number) => {
-        if (!roleCheckCache.has(roleKind)) {
-          roleCheckCache.set(roleKind, await hasRole(user.address, roleKind));
-        }
-        return roleCheckCache.get(roleKind)!;
-      };
-      const callerAddress = normalizeAddress(user.address);
+    const roleCheckCache = new Map<number, boolean>();
+    const ensureRole = async (roleKind: number) => {
+      if (!roleCheckCache.has(roleKind)) {
+        roleCheckCache.set(roleKind, await hasRole(userAddress, roleKind));
+      }
+      return roleCheckCache.get(roleKind)!;
+    };
+    const callerAddress = normalizeAddress(userAddress);
 
       let metadata: Record<string, unknown> = { created_at: new Date().toISOString(), version: '1.0.0' };
     let fileName = 'metadata.json';
@@ -257,7 +293,7 @@ export async function POST(request: NextRequest) {
     if (type === 'job') {
         if (!(await ensureRole(ROLE_KIND.POSTER))) {
           return NextResponse.json(
-            { success: false, error: 'Bạn cần role Poster để đăng metadata job' },
+            { success: false, error: 'Bạn cần role Người thuê để đăng metadata job' },
             { status: 403 },
           );
         }
@@ -314,7 +350,7 @@ export async function POST(request: NextRequest) {
         }
         if (!(await ensureRole(ROLE_KIND.FREELANCER))) {
           return NextResponse.json(
-            { success: false, error: 'Bạn cần role Freelancer để apply job' },
+            { success: false, error: 'Bạn cần role Người làm tự do để apply job' },
             { status: 403 },
           );
         }
@@ -350,7 +386,7 @@ export async function POST(request: NextRequest) {
       } else if (type === 'finalize') {
         if (!(await ensureRole(ROLE_KIND.POSTER))) {
           return NextResponse.json(
-            { success: false, error: 'Bạn cần role Poster để finalize job' },
+            { success: false, error: 'Bạn cần role Người thuê để finalize job' },
             { status: 403 },
           );
         }
@@ -385,9 +421,11 @@ export async function POST(request: NextRequest) {
       } else if (type === 'profile') {
         const hasPosterRole = await ensureRole(ROLE_KIND.POSTER);
         const hasFreelancerRole = hasPosterRole ? true : await ensureRole(ROLE_KIND.FREELANCER);
-        if (!hasPosterRole && !hasFreelancerRole) {
+        const userHasProof = await hasProof(userAddress);
+        
+        if (!hasPosterRole && !hasFreelancerRole && !userHasProof) {
           return NextResponse.json(
-            { success: false, error: 'Bạn cần role Poster hoặc Freelancer để cập nhật profile' },
+            { success: false, error: 'Bạn cần xác minh định danh tài khoản (có xác minh không kiến thức) hoặc có role Người thuê/Người làm tự do để cập nhật profile' },
             { status: 403 },
           );
         }
@@ -413,9 +451,8 @@ export async function POST(request: NextRequest) {
         ...responseExtras
       });
     } catch (error: unknown) {
-      return NextResponse.json({ success: false, error: (error as Error).message || 'Tải lên thất bại' }, { status: 500 });
-    }
-  });
+    return NextResponse.json({ success: false, error: (error as Error).message || 'Tải lên thất bại' }, { status: 500 });
+  }
 }
 
 async function handleFileUpload(formData: FormData, userAddress: string) {
@@ -457,7 +494,7 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
     if (type === 'milestone_evidence') {
       if (!freelancerAddr || normalizedUser !== freelancerAddr) {
         return NextResponse.json(
-          { success: false, error: 'Chỉ freelancer của job mới được upload bằng chứng milestone' },
+          { success: false, error: 'Chỉ người làm tự do của job mới được upload bằng chứng milestone' },
           { status: 403 },
         );
       }
@@ -465,7 +502,7 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
     if (type === 'dispute_evidence') {
       if (normalizedUser !== freelancerAddr && normalizedUser !== posterAddr) {
         return NextResponse.json(
-          { success: false, error: 'Chỉ poster hoặc freelancer của job mới được upload bằng chứng tranh chấp' },
+          { success: false, error: 'Chỉ người thuê hoặc người làm tự do của job mới được upload bằng chứng tranh chấp' },
           { status: 403 },
         );
       }

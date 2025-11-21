@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useWallet } from '@/contexts/WalletContext';
 import { MilestoneFileUploadProps } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   jobId,
@@ -17,6 +17,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   evidenceCid,
   interactionLocked = false,
 }) => {
+  const { account } = useWallet();
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -31,23 +32,29 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
     try {
       setUploading(true);
 
+      if (!account) {
+        toast.error('Vui lòng kết nối ví trước');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'milestone_evidence');
       formData.append('jobId', String(jobId));
+      formData.append('address', account);
 
-      const uploadRes = await fetchWithAuth('/api/ipfs/upload', {
+      const uploadRes = await fetch('/api/ipfs/upload', {
         method: 'POST',
         body: formData
       });
 
       if (!uploadRes.ok) {
-        const errorData = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error || 'Upload failed');
+        const errorData = await uploadRes.json().catch(() => ({ error: 'Tải lên thất bại' }));
+        throw new Error(errorData.error || 'Tải lên thất bại');
       }
 
       const uploadData = await uploadRes.json();
-      if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+      if (!uploadData.success) throw new Error(uploadData.error || 'Tải lên thất bại');
 
       const finalCid = uploadData.encCid || uploadData.ipfsHash;
       onFileUploaded(milestoneId, finalCid);
@@ -65,12 +72,12 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
     <>
       {isOverdue && (
         <p className="text-xs text-red-600 font-bold">
-          Milestone đã quá hạn, không thể submit
+          Cột mốc đã quá hạn, không thể nộp
         </p>
       )}
       {!canSubmit && !isOverdue && (
         <p className="text-xs text-orange-600 font-bold">
-          ⚠ Milestone trước phải được accepted trước khi submit milestone này
+          ⚠ Cột mốc trước phải được chấp nhận trước khi nộp cột mốc này
         </p>
       )}
       {canSubmit && !isOverdue && (
@@ -79,7 +86,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             <input
               type="file"
               accept="*/*"
-              title="Chọn file evidence để upload"
+              title="Chọn file bằng chứng để tải lên"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 handleFileChange(file);
@@ -97,7 +104,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             </span>
           )}
           {evidenceCid && (
-            <span className="text-xs text-green-600">✓ CID ready</span>
+            <span className="text-xs text-green-600">✓ CID sẵn sàng</span>
           )}
           <Button
             size="sm"
@@ -105,7 +112,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             disabled={submitting || uploading || !evidenceCid?.trim() || isOverdue || interactionLocked}
             className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Đang submit...' : 'Submit'}
+            {submitting ? 'Đang nộp...' : 'Nộp'}
           </Button>
         </>
       )}

@@ -31,7 +31,7 @@ export const JobCard: React.FC<JobCardProps> = ({ roleState, id, cid, meta, chai
   return (
     <div className="border border-gray-400 bg-gray-50 p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-bold text-blue-800">Job #{id} — {meta.title || 'Không có tiêu đề'}</h3>
+        <h3 className="text-lg font-bold text-blue-800">Công việc #{id} — {meta.title || 'Không có tiêu đề'}</h3>
         <span className="text-xs text-gray-600 break-all">CID: {cid}</span>
       </div>
       <p className="text-sm text-gray-700 mb-2">{meta.description || 'Không có mô tả'}</p>
@@ -44,12 +44,12 @@ export const JobCard: React.FC<JobCardProps> = ({ roleState, id, cid, meta, chai
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-700">
-        <div><span className="font-bold">Poster ID Hash:</span> {meta.poster_id_hash || '-'}</div>
-        <div><span className="font-bold">Accepted Freelancer:</span> {meta.freelancer_id_hash || '-'}</div>
-        <div><span className="font-bold">Total Amount:</span> {chainInfo?.totalAmount ? `${(Number(chainInfo.totalAmount) / 100_000_000).toFixed(2)} APT` : '-'}</div>
-        <div><span className="font-bold">Milestones:</span> {chainInfo?.milestoneCount || 0}</div>
-        <div><span className="font-bold">Status:</span> {chainInfo?.isLocked ? 'Locked' : 'Open'}</div>
-        <div><span className="font-bold">Has Freelancer:</span> {chainInfo?.hasFreelancer ? 'Yes' : 'No'}</div>
+        <div><span className="font-bold">Mã định danh Người thuê:</span> {meta.poster_id_hash || '-'}</div>
+        <div><span className="font-bold">Người làm tự do đã chấp nhận:</span> {meta.freelancer_id_hash || '-'}</div>
+        <div><span className="font-bold">Tổng số tiền:</span> {chainInfo?.totalAmount ? `${(Number(chainInfo.totalAmount) / 100_000_000).toFixed(2)} APT` : '-'}</div>
+        <div><span className="font-bold">Cột mốc:</span> {chainInfo?.milestoneCount || 0}</div>
+        <div><span className="font-bold">Trạng thái:</span> {chainInfo?.isLocked ? 'Đã khóa' : 'Mở'}</div>
+        <div><span className="font-bold">Có Người làm tự do:</span> {chainInfo?.hasFreelancer ? 'Có' : 'Không'}</div>
       </div>
 
       <Applicants
@@ -71,7 +71,7 @@ export const JobCard: React.FC<JobCardProps> = ({ roleState, id, cid, meta, chai
             disabled={stakingJobId === id}
             onClick={() => onStake(id)}
           >
-            {stakingJobId === id ? 'Đang ký...' : 'Ký hợp đồng (Stake)'}
+            {stakingJobId === id ? 'Đang ký...' : 'Ký hợp đồng (Cọc)'}
           </Button>
         </div>
       )}

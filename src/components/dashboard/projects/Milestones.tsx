@@ -34,16 +34,16 @@ export const Milestones: React.FC<MilestonesProps> = ({ roleState, jobId, poster
 
   return (
     <div className="mt-4">
-      <h4 className="text-md font-bold text-blue-800 mb-2">Milestones</h4>
+      <h4 className="text-md font-bold text-blue-800 mb-2">Cột mốc</h4>
       <div className="space-y-2">
         {Array.from({ length: milestoneCount }, (_, index) => {
           const st = milestones[index] || {};
           return (
             <div key={index} className="flex items-center justify-between p-3 border border-gray-300 bg-white">
               <div className="flex-1">
-                <div className="text-sm font-bold">Milestone {index + 1}</div>
+                <div className="text-sm font-bold">Cột mốc {index + 1}</div>
                 <div className="text-xs text-gray-600">
-                  Status: {st.submitted ? 'Submitted' : 'Pending'} | {st.approved ? 'Approved' : 'Not Approved'} | {st.disputed ? 'Disputed' : 'No Dispute'}
+                  Trạng thái: {st.submitted ? 'Đã nộp' : 'Đang chờ'} | {st.approved ? 'Đã chấp nhận' : 'Chưa chấp nhận'} | {st.disputed ? 'Có tranh chấp' : 'Không có tranh chấp'}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -56,7 +56,7 @@ export const Milestones: React.FC<MilestonesProps> = ({ roleState, jobId, poster
                     disabled={submittingMilestone === `${jobId}:${index}` || !!st.submitted}
                     onClick={() => onSubmit(jobId, index)}
                   >
-                    {submittingMilestone === `${jobId}:${index}` ? 'Submitting...' : 'Submit'}
+                    {submittingMilestone === `${jobId}:${index}` ? 'Đang nộp...' : 'Nộp'}
                   </Button>
                 )}
                 {isPoster && (
@@ -68,7 +68,7 @@ export const Milestones: React.FC<MilestonesProps> = ({ roleState, jobId, poster
                     disabled={approvingMilestone === `${jobId}:${index}` || !st.submitted || !!st.approved}
                     onClick={() => onApprove(jobId, index)}
                   >
-                    {approvingMilestone === `${jobId}:${index}` ? 'Approving...' : 'Approve'}
+                    {approvingMilestone === `${jobId}:${index}` ? 'Đang chấp nhận...' : 'Chấp nhận'}
                   </Button>
                 )}
                 {(isPoster || isAcceptedFreelancer) && (
@@ -80,7 +80,7 @@ export const Milestones: React.FC<MilestonesProps> = ({ roleState, jobId, poster
                     disabled={disputingMilestone === `${jobId}:${index}` || !!st.disputed}
                     onClick={() => onDispute(jobId, index)}
                   >
-                    {disputingMilestone === `${jobId}:${index}` ? 'Disputing...' : 'Dispute'}
+                    {disputingMilestone === `${jobId}:${index}` ? 'Đang tranh chấp...' : 'Tranh chấp'}
                   </Button>
                 )}
               </div>

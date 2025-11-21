@@ -5,7 +5,6 @@ import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
 import { MilestoneItemProps } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   milestone,
@@ -111,7 +110,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       }
       try {
         setLoadingEvidence(true);
-        const res = await fetchWithAuth(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
+        const res = await fetch(`/api/ipfs/get?cid=${encodeURIComponent(evidence)}&decodeOnly=true`);
         if (!res.ok) {
           setEvidenceUrl(null);
           return;
@@ -140,11 +139,16 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     setDisputeSelectedFile(file);
     try {
       setDisputeUploading(true);
+      if (!account) {
+        throw new Error('Vui lòng kết nối ví trước');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', 'dispute_evidence');
       formData.append('jobId', String(jobId));
-      const uploadRes = await fetchWithAuth('/api/ipfs/upload', { method: 'POST', body: formData });
+      formData.append('address', account);
+      const uploadRes = await fetch('/api/ipfs/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
       if (!uploadRes.ok || !uploadData.success) {
         throw new Error(uploadData.error || 'Upload failed');
@@ -186,8 +190,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           )}
           {reviewDeadlineDate && isSubmitted && (
             <p className={`text-xs ${reviewTimeout ? 'text-orange-600 font-bold' : 'text-gray-600'}`}>
-              Review deadline: {reviewDeadlineDate.toLocaleString('vi-VN')}
-              {reviewTimeout && ' (Có thể claim timeout)'}
+              Hạn đánh giá: {reviewDeadlineDate.toLocaleString('vi-VN')}
+              {reviewTimeout && ' (Có thể yêu cầu hết hạn)'}
             </p>
           )}
         </div>
@@ -219,7 +223,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 
       {isWithdrawn && (
         <div className="text-xs text-gray-500 italic mb-2">
-          ⚠ Milestone này đã được poster rút escrow khi có dispute
+          ⚠ Milestone này đã được người thuê rút ký quỹ khi có dispute
         </div>
       )}
 
@@ -245,7 +249,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             disabled={claiming || interactionLocked}
             className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-2 rounded border-2 border-orange-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {claiming ? 'Đang claim...' : 'Claim Timeout (Poster không phản hồi)'}
+            {claiming ? 'Đang yêu cầu...' : 'Yêu cầu Hết hạn (Người thuê không phản hồi)'}
           </button>
         )}
 

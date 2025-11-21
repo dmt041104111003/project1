@@ -31,11 +31,11 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
           disabled={claiming || isCancelled || interactionLocked}
           className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {claiming ? 'Đang claim...' : 'Claim Timeout (Nhận stake freelancer)'}
+          {claiming ? 'Đang yêu cầu...' : 'Yêu cầu Hết hạn (Nhận cọc người làm tự do)'}
         </Button>
       )}
       {isCancelled && (
-        <span className="text-xs text-orange-700 font-bold">✓ Đã claim timeout, job đã bị hủy</span>
+        <span className="text-xs text-orange-700 font-bold">✓ Đã yêu cầu hết hạn, công việc đã bị hủy</span>
       )}
 
       {isSubmitted && canInteract && !reviewTimeout && (
@@ -46,7 +46,7 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
             disabled={reviewActionLocked}
             className="bg-green-100 text-black hover:bg-green-200 text-xs px-3 py-1"
           >
-            {confirming ? 'Đang confirm...' : 'Confirm'}
+            {confirming ? 'Đang xác nhận...' : 'Xác nhận'}
           </Button>
           <Button
             size="sm"
@@ -55,14 +55,14 @@ export const MilestoneReviewActions: React.FC<MilestoneReviewActionsProps> = ({
             disabled={reviewActionLocked}
             className="bg-red-100 text-red-800 border-red-300 hover:bg-red-200 text-xs px-3 py-1"
           >
-            {rejecting ? 'Đang reject...' : 'Reject'}
+            {rejecting ? 'Đang từ chối...' : 'Từ chối'}
           </Button>
         </>
       )}
 
       {isSubmitted && reviewTimeout && (
         <span className="text-xs text-orange-700 font-bold">
-          ⚠ Đã hết thời gian review. Freelancer có thể claim timeout.
+          ⚠ Đã hết thời gian đánh giá. Người làm tự do có thể yêu cầu hết hạn.
         </span>
       )}
     </>

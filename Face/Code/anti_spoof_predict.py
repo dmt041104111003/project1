@@ -89,6 +89,11 @@ class AntiSpoofPredict(Detection):
             trans.ToTensor(),
         ])
         img = test_transform(img)
+        # ToTensor() trong functional.py KHÔNG chia 255 (commented out by zkx)
+        # Điều này có nghĩa là ảnh vẫn ở [0, 255] sau ToTensor()
+        # Model Silent-Face được train với ảnh [0, 255], KHÔNG normalize về [0, 1]
+        # Vì vậy KHÔNG chia 255 ở đây
+        # img.max() sẽ là ~255, không phải ~1.0
         img = img.unsqueeze(0).to(self.device)
         self._load_model(model_path)
         self.model.eval()

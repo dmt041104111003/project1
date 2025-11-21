@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, get } from 'firebase/database';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
 
 const database = getFirebaseDatabase();
@@ -27,15 +26,18 @@ const userIsMember = (roomData: any, address: string) => {
 };
 
 export async function GET(request: NextRequest) {
-  return requireAuth(request, async (req, user) => {
-    try {
-      const { searchParams } = new URL(req.url);
-      const roomId = searchParams.get('roomId');
-      const getRooms = searchParams.get('getRooms');
-      const getLastViewed = searchParams.get('getLastViewed');
-      const requestedUserAddress = searchParams.get('userAddress');
+  try {
+    const { searchParams } = new URL(request.url);
+    const roomId = searchParams.get('roomId');
+    const getRooms = searchParams.get('getRooms');
+    const getLastViewed = searchParams.get('getLastViewed');
+    const requestedUserAddress = searchParams.get('userAddress');
+    const requesterAddress = searchParams.get('address');
 
-      const requester = normalizeAddress(user.address);
+    const requester = normalizeAddress(requesterAddress);
+    if (!requester) {
+      return NextResponse.json({ error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+    }
 
       if (getRooms === 'true') {
         if (requestedUserAddress && normalizeAddress(requestedUserAddress) !== requester) {
@@ -100,9 +102,8 @@ export async function GET(request: NextRequest) {
         }))
         .sort((a, b) => a.timestamp - b.timestamp);
 
-      return NextResponse.json({ success: true, messages });
-    } catch (error: any) {
-      return NextResponse.json({ error: error?.message || 'Không thể lấy dữ liệu' }, { status: 500 });
-    }
-  });
+    return NextResponse.json({ success: true, messages });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || 'Không thể lấy dữ liệu' }, { status: 500 });
+  }
 }
