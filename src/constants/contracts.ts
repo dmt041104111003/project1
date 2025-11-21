@@ -1,7 +1,7 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
-export const CONTRACT_ADDRESS = "0xe366cb2a32f1d212dd939ac5dfdb425505cb3551a91f9529eb928d98a4f8546b";
+export const CONTRACT_ADDRESS = "0xfd86a7486dbd8383fa21982821409c0e25aa945345398e741930f50107e1c3b3";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
@@ -22,6 +22,8 @@ export const ROLE = {
 export const ESCROW = {
   CREATE_JOB: `${CONTRACT_ADDRESS}::escrow::create_job`,
   APPLY_JOB: `${CONTRACT_ADDRESS}::escrow::apply_job`,
+  REVIEW_CANDIDATE: `${CONTRACT_ADDRESS}::escrow::review_candidate`,
+  WITHDRAW_APPLICATION: `${CONTRACT_ADDRESS}::escrow::withdraw_application`,
   SUBMIT_MILESTONE: `${CONTRACT_ADDRESS}::escrow::submit_milestone`,
   CONFIRM_MILESTONE: `${CONTRACT_ADDRESS}::escrow::confirm_milestone`,
   REJECT_MILESTONE: `${CONTRACT_ADDRESS}::escrow::reject_milestone`,

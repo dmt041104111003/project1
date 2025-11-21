@@ -43,6 +43,10 @@ export const escrowHelpers = {
   },
   
   applyJob: (jobId: number) => buildTransactionPayload(ESCROW.APPLY_JOB, [jobId]),
+  reviewCandidate: (jobId: number, approve: boolean) =>
+    buildTransactionPayload(ESCROW.REVIEW_CANDIDATE, [jobId, approve]),
+  withdrawApplication: (jobId: number) =>
+    buildTransactionPayload(ESCROW.WITHDRAW_APPLICATION, [jobId]),
   
   submitMilestone: (jobId: number, milestoneId: number, evidenceCid: string) =>
     buildTransactionPayload(ESCROW.SUBMIT_MILESTONE, [jobId, milestoneId, evidenceCid]),

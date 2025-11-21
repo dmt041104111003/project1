@@ -7,6 +7,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
+import { SegmentedTabs } from '@/components/ui';
 
 const JOBS_PER_PAGE = 1;
 
@@ -58,7 +59,11 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       const { jobs: allJobs } = await getJobsList();
       
       const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
-      const appliedJobs = allJobs.filter((job: Job) => job.freelancer?.toLowerCase() === account.toLowerCase());
+      const appliedJobs = allJobs.filter((job: Job) => {
+        const freelancerMatch = job.freelancer?.toLowerCase() === account.toLowerCase();
+        const pendingMatch = job.pending_freelancer?.toLowerCase() === account.toLowerCase();
+        return freelancerMatch || pendingMatch;
+      });
 
       setPostedCount(postedJobs.length);
       setAppliedCount(appliedJobs.length);
@@ -137,38 +142,31 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           <p className="text-gray-700">Xem và quản lý dự án từ blockchain</p>
         </div>
 
-        <div className="flex gap-2 mb-6 border-b border-gray-300">
-          {hasPosterRole && (
-            <button
-              onClick={() => {
-                setActiveTab('posted');
-                setCurrentPage(0);
-              }}
-              className={`flex-1 py-2 px-4 font-bold transition-colors ${
-                activeTab === 'posted'
-                  ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Công việc Đã Đăng ({postedCount})
-            </button>
-          )}
-          {hasFreelancerRole && (
-            <button
-              onClick={() => {
-                setActiveTab('applied');
-                setCurrentPage(0);
-              }}
-              className={`flex-1 py-2 px-4 font-bold transition-colors ${
-                activeTab === 'applied'
-                  ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Công việc Đã Ứng tuyển ({appliedCount})
-            </button>
-          )}
-        </div>
+        <SegmentedTabs
+          stretch
+          className="w-full mb-6"
+          tabs={[
+            ...(hasPosterRole
+              ? [{
+                  value: 'posted' as const,
+                  label: 'Công việc Đã Đăng',
+                  badge: postedCount,
+                }]
+              : []),
+            ...(hasFreelancerRole
+              ? [{
+                  value: 'applied' as const,
+                  label: 'Công việc Đã Ứng tuyển',
+                  badge: appliedCount,
+                }]
+              : []),
+          ]}
+          activeTab={activeTab}
+          onChange={(value) => {
+            setActiveTab(value as 'posted' | 'applied');
+            setCurrentPage(0);
+          }}
+        />
 
         <div className="flex items-center justify-between gap-2 mb-4">
           <Button 

@@ -29,6 +29,9 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   applying,
   onApply,
   latestFreelancerAddress,
+  pendingFreelancerAddress,
+  withdrawingApplication,
+  onWithdrawApplication,
 }) => {
   if (!jobData) return null;
 
@@ -62,6 +65,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     }
 
     const hasFreelancer = getFreelancerAddr(jobData.freelancer) !== null;
+    const pendingCandidate = pendingFreelancerAddress;
     const stateStr = parseState(jobData.state);
     const isPosted = stateStr === 'Posted';
     const isCancelled = stateStr === 'Cancelled';
@@ -103,6 +107,33 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     
     const applyDeadlineExpiredForApply = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
     
+    if (stateStr === 'PendingApproval') {
+      const isPendingCandidate = pendingCandidate && account && pendingCandidate.toLowerCase() === account.toLowerCase();
+      return (
+        <div className="text-center py-4 space-y-3">
+          <p className="text-sm text-orange-700 font-bold">
+            Công việc đang chờ Người thuê phê duyệt ứng viên.
+          </p>
+          {pendingCandidate && (
+            <p className="text-xs text-gray-600">
+              Ứng viên hiện tại: {formatAddress(pendingCandidate)}
+            </p>
+          )}
+          {isPendingCandidate && onWithdrawApplication && (
+            <Button
+              onClick={onWithdrawApplication}
+              disabled={withdrawingApplication}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển'}
+            </Button>
+          )}
+        </div>
+      );
+    }
+
     const canApply = (isPosted && !hasFreelancer && !applyDeadlineExpiredForApply) || 
                      (isReopenedAfterTimeout && !hasFreelancer && !applyDeadlineExpiredForApply);
 
@@ -194,11 +225,12 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   const displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
   const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
                       displayState === 'Posted' ? 'Open' :
+                      displayState === 'PendingApproval' ? 'Chờ duyệt' :
                       displayState === 'InProgress' ? 'In Progress' :
                       displayState === 'Completed' ? 'Completed' :
                       displayState === 'Disputed' ? 'Disputed' :
                       displayState === 'Cancelled' ? 'Cancelled' :
-                               displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
+                      displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
                       displayState || 'Active';
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
@@ -207,6 +239,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (state === 'Cancelled') return `${base} bg-orange-100 text-orange-800 border-orange-300`;
     if (state === 'CancelledByPoster') return `${base} bg-red-100 text-red-800 border-red-300`;
     if (state === 'Posted') return `${base} bg-green-100 text-green-800 border-green-300`;
+    if (state === 'PendingApproval') return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
     if (state === 'InProgress') return `${base} bg-blue-100 text-blue-800 border-blue-300`;
     if (state === 'Completed') return `${base} bg-gray-100 text-gray-800 border-gray-300`;
     if (state === 'Disputed') return `${base} bg-red-100 text-red-800 border-red-300`;

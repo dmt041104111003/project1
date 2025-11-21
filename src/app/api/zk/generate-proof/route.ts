@@ -209,23 +209,23 @@ export async function POST(request: NextRequest) {
     );
 
     if (isDuplicate && matchedAddress) {
-      console.log('[ZK Proof] Proof đã tồn tại với địa chỉ:', matchedAddress);
-      
-      try {
-        await fs.unlink(uniqueInputPath);
-        await fs.unlink(uniqueWitnessPath);
-        await fs.unlink(uniqueProofPath);
-        await fs.unlink(uniquePublicPath);
-      } catch {}
-      
-      return NextResponse.json(
-        { 
-          error: `Thông tin CCCD này đã được xác minh bởi địa chỉ khác (${matchedAddress}). Vui lòng xác minh lại với thông tin khác hoặc liên hệ hỗ trợ.`,
-          existing_address: matchedAddress,
-          requires_reauth: true
-        },
-        { status: 409 }
-      );
+              console.log('[ZK Proof] Proof đã tồn tại với địa chỉ:', matchedAddress);
+              
+              try {
+                await fs.unlink(uniqueInputPath);
+                await fs.unlink(uniqueWitnessPath);
+                await fs.unlink(uniqueProofPath);
+                await fs.unlink(uniquePublicPath);
+              } catch {}
+              
+              return NextResponse.json(
+                { 
+                  error: `Thông tin CCCD này đã được xác minh bởi địa chỉ khác (${matchedAddress}). Vui lòng xác minh lại với thông tin khác hoặc liên hệ hỗ trợ.`,
+                  existing_address: matchedAddress,
+                  requires_reauth: true
+                },
+                { status: 409 }
+              );
     }
 
     console.log('[ZK Proof] Kiểm tra duplicate hoàn tất, proof hợp lệ và có thể lưu vào blockchain');
@@ -257,4 +257,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}   

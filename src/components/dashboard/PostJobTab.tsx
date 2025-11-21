@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { SegmentedTabs } from '@/components/ui';
 import { toast } from 'sonner';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
@@ -195,43 +195,51 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
             </div>
           )}
         </div>
-        <Tabs className="mb-6" defaultValue={inputMode}>
-          <TabsList className="flex w-full" activeTab={inputMode} setActiveTab={(v) => !isSubmitting && setInputMode(v as 'manual' | 'json')}>
-            <TabsTrigger value="manual" className="flex-1" disabled={isSubmitting}>Nhập thủ công</TabsTrigger>
-            <TabsTrigger value="json" className="flex-1" disabled={isSubmitting}>Paste JSON</TabsTrigger>
-          </TabsList>
-          <TabsContent value="json">
-            <JsonJobInput onParse={handleJsonParse} canPostJobs={canPostJobs} isSubmitting={isSubmitting} />
-          </TabsContent>
-          <TabsContent value="manual">
-            <ManualJobForm
-              jobTitle={jobTitle}
-              setJobTitle={setJobTitle}
-              jobDescription={jobDescription}
-              setJobDescription={setJobDescription}
-              jobDuration={jobDuration}
-              setJobDuration={setJobDuration}
-              jobDurationUnit={jobDurationUnit}
-              setJobDurationUnit={setJobDurationUnit}
-              skillsList={skillsList}
-              currentSkill={currentSkill}
-              setCurrentSkill={setCurrentSkill}
-              addSkill={addSkill}
-              removeSkill={removeSkill}
-              milestonesList={milestonesList}
-              currentMilestone={currentMilestone}
-              setCurrentMilestone={setCurrentMilestone}
-              addMilestone={addMilestone}
-              removeMilestone={removeMilestone}
-              calculateTotalBudget={calculateTotalBudget}
-              validationErrors={validationErrors}
-              canPostJobs={canPostJobs}
-              onSubmit={handleFormSubmit}
-              jobResult={jobResult}
-              isSubmitting={isSubmitting}
-            />
-          </TabsContent>
-        </Tabs>
+        <SegmentedTabs
+          stretch
+          className="w-full mb-6"
+          tabs={[
+            { value: 'manual', label: 'Nhập thủ công', disabled: isSubmitting },
+            { value: 'json', label: 'Paste JSON', disabled: isSubmitting },
+          ]}
+          activeTab={inputMode}
+          onChange={(value) => {
+            if (!isSubmitting) {
+              setInputMode(value as 'manual' | 'json');
+            }
+          }}
+        />
+
+        {inputMode === 'json' ? (
+          <JsonJobInput onParse={handleJsonParse} canPostJobs={canPostJobs} isSubmitting={isSubmitting} />
+        ) : (
+          <ManualJobForm
+            jobTitle={jobTitle}
+            setJobTitle={setJobTitle}
+            jobDescription={jobDescription}
+            setJobDescription={setJobDescription}
+            jobDuration={jobDuration}
+            setJobDuration={setJobDuration}
+            jobDurationUnit={jobDurationUnit}
+            setJobDurationUnit={setJobDurationUnit}
+            skillsList={skillsList}
+            currentSkill={currentSkill}
+            setCurrentSkill={setCurrentSkill}
+            addSkill={addSkill}
+            removeSkill={removeSkill}
+            milestonesList={milestonesList}
+            currentMilestone={currentMilestone}
+            setCurrentMilestone={setCurrentMilestone}
+            addMilestone={addMilestone}
+            removeMilestone={removeMilestone}
+            calculateTotalBudget={calculateTotalBudget}
+            validationErrors={validationErrors}
+            canPostJobs={canPostJobs}
+            onSubmit={handleFormSubmit}
+            jobResult={jobResult}
+            isSubmitting={isSubmitting}
+          />
+        )}
       </Card>
     </div>
   );

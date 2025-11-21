@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
-import { DisputeData } from '@/constants/escrow';
+import { DisputeData, DisputeHistoryItem } from '@/constants/escrow';
 import { toast } from 'sonner';
 import { getDisputeData } from '@/lib/aptosClient';
 
@@ -10,6 +10,8 @@ export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [disputes, setDisputes] = useState<DisputeData[]>([]);
+  const [history, setHistory] = useState<DisputeHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [isReviewer, setIsReviewer] = useState(false);
   const [checkingRole, setCheckingRole] = useState(false);
 
@@ -19,6 +21,14 @@ export function useDisputes(account?: string | null) {
 
   const [resolving, setResolving] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
+
+  const normalizeAddress = useCallback((addr?: string | null): string => {
+    if (!addr) return '';
+    const s = String(addr).toLowerCase();
+    const noPrefix = s.startsWith('0x') ? s.slice(2) : s;
+    const trimmed = noPrefix.replace(/^0+/, '');
+    return '0x' + (trimmed.length === 0 ? '0' : trimmed);
+  }, []);
 
   const getWallet = async () => {
     const wallet = (window as { aptos?: { account: () => Promise<string | { address: string }>; signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos;
@@ -54,14 +64,6 @@ export function useDisputes(account?: string | null) {
     try {
       if (!skipLoading) setLoading(true);
       setErrorMsg('');
-
-      const normalizeAddress = (addr?: string | null): string => {
-        if (!addr) return '';
-        const s = String(addr).toLowerCase();
-        const noPrefix = s.startsWith('0x') ? s.slice(2) : s;
-        const trimmed = noPrefix.replace(/^0+/, '');
-        return '0x' + (trimmed.length === 0 ? '0' : trimmed);
-      };
 
       const myAddr = normalizeAddress(account);
 
@@ -168,6 +170,33 @@ export function useDisputes(account?: string | null) {
     }
   }, [isReviewer, account]);
 
+  const fetchHistory = useCallback(async () => {
+    if (!isReviewer || !account) {
+      setHistory([]);
+      return;
+    }
+    try {
+      setHistoryLoading(true);
+      const { getReviewerDisputeHistory } = await import('@/lib/aptosClient');
+      const entries = await getReviewerDisputeHistory(normalizeAddress(account), 200);
+      const mapped: DisputeHistoryItem[] = entries
+        .map((item: any) => ({
+          disputeId: Number(item?.disputeId || 0),
+          jobId: Number(item?.jobId || 0),
+          milestoneId: Number(item?.milestoneId || 0),
+          timestamp: Number(item?.timestamp || 0),
+        }))
+        .filter((item) => item.disputeId > 0)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      setHistory(mapped);
+    } catch (e: any) {
+      console.error('Error loading dispute history', e);
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [account, isReviewer, normalizeAddress]);
+
   useEffect(() => { 
     if (account) checkReviewerRole(); 
   }, [account, checkReviewerRole]);
@@ -175,6 +204,14 @@ export function useDisputes(account?: string | null) {
   useEffect(() => { 
     if (isReviewer) refresh({ silent: true });
   }, [isReviewer, refresh]);
+
+  useEffect(() => {
+    if (isReviewer) {
+      fetchHistory();
+    } else {
+      setHistory([]);
+    }
+  }, [isReviewer, fetchHistory]);
 
   const openDispute = useCallback(async () => {
     if (!jobId || !milestoneIndex) {
@@ -233,6 +270,8 @@ export function useDisputes(account?: string | null) {
     loading,
     errorMsg,
     disputes,
+    history,
+    historyLoading,
     isReviewer,
     checkingRole,
     jobId,
@@ -243,6 +282,7 @@ export function useDisputes(account?: string | null) {
     setOpenReason,
     openDispute,
     refresh,
+    fetchHistory,
     resolving,
     withdrawing,
     resolveToPoster,
