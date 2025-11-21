@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { NAVIGATION } from '@/constants/landing';
 import { useWallet } from '@/contexts/WalletContext';
 import { formatAddress } from '@/utils/addressUtils';
+import { useRoles } from '@/contexts/RolesContext';
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -21,6 +22,7 @@ export function Header() {
     connectWallet,
     disconnectWallet,
   } = useWallet();
+  const { hasReviewerRole } = useRoles();
 
   const accountButtonLabel = isConnecting
     ? 'Đang kết nối...'
@@ -64,7 +66,15 @@ export function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            {NAVIGATION.map((item) => {
+            {NAVIGATION.filter((item) => {
+              if (item.href === '/dashboard') {
+                return Boolean(account);
+              }
+              if (item.href === '/disputes') {
+                return hasReviewerRole;
+              }
+              return true;
+            }).map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
@@ -132,7 +142,15 @@ export function Header() {
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t-2 border-blue-800 bg-gray-50">
             <nav className="flex flex-col space-y-3">
-              {NAVIGATION.map((item) => {
+              {NAVIGATION.filter((item) => {
+                if (item.href === '/dashboard') {
+                  return Boolean(account);
+                }
+                if (item.href === '/disputes') {
+                  return hasReviewerRole;
+                }
+                return true;
+              }).map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link

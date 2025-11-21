@@ -10,38 +10,36 @@ import { Job } from '@/constants/escrow';
 
 const JOBS_PER_PAGE = 1;
 
-export const ProjectsTab: React.FC = () => {
+interface ProjectsTabProps {
+  hasPosterRole: boolean;
+  hasFreelancerRole: boolean;
+}
+
+export const ProjectsTab: React.FC<ProjectsTabProps> = ({
+  hasPosterRole,
+  hasFreelancerRole,
+}) => {
   const { account } = useWallet();
   const [loading, setLoading] = useState(false);
-  const [hasPosterRole, setHasPosterRole] = useState(false);
-  const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [activeTab, setActiveTab] = useState<'posted' | 'applied'>('posted');
+  const [activeTab, setActiveTab] = useState<'posted' | 'applied'>(hasPosterRole ? 'posted' : 'applied');
   const [currentPage, setCurrentPage] = useState(0);
+  const [postedCount, setPostedCount] = useState(0);
+  const [appliedCount, setAppliedCount] = useState(0);
 
   useEffect(() => {
-    if (!account) {
-      setHasPosterRole(false);
-      setHasFreelancerRole(false);
-      return;
+    if (!hasPosterRole && activeTab === 'posted') {
+      setActiveTab(hasFreelancerRole ? 'applied' : 'posted');
+    } else if (!hasFreelancerRole && activeTab === 'applied') {
+      setActiveTab(hasPosterRole ? 'posted' : 'applied');
     }
-    const checkRoles = async () => {
-      try {
-        const { getUserRoles } = await import('@/lib/aptosClient');
-        const { roles } = await getUserRoles(account);
-        setHasPosterRole(roles.some((r: { name: string }) => r.name === 'poster'));
-        setHasFreelancerRole(roles.some((r: { name: string }) => r.name === 'freelancer'));
-      } catch {
-        setHasPosterRole(false);
-        setHasFreelancerRole(false);
-      }
-    };
-    checkRoles();
-  }, [account]);
+  }, [hasPosterRole, hasFreelancerRole, activeTab]);
 
   const fetchJobs = async () => {
     if (!account) {
       setJobs([]);
+      setPostedCount(0);
+      setAppliedCount(0);
       return;
     }
 
@@ -59,13 +57,13 @@ export const ProjectsTab: React.FC = () => {
       const { getJobsList, getParsedJobData } = await import('@/lib/aptosClient');
       const { jobs: allJobs } = await getJobsList();
       
-      const filteredJobs = allJobs.filter((job: Job) => {
-        if (activeTab === 'posted') {
-          return job.poster?.toLowerCase() === account.toLowerCase();
-        } else {
-          return job.freelancer?.toLowerCase() === account.toLowerCase();
-        }
-      });
+      const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
+      const appliedJobs = allJobs.filter((job: Job) => job.freelancer?.toLowerCase() === account.toLowerCase());
+
+      setPostedCount(postedJobs.length);
+      setAppliedCount(appliedJobs.length);
+
+      const filteredJobs = activeTab === 'posted' ? postedJobs : appliedJobs;
 
       const jobsWithMetadata = await Promise.all(
         filteredJobs.map(async (job: Job) => {
@@ -140,36 +138,36 @@ export const ProjectsTab: React.FC = () => {
         </div>
 
         <div className="flex gap-2 mb-6 border-b border-gray-300">
-          <button
-            onClick={() => {
-              setActiveTab('posted');
-              setCurrentPage(0);
-            }}
-            className={`flex-1 py-2 px-4 font-bold transition-colors ${
-              activeTab === 'posted'
-                ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            } ${!hasPosterRole ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!hasPosterRole}
-            title={!hasPosterRole ? 'Bạn cần có role Người thuê' : ''}
-          >
-            Công việc Đã Đăng ({jobs.filter(j => j.poster?.toLowerCase() === account?.toLowerCase()).length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('applied');
-              setCurrentPage(0);
-            }}
-            className={`flex-1 py-2 px-4 font-bold transition-colors ${
-              activeTab === 'applied'
-                ? 'bg-blue-800 text-white border-b-2 border-blue-800'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            } ${!hasFreelancerRole ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!hasFreelancerRole}
-            title={!hasFreelancerRole ? 'Bạn cần có role Người làm tự do' : ''}
-          >
-            Công việc Đã Ứng tuyển ({jobs.filter(j => j.freelancer?.toLowerCase() === account?.toLowerCase()).length})
-          </button>
+          {hasPosterRole && (
+            <button
+              onClick={() => {
+                setActiveTab('posted');
+                setCurrentPage(0);
+              }}
+              className={`flex-1 py-2 px-4 font-bold transition-colors ${
+                activeTab === 'posted'
+                  ? 'bg-blue-800 text-white border-b-2 border-blue-800'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Công việc Đã Đăng ({postedCount})
+            </button>
+          )}
+          {hasFreelancerRole && (
+            <button
+              onClick={() => {
+                setActiveTab('applied');
+                setCurrentPage(0);
+              }}
+              className={`flex-1 py-2 px-4 font-bold transition-colors ${
+                activeTab === 'applied'
+                  ? 'bg-blue-800 text-white border-b-2 border-blue-800'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Công việc Đã Ứng tuyển ({appliedCount})
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 mb-4">
@@ -187,16 +185,6 @@ export const ProjectsTab: React.FC = () => {
           {loading && jobs.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-700">Đang tải dự án...</p>
-            </div>
-          ) : (activeTab === 'posted' && !hasPosterRole) ? (
-            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700 mb-2">Bạn cần có role Người thuê để xem công việc đã đăng.</p>
-              <p className="text-sm text-gray-600">Vui lòng đăng ký role Người thuê trong trang Role.</p>
-            </div>
-          ) : (activeTab === 'applied' && !hasFreelancerRole) ? (
-            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700 mb-2">Bạn cần có role Người làm tự do để xem công việc đã ứng tuyển.</p>
-              <p className="text-sm text-gray-600">Vui lòng đăng ký role Người làm tự do trong trang Role.</p>
             </div>
           ) : displayedJobs.length === 0 ? (
             <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">

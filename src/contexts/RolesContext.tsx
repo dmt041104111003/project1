@@ -1,0 +1,80 @@
+"use client";
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { useWallet } from './WalletContext';
+
+type RolesContextValue = {
+  roles: string[];
+  loading: boolean;
+  refreshRoles: () => Promise<void>;
+  hasPosterRole: boolean;
+  hasFreelancerRole: boolean;
+  hasReviewerRole: boolean;
+};
+
+const RolesContext = createContext<RolesContextValue>({
+  roles: [],
+  loading: false,
+  refreshRoles: async () => {},
+  hasPosterRole: false,
+  hasFreelancerRole: false,
+  hasReviewerRole: false,
+});
+
+export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+  const { account } = useWallet();
+  const [roles, setRoles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchRoles = useCallback(async () => {
+    if (!account) {
+      setRoles([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { getUserRoles } = await import('@/lib/aptosClient');
+      const response = await getUserRoles(account);
+      const normalized = (response?.roles || []).map((role) => String(role?.name || '').toLowerCase());
+      setRoles(normalized);
+    } catch {
+      setRoles([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [account]);
+
+  useEffect(() => {
+    if (!account) {
+      setRoles([]);
+      return;
+    }
+    fetchRoles();
+  }, [account, fetchRoles]);
+
+  const value = useMemo<RolesContextValue>(() => ({
+    roles,
+    loading,
+    refreshRoles: fetchRoles,
+    hasPosterRole: roles.includes('poster'),
+    hasFreelancerRole: roles.includes('freelancer'),
+    hasReviewerRole: roles.includes('reviewer'),
+  }), [roles, loading, fetchRoles]);
+
+  return (
+    <RolesContext.Provider value={value}>
+      {children}
+    </RolesContext.Provider>
+  );
+};
+
+export const useRoles = () => useContext(RolesContext);
+

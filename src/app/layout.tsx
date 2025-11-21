@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { RolesProvider } from "@/contexts/RolesContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 
@@ -19,12 +20,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="antialiased relative">
         <WalletProvider>
-          <div className="fixed inset-0 z-0 pointer-events-none">
-            <div className="w-full h-full" style={{ backgroundImage: `url('/images/landing/logo_full.png')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left center', backgroundSize: '80vh', backgroundAttachment: 'fixed', opacity: 0.05 }} />
-          </div>
-          <div className="relative min-h-screen">{children}</div>
-          <Toaster />
-          <SonnerToaster position="bottom-right" richColors />
+          <RolesProvider>
+            <div className="fixed inset-0 z-0 pointer-events-none">
+              <div className="w-full h-full" style={{ backgroundImage: `url('/images/landing/logo_full.png')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left center', backgroundSize: '80vh', backgroundAttachment: 'fixed', opacity: 0.05 }} />
+            </div>
+            <div className="relative min-h-screen">{children}</div>
+            <Toaster />
+            <SonnerToaster position="bottom-right" richColors />
+          </RolesProvider>
         </WalletProvider>
       </body>
     </html>

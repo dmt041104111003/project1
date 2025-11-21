@@ -1,349 +1,112 @@
-# BACKLOG SCRUM - WEB2.5 FREELANCER PLATFORM
+# BACKLOG DỰ ÁN WEB2.5 FREELANCER (Áp dụng Scrum/Agile)
 
-## TEAM MEMBERS
-- **Tùng**: Smart Contract + ZK Proof (Move contracts, Circom circuit, SnarkJS)
-- **Hải**: Backend API (Next.js API routes trong `src/app/api`)
-- **Quý**: Frontend UI (Tất cả React components, pages, UI)
-- **Quân**: AI Services (Python API - OCR, Face Verification)
-- **Trang**: Testing (E2E, Unit, Integration, Performance)
-
----
-
-## SPRINT 1: SMART CONTRACT FOUNDATION
-
-### SCRUM-001: Smart Contract Module ROLE
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Tạo contract quản lý đăng ký vai trò (Freelancer/Poster/Reviewer), query roles, get CID
-
-### SCRUM-002: Smart Contract Module ESCROW
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Tạo contract quản lý job, milestone, escrow, stake và payment flow
-
-### SCRUM-003: Smart Contract Module DISPUTE
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Tạo contract xử lý tranh chấp với logic chọn reviewer theo UT
-
-### SCRUM-004: Smart Contract Module REPUTATION
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Tạo contract quản lý điểm uy tín (UT) cho từng address
-
-### SCRUM-005: Smart Contract - Submit Milestone
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement function submit milestone với evidence CID validation
-
-### SCRUM-006: Smart Contract - Confirm Milestone
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement function confirm milestone, unlock escrow, update reputation
-
-### SCRUM-007: Smart Contract - Reject Milestone
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement function reject milestone, lock escrow, trigger dispute
-
-### SCRUM-008: Smart Contract - Withdraw Functions
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement poster withdraw unfilled job, freelancer withdraw request/accept/reject
-
-### SCRUM-009: Smart Contract - Dispute Creation và Reviewer Selection
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement logic tạo dispute, chọn 3 reviewers (1 < UT, 1 > UT, 1 cao nhất)
-
-### SCRUM-010: Smart Contract - Dispute Voting
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement voting mechanism cho reviewers, determine winner
-
-### SCRUM-011: Smart Contract - Reputation Update Functions
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement inc_ut, dec_ut functions, update UT khi milestone accepted
+## 1. Tổng quan Agile
+- **Định hướng**: phát triển theo vòng lặp ngắn (Sprint), liên tục kiểm chứng, nhận phản hồi và tinh chỉnh sản phẩm.
+- **Product Backlog**: tập hợp yêu cầu được ưu tiên, mô tả dưới dạng User Story, có tiêu chí chấp nhận rõ ràng.
+- **Sprint Backlog**: lựa chọn tập mục tiêu khả thi trong 1 Sprint (1-2 tuần), kết thúc bằng phiên bản có thể kiểm thử.
+- **Sự kiện Scrum**: Lập kế hoạch Sprint → Daily Scrum → Sprint Review → Sprint Retrospective.
+- **Vai trò**:
+  - Product Owner (PO): định hướng giá trị, sắp xếp ưu tiên backlog (Tùng kiêm PO kỹ thuật).
+  - Scrum Master (SM): điều phối, tháo gỡ vướng mắc (Hải).
+  - Development Team: Tùng, Hải, Quý, Quân, Trang.
 
 ---
 
-## SPRINT 2: ZK PROOF SYSTEM
+## 2. Product Backlog (Tóm tắt theo Nhóm Chức năng)
 
-### SCRUM-012: ZK Circuit - CCCD Verification Circuit
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Tạo Circom circuit `cccd_verification.circom` để hash CCCD data và face verification result
-
-### SCRUM-013: ZK Setup - Circuit Compilation và zkey Generation
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Compile circuit, generate zkey, export verification key sử dụng SnarkJS
-
-### SCRUM-014: Smart Contract - ZK Proof Storage
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement CCCDProof struct, store_proof, get_proof, has_proof, proof_hashes table
-
-### SCRUM-015: Smart Contract - Duplicate Proof Prevention
-**Assignee:** Tùng  
-**Status:** DONE  
-**Mô tả:** Implement logic kiểm tra duplicate proof qua proof_hashes table
+| Nhóm chức năng | User Story chính | Độ ưu tiên |
+|----------------|------------------|------------|
+| Hợp đồng thông minh & Escrow | “Là người thuê, tôi muốn gửi tiền ký quỹ an toàn để đảm bảo chỉ giải ngân khi cột mốc đạt.” | Rất cao |
+| Tranh chấp & Uy tín | “Là người làm tự do, tôi muốn nếu có tranh chấp thì có hội đồng đánh giá công bằng và ghi nhận vào uy tín.” | Rất cao |
+| Định danh AI + ZK Proof | “Là người dùng mới, tôi muốn xác minh danh tính mà không lộ dữ liệu gốc.” | Cao |
+| Backend API | “Là frontend, tôi cần API ổn định để lấy job, tranh chấp, proof, IPFS...” | Cao |
+| Giao diện người dùng | “Là người dùng, tôi muốn có UI trực quan để đăng job, theo dõi cột mốc, xử lý tranh chấp.” | Cao |
+| Dịch vụ AI | “Là hệ thống, tôi cần OCR và xác minh khuôn mặt để tự động hoá định danh.” | Trung bình |
+| Kiểm thử & Tài liệu | “Là đội dự án, tôi cần bộ test và tài liệu để đảm bảo chất lượng dài hạn.” | Trung bình |
 
 ---
 
-## SPRINT 3: BACKEND API (NEXT.JS API ROUTES)
+## 3. Sprint Backlog chi tiết
 
-### SCRUM-016: Backend API - Role Query
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/role` để query roles, get CID cho address
+### Sprint 1 – Nền tảng Smart Contract
+| Mã | Hạng mục | Người phụ trách | Trạng thái |
+|----|----------|-----------------|------------|
+| S1-01 | Module Role & lưu CID | Tùng | Done |
+| S1-02 | Module Escrow (job, cột mốc, ký quỹ) | Tùng | Done |
+| S1-03 | Module Dispute | Tùng | Done |
+| S1-04 | Module Reputation | Tùng | Done |
+| S1-05 | Submit Milestone | Tùng | Done |
+| S1-06 | Confirm Milestone | Tùng | Done |
+| S1-07 | Reject Milestone & lock escrow | Tùng | Done |
+| S1-08 | Withdraw (poster / freelancer) | Tùng | Done |
+| S1-09 | Tạo tranh chấp + chọn reviewer | Tùng | Done |
+| S1-10 | Bỏ phiếu tranh chấp | Tùng | Done |
+| S1-11 | Cập nhật uy tín khi cột mốc hoàn thành | Tùng | Done |
 
-### SCRUM-017: Backend API - Job List và Job Detail
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/job` và `/api/job/[id]` để list jobs và get job detail
+### Sprint 2 – ZKP (proof & lưu trữ)
+| Mã | Hạng mục | Người phụ trách | Trạng thái |
+|----|----------|-----------------|------------|
+| S2-01 | Thiết kế circuit xác minh CCCD (kiểm tuổi & hạn sử dụng) | Tùng | Done |
+| S2-02 | Thiết lập pipeline build circuit → Groth16 proof (wasm, zkey, witness) | Tùng | Done |
+| S2-03 | Sinh proof/public signals và ghi vào `RoleStore::proofs` | Tùng | Done |
+| S2-04 | Kiểm thử & ngăn proof trùng lặp bằng bảng hash | Tùng | Done |
 
-### SCRUM-018: Backend API - Dispute List và Detail
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/dispute` để list disputes, get dispute detail với reviewer info
+### Sprint 3 – Backend API
+| Mã | Hạng mục | Người phụ trách | Trạng thái |
+|----|----------|-----------------|------------|
+| S3-01 | Dịch vụ chat (liệt kê & theo dõi phòng/tin) | Hải | Done |
+| S3-02 | Dịch vụ chat (tạo phòng/gửi tin, kiểm tra điều kiện proof) | Hải | Done |
+| S3-03 | Dịch vụ chat (xoá phòng/tin, đồng bộ Firebase) | Hải | Done |
+| S3-04 | API tải ảnh khuôn mặt lên hệ thống xác minh | Hải | Done |
+| S3-05 | API điều phối xác minh khuôn mặt (gọi Python AI) | Hải | Done |
+| S3-06 | API điều phối OCR CCCD (gọi Python AI) | Hải | Done |
+| S3-07 | API truy vấn proof trên blockchain | Hải | Done |
+| S3-08 | API tạo proof + kiểm tra trùng lặp | Hải | Done |
+| S3-09 | API quản lý metadata IPFS (upload/lấy minh chứng) | Hải | Done |
+| S3-10 | API đồng bộ dữ liệu job/profile/tranh chấp từ IPFS | Hải | Done |
+| S3-11 | Chuẩn hóa lỗi & validation cho toàn bộ backend | Hải | Done |
 
-### SCRUM-019: Backend API - Reputation Query
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/reputation` để query reputation (UT) cho bất kỳ address nào
+### Sprint 4 – Dịch vụ AI
+| Mã | Hạng mục | Người phụ trách | Trạng thái |
+|----|----------|-----------------|------------|
+| S4-01 | OCR CCCD | Quân | Done |
+| S4-02 | Face verification + anti-spoofing | Quân | Done |
+| S4-03 | API hợp nhất OCR + Face | Quân | Done |
 
-### SCRUM-020: Backend API - Proof Query
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/proof` để query ZK proof từ blockchain cho address
+### Sprint 5 – Frontend UI
+| Mã | Hạng mục | Nội dung chính | Người phụ trách | Trạng thái |
+|----|----------|----------------|-----------------|------------|
+| S5-01 | Luồng định danh & đăng vai trò | OCR → Face → ZK Proof → đăng vai trò, kiểm tra proof trước khi gọi contract | Quý | Done |
+| S5-02 | Dashboard & trang quản lý công việc | Liệt kê job, trạng thái ký quỹ, tiến độ cột mốc, hành động rút/ứng tuyển | Quý | Done |
+| S5-03 | Trải nghiệm chat bảo vệ bằng proof | Tạo phòng, kiểm tra proof cả hai bên, đồng bộ tin nhắn thời gian thực | Quý | Done |
+| S5-04 | Trang danh sách/chi tiết công việc | Kết hợp dữ liệu on-chain và IPFS để hiển thị mô tả, cột mốc, người tham gia | Quý | Done |
+| S5-05 | Quản lý cột mốc & hành động | Submit/Approve/Reject, cảnh báo tranh chấp, toast tiếng Việt | Quý | Done |
+| S5-06 | Trang tranh chấp & bỏ phiếu | Hiển thị chứng cứ, reviewer, luồng bỏ phiếu 2/3, cập nhật kết quả | Quý | Done |
+| S5-07 | Landing page & nội dung marketing tiếng Việt | Giải thích quy trình ký quỹ, tranh chấp 2/3, định danh bằng AI + ZK Proof | Quý | Done |
+| S5-08 | Hạ tầng UI chung | Phân trang tái sử dụng, responsive, trạng thái tải/lỗi, đồng bộ context ví | Quý | Done |
 
-### SCRUM-021: Backend API - IPFS Upload và Get
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/ipfs/upload` và `/api/ipfs/get` để upload và retrieve IPFS data
-
-### SCRUM-022: Backend API - OCR Proxy
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Tạo `/api/ocr` proxy requests đến Python OCR API (phụ thuộc: SCRUM-028)
-
-### SCRUM-023: Backend API - Face Verification Proxy
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Tạo `/api/face` proxy requests đến Python Face API (phụ thuộc: SCRUM-029)
-
-### SCRUM-024: Backend API - ZK Proof Generation
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/zk/generate-proof` để generate ZK proof từ identity data, check duplicate, store on-chain (phụ thuộc: SCRUM-014, 015, 028, 029)
-
-### SCRUM-025: Backend API - Chat Messages
-**Assignee:** Hải  
-**Status:** DONE  
-**Mô tả:** Xây dựng `/api/chat/messages` để handle chat functionality
-
-### SCRUM-026: Backend API - Error Handling và Validation
-**Assignee:** Hải  
-**Status:** IN PROGRESS  
-**Mô tả:** Cải thiện error handling, input validation, response formatting cho tất cả APIs
-
----
-
-## SPRINT 4: AI SERVICES (PYTHON API)
-
-### SCRUM-027: Python API - OCR Extraction từ CCCD
-**Assignee:** Quân  
-**Status:** DONE  
-**Mô tả:** Xây dựng OCR API sử dụng PaddleOCR để extract thông tin từ ảnh CCCD
-
-### SCRUM-028: Python API - Face Verification và Anti-Spoofing
-**Assignee:** Quân  
-**Status:** DONE  
-**Mô tả:** Xây dựng Face API với DeepFace và Silent-Face-Anti-Spoofing để verify khuôn mặt
-
-### SCRUM-029: Python API - Unified Verification API
-**Assignee:** Quân  
-**Status:** DONE  
-**Mô tả:** Merge OCR và Face API thành một `verification_api.py` chạy trên port 5000
+### Sprint 6 – Testing & Documentation
+| Mã | Hạng mục | Người phụ trách | Trạng thái |
+|----|----------|-----------------|------------|
+| S6-01 | Kiểm thử luồng đăng/ứng tuyển job | Trang | In progress |
+| S6-02 | Kiểm thử cột mốc | Trang | In progress |
+| S6-03 | Kiểm thử tranh chấp & uy tín | Trang | In progress |
+| S6-04 | Kiểm thử định danh (OCR/Face/ZK) | Trang | In progress |
+| S6-05 | Bộ E2E tổng thể | Trang | In progress |
+| S6-06 | Kiểm thử hiệu năng | Trang | Pending |
+| S6-07 | Tài liệu API | Trang | Pending |
+| S6-08 | Hướng dẫn người dùng | Trang | Pending |
 
 ---
 
-## SPRINT 5: FRONTEND UI
+## 4. Thống kê
+- **Theo thành viên**: Tùng (15), Hải (11), Quý (21), Quân (3), Trang (8).
+- **Theo Sprint**: S1 (11), S2 (4), S3 (11), S4 (3), S5 (21), S6 (8).
 
-### SCRUM-030: Frontend UI - Form Đăng Job (Manual Input)
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo form nhập thủ công với validation đầy đủ, tính toán cost, milestone durations
-
-### SCRUM-031: Frontend UI - Form Đăng Job (JSON Input)
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo form nhập JSON với parse và error handling, parity với contract
-
-### SCRUM-032: Frontend UI - Trang Danh sách Job
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Hiển thị danh sách job với filter, search, pagination (4 cards/hàng, 2 hàng/trang)
-
-### SCRUM-033: Frontend UI - Trang Chi tiết Job
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Hiển thị chi tiết job, milestones với pagination (4 milestones/trang)
-
-### SCRUM-034: Frontend UI - Milestone List Component
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo component hiển thị danh sách milestones với pagination, status badges
-
-### SCRUM-035: Frontend UI - Milestone Actions (Submit/Approve/Reject)
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo UI buttons và handlers cho submit milestone, approve, reject với file upload
-
-### SCRUM-036: Frontend UI - Withdraw Actions Component
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo component cho poster withdraw và freelancer withdraw request/accept/reject
-
-### SCRUM-037: Frontend UI - Milestone Detail View
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Hiển thị chi tiết milestone: deadline, review period, evidence, status
-
-### SCRUM-038: Frontend UI - Disputes Page (List View)
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo trang hiển thị danh sách disputes với filter, search, status badges
-
-### SCRUM-039: Frontend UI - Dispute Detail và Voting
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo UI cho dispute detail, hiển thị evidence, reviewer votes, winner
-
-### SCRUM-040: Frontend UI - Reputation Display Component
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo component hiển thị reputation score, proof info, verify proof
-
-### SCRUM-041: Frontend UI - OCR và Upload CCCD
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo component upload ảnh CCCD, hiển thị OCR results, validate fields (phụ thuộc: SCRUM-022)
-
-### SCRUM-042: Frontend UI - Face Verification với Webcam
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo component capture webcam, verify face, hiển thị kết quả liveness (phụ thuộc: SCRUM-023)
-
-### SCRUM-043: Frontend UI - DID Verification Flow và Role Registration
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo main flow: OCR → Face → ZK Proof → Role Registration với CID upload (phụ thuộc: SCRUM-041, 042, 024)
-
-### SCRUM-044: Frontend UI - Role Registration Form với CID
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo form đăng ký role với about field, encrypt, upload IPFS, register với CID
-
-### SCRUM-045: Frontend UI - Pagination Component
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Tạo reusable Pagination component với navigation, step indicators, auto-play
-
-### SCRUM-046: Frontend UI - Job List Pagination Integration
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Implement pagination cho job list (8 jobs/trang: 4 cards/hàng x 2 hàng) (phụ thuộc: SCRUM-045)
-
-### SCRUM-047: Frontend UI - Milestone Pagination Integration
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Implement pagination cho milestones (4 milestones/trang) trong job detail và dashboard (phụ thuộc: SCRUM-045)
-
-### SCRUM-048: Frontend UI - Landing Page Redesign
-**Assignee:** Quý  
-**Status:** DONE  
-**Mô tả:** Redesign landing page với "How it works" flow, persona switcher, FAQ updates
-
-### SCRUM-049: Frontend UI - Responsive Design Optimization
-**Assignee:** Quý  
-**Status:** IN PROGRESS  
-**Mô tả:** Tối ưu responsive design cho mobile, tablet, desktop trên tất cả pages
-
-### SCRUM-050: Frontend UI - Loading States và Error Handling
-**Assignee:** Quý  
-**Status:** IN PROGRESS  
-**Mô tả:** Cải thiện loading states, error messages, toast notifications trên toàn bộ app
-
----
-
-## SPRINT 6: TESTING & DOCUMENTATION
-
-### SCRUM-051: Testing - Test Flow Đăng Job và Apply Job
-**Assignee:** Trang  
-**Status:** IN PROGRESS  
-**Mô tả:** Tạo test cases E2E cho flow đăng job, apply job, validate data
-
-### SCRUM-052: Testing - Test Flow Milestone Submit/Approve/Reject
-**Assignee:** Trang  
-**Status:** IN PROGRESS  
-**Mô tả:** Tạo test cases cho milestone workflow, edge cases (timeout, dispute)
-
-### SCRUM-053: Testing - Test Flow Dispute và Reputation
-**Assignee:** Trang  
-**Status:** IN PROGRESS  
-**Mô tả:** Tạo test cases cho dispute workflow, reputation updates, edge cases
-
-### SCRUM-054: Testing - Test Flow DID Verification
-**Assignee:** Trang  
-**Status:** IN PROGRESS  
-**Mô tả:** Tạo test cases cho OCR, face verification, ZK proof generation, role registration
-
-### SCRUM-055: Testing - E2E Testing Suite
-**Assignee:** Trang  
-**Status:** IN PROGRESS  
-**Mô tả:** Tạo comprehensive E2E test suite cho toàn bộ user flows
-
-### SCRUM-056: Testing - Performance Testing
-**Assignee:** Trang  
-**Status:** PENDING  
-**Mô tả:** Test performance của API, contract interactions, UI rendering
-
-### SCRUM-057: Documentation - API Documentation
-**Assignee:** Trang  
-**Status:** PENDING  
-**Mô tả:** Viết documentation cho tất cả API endpoints với examples
-
-### SCRUM-058: Documentation - User Guide
-**Assignee:** Trang  
-**Status:** PENDING  
-**Mô tả:** Viết user guide cho poster và freelancer workflows
-
----
-
-
-### Thống kê theo Assignee
-- **Tùng**: 15 tasks (Smart Contract + ZK Proof)
-- **Hải**: 11 tasks (Backend API)
-- **Quý**: 21 tasks (Frontend UI)
-- **Quân**: 3 tasks (AI Services)
-- **Trang**: 8 tasks (Testing + Documentation)
-
-### Thống kê theo Sprint
-- **Sprint 1**: 11 tasks (Smart Contract Foundation)
-- **Sprint 2**: 4 tasks (ZK Proof System)
-- **Sprint 3**: 11 tasks (Backend API)
-- **Sprint 4**: 3 tasks (AI Services)
-- **Sprint 5**: 21 tasks (Frontend UI)
-- **Sprint 6**: 8 tasks (Testing & Documentation)
-
-### Dependency Flow
-- **Sprint 1**: Smart Contracts (Foundation)
-- **Sprint 2**: ZK Circuit + Contract Storage (phụ thuộc: Sprint 1)
-- **Sprint 3**: Backend API Routes (phụ thuộc: Sprint 1, 2, 4)
-- **Sprint 4**: Python AI API (Independent, nhưng cần cho Sprint 3)
-- **Sprint 5**: Frontend UI (phụ thuộc: Sprint 3, 4)
-- **Sprint 6**: Testing & Documentation (phụ thuộc: Tất cả sprints trước)
-
+## 5. Luồng phụ thuộc
+1. **Sprint 1** (Smart Contract) → nền tảng cho toàn hệ thống.  
+2. **Sprint 2** (ZK Proof) → phụ thuộc Sprint 1, cung cấp dữ liệu xác minh cho backend/frontend.  
+3. **Sprint 3** (API) → cần Smart Contract + AI.  
+4. **Sprint 4** (AI) → đầu vào cho Sprint 3 & 5.  
+5. **Sprint 5** (Frontend) → tiêu thụ API & dịch vụ AI.  
+6. **Sprint 6** (Testing/Docs) → chạy xuyên suốt nhưng cần phiên bản ổn định từ các sprint trước.

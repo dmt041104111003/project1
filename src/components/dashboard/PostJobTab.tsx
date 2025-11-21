@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -12,25 +12,19 @@ import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
 
-const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
-  try {
-    const { getUserRoles } = await import('@/lib/aptosClient');
-    const { roles } = await getUserRoles(address);
-    return roles.some((r: { name: string }) => r.name === 'poster');
-  } catch {
-    return false;
-  }
-};
+interface PostJobTabProps {
+  hasPosterRole: boolean;
+}
 
-export const PostJobTab: React.FC = () => {
+export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
   const { account } = useWallet();
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
   const [jobDurationUnit, setJobDurationUnit] = useState<'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng'>('ngày');
   const [jobResult, setJobResult] = useState('');
-  const [posterStatus, setPosterStatus] = useState('');
-  const [canPostJobs, setCanPostJobs] = useState(false);
+  const posterStatus = hasPosterRole ? 'Bạn có role Người thuê.' : 'Bạn chưa có role Người thuê. Vào trang Role để đăng ký.';
+  const canPostJobs = Boolean(account) && hasPosterRole;
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<MilestoneForm[]>([]);
   const [currentSkill, setCurrentSkill] = useState('');
@@ -38,16 +32,6 @@ export const PostJobTab: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [inputMode, setInputMode] = useState<'manual' | 'json'>('manual');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!account) return;
-    const check = async () => {
-      const hasPoster = await checkPosterRoleFromTable(account);
-      setPosterStatus(hasPoster ? 'Bạn có role Người thuê.' : 'Bạn chưa có role Người thuê. Vào trang Role để đăng ký.');
-      setCanPostJobs(hasPoster);
-    };
-    check();
-  }, [account]);
 
   const addSkill = () => {
     const trimmed = currentSkill.trim();
@@ -103,11 +87,8 @@ export const PostJobTab: React.FC = () => {
       setJobResult('Vui lòng kết nối ví!');
       return;
     }
-    
-    const hasPoster = await checkPosterRoleFromTable(account);
-    if (!hasPoster) {
-      setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
-      setCanPostJobs(false);
+
+    if (!hasPosterRole) {
       setJobResult('Bạn không có quyền đăng công việc. Vui lòng đăng ký role Người thuê trước!');
       return;
     }
