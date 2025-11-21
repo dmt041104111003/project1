@@ -7,56 +7,8 @@ import { toast } from 'sonner';
 import { JobCardProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { escrowHelpers } from '@/utils/contractHelpers';
-
-const getStateDisplay = (state: unknown, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
-  const stateStr = typeof state === 'string' ? state : 'Active';
-  
-  const applyDeadlineExpired = applyDeadline
-    ? applyDeadline * 1000 < Date.now() 
-    : false;
-  const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer;
-  
-  if (isExpiredPosted) {
-    return {
-      text: 'Hết hạn đăng ký',
-      classes: 'bg-yellow-100 text-yellow-800 border-yellow-300'
-    };
-  }
-  if (stateStr === 'Posted') {
-    return {
-      text: 'Mở',
-      classes: 'bg-green-100 text-green-800 border-green-300'
-    };
-  }
-  if (stateStr === 'PendingApproval') {
-    return {
-      text: 'Đang chờ duyệt ứng viên',
-      classes: 'bg-orange-100 text-orange-800 border-orange-300'
-    };
-  }
-  if (stateStr === 'InProgress') {
-    return {
-      text: 'Đang thực hiện',
-      classes: 'bg-blue-100 text-blue-800 border-blue-300'
-    };
-  }
-  if (stateStr === 'Completed') {
-    return {
-      text: 'Hoàn thành',
-      classes: 'bg-gray-100 text-gray-800 border-gray-300'
-    };
-  }
-  if (stateStr === 'Disputed') {
-    return {
-      text: 'Tranh chấp',
-      classes: 'bg-red-100 text-red-800 border-red-300'
-    };
-  }
-  return {
-    text: stateStr || 'Hoạt động',
-    classes: 'bg-gray-100 text-gray-800 border-gray-300'
-  };
-};
+import { StatusBadge } from '@/components/common';
+import { getJobStateDisplay } from '@/utils/jobStateUtils';
 
 
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
@@ -127,7 +79,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     }
   };
 
-  const stateDisplay = getStateDisplay(job.state, job.apply_deadline, job.has_freelancer);
+  const stateDisplay = getJobStateDisplay(job.state, job.apply_deadline, job.has_freelancer);
   const pendingCandidate = job.pending_freelancer || null;
   const isPoster = account?.toLowerCase() === job.poster?.toLowerCase();
   const isPendingCandidate = pendingCandidate && account?.toLowerCase() === pendingCandidate.toLowerCase();
@@ -140,9 +92,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     <div className="border border-gray-400 bg-gray-50 p-4 rounded">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
-        <span className={`px-2 py-1 text-xs font-bold border-2 ${stateDisplay.classes}`}>
-          {stateDisplay.text}
-        </span>
+        <StatusBadge text={stateDisplay.text} variant={stateDisplay.variant} />
       </div>
       
       <div className="space-y-2">

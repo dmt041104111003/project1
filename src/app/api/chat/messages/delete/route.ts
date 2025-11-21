@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, remove, get } from 'firebase/database';
-import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
+import { getFirebaseDatabase } from '@/lib/firebaseServer';
 
 const database = getFirebaseDatabase();
 

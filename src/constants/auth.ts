@@ -22,7 +22,7 @@ export const ROLES_REQUIRING_DESCRIPTION = [ROLES.FREELANCER, ROLES.POSTER];
 
 export const API_ENDPOINTS = {
   ROLE: '/api/role',
-  PROOF: '/api/proof',
+  PROOF: '/api/zk/verify',
   ZK_GENERATE_PROOF: '/api/zk/generate-proof',
   IPFS_UPLOAD: '/api/ipfs/upload',
 } as const;

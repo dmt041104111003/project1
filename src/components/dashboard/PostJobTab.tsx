@@ -211,34 +211,34 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
         />
 
         {inputMode === 'json' ? (
-          <JsonJobInput onParse={handleJsonParse} canPostJobs={canPostJobs} isSubmitting={isSubmitting} />
+            <JsonJobInput onParse={handleJsonParse} canPostJobs={canPostJobs} isSubmitting={isSubmitting} />
         ) : (
-          <ManualJobForm
-            jobTitle={jobTitle}
-            setJobTitle={setJobTitle}
-            jobDescription={jobDescription}
-            setJobDescription={setJobDescription}
-            jobDuration={jobDuration}
-            setJobDuration={setJobDuration}
-            jobDurationUnit={jobDurationUnit}
-            setJobDurationUnit={setJobDurationUnit}
-            skillsList={skillsList}
-            currentSkill={currentSkill}
-            setCurrentSkill={setCurrentSkill}
-            addSkill={addSkill}
-            removeSkill={removeSkill}
-            milestonesList={milestonesList}
-            currentMilestone={currentMilestone}
-            setCurrentMilestone={setCurrentMilestone}
-            addMilestone={addMilestone}
-            removeMilestone={removeMilestone}
-            calculateTotalBudget={calculateTotalBudget}
-            validationErrors={validationErrors}
-            canPostJobs={canPostJobs}
-            onSubmit={handleFormSubmit}
-            jobResult={jobResult}
-            isSubmitting={isSubmitting}
-          />
+            <ManualJobForm
+              jobTitle={jobTitle}
+              setJobTitle={setJobTitle}
+              jobDescription={jobDescription}
+              setJobDescription={setJobDescription}
+              jobDuration={jobDuration}
+              setJobDuration={setJobDuration}
+              jobDurationUnit={jobDurationUnit}
+              setJobDurationUnit={setJobDurationUnit}
+              skillsList={skillsList}
+              currentSkill={currentSkill}
+              setCurrentSkill={setCurrentSkill}
+              addSkill={addSkill}
+              removeSkill={removeSkill}
+              milestonesList={milestonesList}
+              currentMilestone={currentMilestone}
+              setCurrentMilestone={setCurrentMilestone}
+              addMilestone={addMilestone}
+              removeMilestone={removeMilestone}
+              calculateTotalBudget={calculateTotalBudget}
+              validationErrors={validationErrors}
+              canPostJobs={canPostJobs}
+              onSubmit={handleFormSubmit}
+              jobResult={jobResult}
+              isSubmitting={isSubmitting}
+            />
         )}
       </Card>
     </div>

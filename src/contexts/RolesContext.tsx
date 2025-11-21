@@ -45,7 +45,7 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
     }
     setLoading(true);
     try {
-      // Query trực tiếp từ Aptos
+      // Query từ events và proof table
       const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
       const [rolesData, proofData] = await Promise.all([
         getUserRoles(account),

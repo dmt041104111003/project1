@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useChat, ChatProvider } from '@/contexts/ChatContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
+import { useProofVerification } from '@/hooks/useProofVerification';
+import { formatTime } from '@/utils/timeUtils';
 import { CreateRoomForm } from './parts/CreateRoomForm';
 import { ChatPanel } from './parts/ChatPanel';
 import { RoomList } from './parts/RoomList';
 import { DeleteConfirm } from './parts/DeleteConfirm';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
+  const { checkProof, checkMultipleProofs } = useProofVerification();
 
   const [message, setMessage] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -132,27 +135,6 @@ const ChatContentInner: React.FC = () => {
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    if (messageDate.getTime() === today.getTime()) {
-      return `Hôm nay ${date.toLocaleTimeString('vi-VN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })}`;
-    } else {
-      return date.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-  };
 
 
   const loadRoomsFromFirebase = React.useCallback(async () => {
@@ -189,38 +171,6 @@ const ChatContentInner: React.FC = () => {
   }, [account, loadRoomsFromFirebase]);
 
 
-  const ensureVerified = useCallback(async (): Promise<boolean> => {
-    if (!account) {
-      toast.error('Bạn chưa kết nối ví. Vui lòng kết nối ví trước.');
-      return false;
-    }
-
-    try {
-      const res = await fetch(`/api/proof?address=${encodeURIComponent(account)}`);
-      if (!res.ok) {
-        toast.error('Không thể kiểm tra trạng thái xác minh.');
-        return false;
-      }
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.error || 'Không thể kiểm tra trạng thái xác minh.');
-        return false;
-      }
-      if (!data.hasProof) {
-        toast.error('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
-        return false;
-      }
-      if (data.verified !== true) {
-        toast.error(data.message || 'Bạn cần hoàn tất xác minh danh tính trước khi tạo phòng chat.');
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error('Error checking proof before chat:', error);
-      toast.error('Không thể kiểm tra trạng thái xác minh.');
-      return false;
-    }
-  }, [account]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,19 +204,15 @@ const ChatContentInner: React.FC = () => {
     setCreateRoomError('');
 
     try {
-      // Kiểm tra proof của cả 2 người trước khi tạo phòng
-      const [creatorProof, participantProof] = await Promise.all([
-        fetch(`/api/proof?address=${encodeURIComponent(account)}`).then(r => r.json()),
-        fetch(`/api/proof?address=${encodeURIComponent(participantAddr)}`).then(r => r.json())
-      ]);
-
-      if (!creatorProof.success || !creatorProof.hasProof || creatorProof.verified !== true) {
+      const isCreatorVerified = await checkProof();
+      if (!isCreatorVerified) {
         setCreateRoomError('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
         setIsCreatingRoom(false);
         return;
       }
 
-      if (!participantProof.success || !participantProof.hasProof) {
+      const proofResults = await checkMultipleProofs([participantAddr]);
+      if (!proofResults[participantAddr]) {
         setCreateRoomError('Người nhận chưa có xác minh không kiến thức. Không thể tạo phòng.');
         setIsCreatingRoom(false);
         return;

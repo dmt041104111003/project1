@@ -1,12 +1,12 @@
 'use client';
 
-import { JobsLayout } from '@/components/jobs/JobsLayout';
+import { PageLayout } from '@/components/common';
 import { JobsContent } from '@/components/jobs/JobsContent';
 
 export default function JobsPage() {
   return (
-    <JobsLayout>
+    <PageLayout>
       <JobsContent />
-    </JobsLayout>
+    </PageLayout>
   );
 }

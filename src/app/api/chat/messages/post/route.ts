@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, push, serverTimestamp, update, get, set } from 'firebase/database';
-import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
+import { getFirebaseDatabase } from '@/lib/firebaseServer';
 import { getProofStoredEvents } from '@/lib/aptosClient';
 
 const database = getFirebaseDatabase();

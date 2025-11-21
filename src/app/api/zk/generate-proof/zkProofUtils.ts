@@ -1,7 +1,5 @@
 import { fetchContractResource, queryTableItem } from '@/lib/aptosClient';
-import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
-// ==================== Interfaces ====================
 export interface CCCDData {
   id_number: string;
   name: string;
@@ -28,35 +26,33 @@ export interface SolidityCalldata {
   publicSignals: string[];
 }
 
-// ==================== Helper Functions ====================
 export function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
     hash = hash & hash;
   }
   return Math.abs(hash);
 }
 
 export function parseDateToYYYYMMDD(dateStr: string): number {
+  if (dateStr.length === 8 && /^\d+$/.test(dateStr)) {
+    return parseInt(dateStr);
+  }
+
   let date: Date;
   
   if (dateStr.includes('-')) {
     date = new Date(dateStr);
   } else if (dateStr.includes('/')) {
     const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-      } else {
-        date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      }
-    } else {
+    if (parts.length !== 3) {
       throw new Error(`Invalid date format: ${dateStr}`);
     }
-  } else if (dateStr.length === 8 && /^\d+$/.test(dateStr)) {
-    return parseInt(dateStr);
+    const isYearFirst = parts[0].length === 4;
+    date = isYearFirst 
+      ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}`)
+      : new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
   } else {
     date = new Date(dateStr);
   }
@@ -108,7 +104,7 @@ export function decodeVectorU8(vec: any): any {
         const hexString = vec.slice(2);
         const bytes: number[] = [];
         for (let i = 0; i < hexString.length; i += 2) {
-          bytes.push(parseInt(hexString.substr(i, 2), 16));
+          bytes.push(parseInt(hexString.substring(i, i + 2), 16));
         }
         const jsonString = String.fromCharCode(...bytes).replace(/\0/g, '');
         return JSON.parse(jsonString);
@@ -121,11 +117,9 @@ export function decodeVectorU8(vec: any): any {
 
 export function normalizePublicSignalsPayload(raw: any) {
   if (Array.isArray(raw)) {
-    return {
-      signals: raw,
-      meta: null
-    };
+    return { signals: raw, meta: null };
   }
+  
   if (raw && typeof raw === 'object' && Array.isArray(raw.signals)) {
     return {
       signals: raw.signals,
@@ -136,10 +130,10 @@ export function normalizePublicSignalsPayload(raw: any) {
       }
     };
   }
+  
   throw new Error('Public signals không đúng định dạng.');
 }
 
-// ==================== Prepare Input Data ====================
 export function prepareInputData(cccdData: CCCDData): InputData {
   const dob = parseDateToYYYYMMDD(cccdData.date_of_birth);
   const expiry = parseDateToYYYYMMDD(cccdData.date_of_expiry);
@@ -158,7 +152,6 @@ export function prepareInputData(cccdData: CCCDData): InputData {
   };
 }
 
-// ==================== Duplicate Check ====================
 export async function checkDuplicateProof(
   extendedPublicSignals: any,
   publicSignals: any,

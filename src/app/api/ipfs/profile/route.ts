@@ -1,79 +1,45 @@
 import { NextResponse } from "next/server";
-import { CONTRACT_ADDRESS, ROLE_KIND } from "@/constants/contracts";
-import { fetchContractResource, queryTableItem } from "@/lib/aptosClient";
+import { ROLE_KIND } from "@/constants/contracts";
+import { getRoleRegisteredEvents } from "@/lib/aptosClient";
+import { decryptCid } from '@/lib/encryption';
 
-const decryptCid = async (value: string | null): Promise<string | null> => {
-	if (!value || !value.startsWith('enc:')) return value;
-	try {
-		const [, ivB64, ctB64] = value.split(':');
-		const key = await crypto.subtle.importKey(
-			'raw',
-			Buffer.from(process.env.CID_SECRET_B64!, 'base64'),
-			{ name: 'AES-GCM' },
-			false,
-			['decrypt']
-		);
-		const pt = await crypto.subtle.decrypt(
-			{ name: 'AES-GCM', iv: Buffer.from(ivB64, 'base64') },
-			key,
-			Buffer.from(ctB64, 'base64')
-		);
-		return new TextDecoder().decode(pt);
-	} catch {
-		return value;
-	}
-};
-
-const decodeHexString = (value: string): string => {
-	try {
-		const hex = value.startsWith('0x') ? value.slice(2) : value;
-		return Buffer.from(hex, 'hex').toString('utf8').replace(/\0/g, '');
-	} catch {
-		return value;
-	}
-};
-
-const normalizeCidValue = (value: any): string | null => {
-	if (!value) return null;
-	if (typeof value === 'string') {
-		return value.startsWith('0x') ? decodeHexString(value) : value;
-	}
-	if (Array.isArray(value)) {
-		try {
-			return String.fromCharCode(...value).replace(/\0/g, '');
-		} catch {
-			return null;
-		}
-	}
-	if (value?.vec && Array.isArray(value.vec) && value.vec.length > 0) {
-		return normalizeCidValue(value.vec[0]);
-	}
-	if (typeof value === 'object' && typeof value.value === 'string') {
-		return normalizeCidValue(value.value);
-	}
-	return String(value);
+const normalizeAddress = (addr?: string | null): string => {
+	if (!addr) return '';
+	const value = String(addr).toLowerCase();
+	return value.startsWith('0x') ? value : `0x${value}`;
 };
 
 const resolveProfileCid = async (address: string, roleKind: number): Promise<string | null> => {
-	const roleStoreData = await fetchContractResource("role::RoleStore");
-	const roleStoreHandle = roleStoreData?.users?.handle || null;
-	if (!roleStoreHandle) return null;
-
-	const userRoles = await queryTableItem({
-		handle: roleStoreHandle,
-		keyType: 'address',
-		valueType: `${CONTRACT_ADDRESS}::role::UserRoles`,
-		key: address,
-	});
-	if (!userRoles?.cids?.handle) return null;
-
-	const cidData = await queryTableItem({
-		handle: userRoles.cids.handle,
-		keyType: 'u8',
-		valueType: '0x1::string::String',
-		key: roleKind,
-	});
-	return normalizeCidValue(cidData);
+	const normalizedAddr = normalizeAddress(address);
+	const events = await getRoleRegisteredEvents(200);
+	
+	// Find the latest event for this address and role_kind
+	const userEvents = events
+		.filter((e: any) => {
+			const eventAddr = normalizeAddress(e?.data?.address);
+			const eventRoleKind = Number(e?.data?.role_kind || 0);
+			return eventAddr === normalizedAddr && eventRoleKind === roleKind;
+		})
+		.sort((a: any, b: any) => {
+			const timeA = Number(a?.data?.registered_at || 0);
+			const timeB = Number(b?.data?.registered_at || 0);
+			return timeB - timeA; // Latest first
+		});
+	
+	if (userEvents.length === 0) return null;
+	
+	// Get CID from the latest event
+	const latestEvent = userEvents[0];
+	const cid = latestEvent?.data?.cid;
+	
+	// Handle Option<String> format (could be null, string, or { vec: [...] })
+	if (!cid) return null;
+	if (typeof cid === 'string') return cid;
+	if (cid?.vec && Array.isArray(cid.vec) && cid.vec.length > 0) {
+		return String(cid.vec[0]);
+	}
+	
+	return null;
 };
 
 const fetchProfileMetadata = async (address: string, roleParam: 'poster' | 'freelancer') => {

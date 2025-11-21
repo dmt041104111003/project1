@@ -1,11 +1,3 @@
-/**
- * Parsers cho Aptos data structures
- * Tách từ job/utils.ts và dispute/route.ts
- */
-
-/**
- * Parse Option<Address> từ Aptos
- */
 export function parseOptionAddress(data: any): string | null {
   if (!data) return null;
   if (typeof data === 'string') return data;
@@ -17,9 +9,6 @@ export function parseOptionAddress(data: any): string | null {
   return null;
 }
 
-/**
- * Parse Option<String> từ Aptos
- */
 export function parseOptionString(data: any): string | null {
   if (!data) return null;
   if (typeof data === 'string') return data;
@@ -29,9 +18,6 @@ export function parseOptionString(data: any): string | null {
   return null;
 }
 
-/**
- * Parse Option<Bool> từ Aptos
- */
 export function parseOptionBool(data: any): boolean | null {
   if (!data) return null;
   if (typeof data === 'boolean') return data;
@@ -41,9 +27,6 @@ export function parseOptionBool(data: any): boolean | null {
   return null;
 }
 
-/**
- * Parse state từ Aptos enum/variant
- */
 export function parseState(stateData: any): string {
   if (typeof stateData === 'string') return stateData;
   if (stateData && typeof stateData === 'object') {
@@ -60,9 +43,6 @@ export function parseState(stateData: any): string {
   return 'Posted';
 }
 
-/**
- * Parse milestone status từ Aptos
- */
 export function parseMilestoneStatus(statusData: any): string {
   if (typeof statusData === 'string') return statusData;
   if (statusData && typeof statusData === 'object') {
@@ -79,9 +59,6 @@ export function parseMilestoneStatus(statusData: any): string {
   return 'Pending';
 }
 
-/**
- * Parse address vector từ Aptos
- */
 export function parseAddressVector(data: any): string[] {
   if (!data) return [];
   if (Array.isArray(data)) return data.filter(x => typeof x === 'string');
@@ -91,9 +68,6 @@ export function parseAddressVector(data: any): string[] {
   return [];
 }
 
-/**
- * Parse voted addresses từ dispute votes
- */
 export function parseVotedAddresses(votes: any): string[] {
   if (!Array.isArray(votes)) return [];
   const out: string[] = [];
@@ -116,9 +90,6 @@ export function parseVotedAddresses(votes: any): string[] {
   return out;
 }
 
-/**
- * Parse vote counts từ dispute votes
- */
 export function parseVoteCounts(votes: any): { total: number; forFreelancer: number; forPoster: number } {
   let total = 0;
   let forFreelancer = 0;
@@ -148,9 +119,6 @@ export function parseVoteCounts(votes: any): { total: number; forFreelancer: num
   return { total, forFreelancer, forPoster };
 }
 
-/**
- * Parse dispute status
- */
 export function parseDisputeStatus(status: any): string {
   let statusStr = 'open';
   if (status) {

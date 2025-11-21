@@ -8,6 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
 import { SegmentedTabs } from '@/components/ui';
+import { LoadingState, EmptyState } from '@/components/common';
 
 const JOBS_PER_PAGE = 1;
 
@@ -137,11 +138,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   }, [jobs.length, currentPage]);
 
   if (!account) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-20">
-        <p className="text-xl text-gray-700">Vui lòng kết nối wallet</p>
-      </div>
-    );
+    return <EmptyState message="Vui lòng kết nối wallet" />;
   }
 
   return (
@@ -191,17 +188,15 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-700">Đang tải dự án...</p>
-            </div>
+            <LoadingState message="Đang tải dự án..." />
           ) : displayedJobs.length === 0 ? (
-            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700">
-                {activeTab === 'posted' 
+            <EmptyState
+              message={
+                activeTab === 'posted' 
                   ? 'Bạn chưa đăng job nào.' 
-                  : 'Bạn chưa apply job nào.'}
-              </p>
-            </div>
+                  : 'Bạn chưa apply job nào.'
+              }
+            />
           ) : (
             <>
               {displayedJobs.map((job) => (

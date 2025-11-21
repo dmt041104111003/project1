@@ -1,18 +1,18 @@
 'use client';
 
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { PageLayout } from '@/components/common';
 import { DashboardContent } from '@/components/dashboard/DashboardContent';
 import { WalletConnectGate } from '@/components/common/WalletConnectGate';
 
 export default function DashboardPage() {
   return (
-    <DashboardLayout>
+    <PageLayout>
       <WalletConnectGate
         title="Kết nối ví để truy cập Dashboard"
         description="Vui lòng kết nối ví Petra để quản lý dự án và người làm tự do."
       >
         <DashboardContent />
       </WalletConnectGate>
-    </DashboardLayout>
+    </PageLayout>
   );
 }

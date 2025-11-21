@@ -2,26 +2,10 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { AddressDisplay } from '@/components/common';
 import { ROLES, ROLE_OPTIONS, MESSAGES } from '@/constants/auth';
 
-// ==================== Message Display ====================
-interface MessageDisplayProps {
-  message: string;
-}
-
-export function MessageDisplay({ message }: MessageDisplayProps) {
-  if (!message) return null;
-  const isSuccess = message.includes('thành công');
-  const isError = message.includes('lỗi') || message.includes('Lỗi');
-  return (
-    <div className={`text-xs ${
-      isSuccess ? 'text-green-700' : isError ? 'text-red-700' : 'text-gray-700'
-    }`}>
-      {message}
-    </div>
-  );
-}
+export { MessageDisplay } from '@/components/common';
 
 // ==================== Verification Status ====================
 interface VerificationStatusProps {
@@ -68,96 +52,47 @@ export function RoleList({ roles, loading }: RoleListProps) {
   );
 }
 
-// ==================== Wallet Address Display ====================
-interface WalletAddressDisplayProps {
-  address: string | null;
-}
+export { AddressDisplay as WalletAddressDisplay } from '@/components/common';
 
-export function WalletAddressDisplay({ address }: WalletAddressDisplayProps) {
-  return (
-    <div className="text-sm text-gray-700">
-      Ví:{' '}
-      {address ? (
-        <span 
-          className="font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
-          onClick={() => copyAddress(address)}
-        >
-          {formatAddress(address)}
-        </span>
-      ) : (
-        'Chưa kết nối'
-      )}
-    </div>
-  );
-}
+import { InfoCard, InfoField } from '@/components/common';
 
-// ==================== OCR Result ====================
 interface OCRResultProps {
   idInfo: any;
 }
 
 export function OCRResult({ idInfo }: OCRResultProps) {
   if (!idInfo) return null;
+  
   return (
-    <div className="p-3 sm:p-4 bg-windows-bg border-2 border-windows-border rounded-lg text-xs sm:text-sm">
-      <div className="font-bold text-windows-blue mb-2">Thông tin OCR đã đọc:</div>
-      <div className="space-y-1 sm:space-y-2 text-black">
-        {idInfo.id_number && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Số CMND/CCCD:</span>
-            <span className="font-mono text-windows-blue break-all">{idInfo.id_number}</span>
-          </div>
-        )}
-        {idInfo.name && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Họ và tên:</span>
-            <span className="text-windows-blue break-words">{idInfo.name}</span>
-          </div>
-        )}
-        {idInfo.date_of_birth && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Ngày sinh:</span>
-            <span className="text-windows-blue">{idInfo.date_of_birth}</span>
-          </div>
-        )}
-        {idInfo.gender && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Giới tính:</span>
-            <span className="text-windows-blue">{idInfo.gender}</span>
-          </div>
-        )}
-        {idInfo.nationality && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Quốc tịch:</span>
-            <span className="text-windows-blue">{idInfo.nationality}</span>
-          </div>
-        )}
-        {idInfo.date_of_expiry && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Có giá trị đến:</span>
-            <span className="text-windows-blue">{idInfo.date_of_expiry}</span>
-          </div>
-        )}
-        {idInfo.expiry_status && (
-          <div className="flex flex-col sm:flex-row sm:items-start">
-            <span className="font-semibold min-w-[140px]">Trạng thái:</span>
-            <span className={idInfo.expiry_status === 'valid' 
-              ? 'text-windows-blue font-semibold' 
-              : 'text-red-600 font-semibold'
-            }>
-              {idInfo.expiry_status === 'valid' ? 'Còn hiệu lực' : 'Hết hiệu lực'}
-            </span>
-          </div>
-        )}
-        {idInfo.expiry_message && (
-          <div className="mt-2 p-2 bg-windows-bg border-2 border-windows-border-dark rounded text-xs sm:text-sm text-black">
-            {typeof idInfo.expiry_message === 'string' && idInfo.expiry_message.toLowerCase().includes('expired') 
-              ? 'CCCD đã hết hiệu lực' 
-              : idInfo.expiry_message}
-          </div>
-        )}
-      </div>
-    </div>
+    <InfoCard title="Thông tin OCR đã đọc:" variant="windows">
+      <InfoField 
+        label="Số CMND/CCCD" 
+        value={idInfo.id_number} 
+        valueClassName="font-mono text-windows-blue break-all"
+      />
+      <InfoField label="Họ và tên" value={idInfo.name} />
+      <InfoField label="Ngày sinh" value={idInfo.date_of_birth} />
+      <InfoField label="Giới tính" value={idInfo.gender} />
+      <InfoField label="Quốc tịch" value={idInfo.nationality} />
+      <InfoField label="Có giá trị đến" value={idInfo.date_of_expiry} />
+      {idInfo.expiry_status && (
+        <InfoField
+          label="Trạng thái"
+          value={idInfo.expiry_status === 'valid' ? 'Còn hiệu lực' : 'Hết hiệu lực'}
+          valueClassName={idInfo.expiry_status === 'valid' 
+            ? 'text-windows-blue font-semibold' 
+            : 'text-red-600 font-semibold'
+          }
+        />
+      )}
+      {idInfo.expiry_message && (
+        <div className="mt-2 p-2 bg-windows-bg border-2 border-windows-border-dark rounded text-xs sm:text-sm text-black">
+          {typeof idInfo.expiry_message === 'string' && idInfo.expiry_message.toLowerCase().includes('expired') 
+            ? 'CCCD đã hết hiệu lực' 
+            : idInfo.expiry_message}
+        </div>
+      )}
+    </InfoCard>
   );
 }
 

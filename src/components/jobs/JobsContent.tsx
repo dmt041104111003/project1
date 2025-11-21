@@ -7,6 +7,9 @@ import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobListItem } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { formatDate } from '@/utils/timeUtils';
+import { getJobStateDisplay } from '@/utils/jobStateUtils';
+import { LoadingState, ErrorState, EmptyState, StatusBadge } from '@/components/common';
 
 const JOBS_PER_PAGE = 8;
 
@@ -92,19 +95,11 @@ export const JobsContent: React.FC = () => {
   }, [jobs]);
 
   if (loading) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-700 text-lg">Đang tải công việc...</p>
-      </div>
-    );
+    return <LoadingState message="Đang tải công việc..." />;
   }
 
   if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-500 text-lg">Lỗi: {error}</p>
-      </div>
-    );
+    return <ErrorState message={`Lỗi: ${error}`} onRetry={() => window.location.reload()} />;
   }
 
   return (
@@ -115,10 +110,11 @@ export const JobsContent: React.FC = () => {
       </div>
 
       {jobs.length === 0 ? (
-        <Card variant="outlined" className="p-8 text-center">
-          <h3 className="text-lg font-bold text-blue-800 mb-2">Không tìm thấy công việc</h3>
-          <p className="text-gray-700">Hãy là người đầu tiên đăng công việc và bắt đầu kiếm tiền!</p>
-        </Card>
+        <EmptyState
+          title="Không tìm thấy công việc"
+          message="Hãy là người đầu tiên đăng công việc và bắt đầu kiếm tiền!"
+          variant="card"
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -160,14 +156,7 @@ export const JobsContent: React.FC = () => {
             
           
             const displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
-            const                               displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
-                               displayState === 'Posted' ? 'Mở' :
-                               displayState === 'InProgress' ? 'Đang thực hiện' :
-                               displayState === 'Completed' ? 'Hoàn thành' :
-                               displayState === 'Disputed' ? 'Tranh chấp' :
-                               displayState === 'Cancelled' ? 'Đã hủy' :
-                               displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
-                               displayState || 'Hoạt động';
+            const stateDisplay = getJobStateDisplay(displayState, job.apply_deadline, hasFreelancer);
             
             return (
               <div 
@@ -191,18 +180,7 @@ export const JobsContent: React.FC = () => {
                           : ''}
                       </p>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-bold border-2 ${
-                      isExpiredPosted ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                      displayState === 'Cancelled' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                      displayState === 'CancelledByPoster' ? 'bg-red-100 text-red-800 border-red-300' :
-                      displayState === 'Posted' ? 'bg-green-100 text-green-800 border-green-300' :
-                      displayState === 'InProgress' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                      displayState === 'Completed' ? 'bg-gray-100 text-gray-800 border-gray-300' :
-                      displayState === 'Disputed' ? 'bg-red-100 text-red-800 border-red-300' :
-                      'bg-gray-100 text-gray-800 border-gray-300'
-                    }`}>
-                      {displayText}
-                    </span>
+                    <StatusBadge text={stateDisplay.text} variant={stateDisplay.variant} />
                   </div>
                   
                   <div className="space-y-2 pt-2 border-t border-gray-200 mt-auto">
@@ -249,11 +227,7 @@ export const JobsContent: React.FC = () => {
                             const isExpired = deadline * 1000 < Date.now();
                             return (
                               <>
-                                {date.toLocaleDateString('vi-VN', { 
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                })}
+                                {formatDate(deadline)}
                                 {isExpired && 'Hết hạn'}
                               </>
                             );

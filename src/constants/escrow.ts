@@ -108,9 +108,6 @@ export interface JobSidebarProps {
   onWithdrawApplication?: () => void;
 }
 
-export interface JobIPFSContentProps {
-  jobDetails: Record<string, unknown> | null;
-}
 
 export interface MilestoneItemProps {
   milestone: Milestone;
