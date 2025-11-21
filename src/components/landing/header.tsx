@@ -22,7 +22,7 @@ export function Header() {
     connectWallet,
     disconnectWallet,
   } = useWallet();
-  const { hasReviewerRole } = useRoles();
+  const { hasReviewerRole, hasProof } = useRoles();
 
   const accountButtonLabel = isConnecting
     ? 'Đang kết nối...'
@@ -72,6 +72,9 @@ export function Header() {
               }
               if (item.href === '/disputes') {
                 return hasReviewerRole;
+              }
+              if (item.href === '/chat') {
+                return Boolean(account) && hasProof;
               }
               return true;
             }).map((item) => {
@@ -148,6 +151,9 @@ export function Header() {
                 }
                 if (item.href === '/disputes') {
                   return hasReviewerRole;
+                }
+                if (item.href === '/chat') {
+                  return Boolean(account) && hasProof;
                 }
                 return true;
               }).map((item) => {

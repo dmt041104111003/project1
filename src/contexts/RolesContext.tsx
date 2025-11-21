@@ -17,6 +17,7 @@ type RolesContextValue = {
   hasPosterRole: boolean;
   hasFreelancerRole: boolean;
   hasReviewerRole: boolean;
+  hasProof: boolean;
 };
 
 const RolesContext = createContext<RolesContextValue>({
@@ -26,27 +27,37 @@ const RolesContext = createContext<RolesContextValue>({
   hasPosterRole: false,
   hasFreelancerRole: false,
   hasReviewerRole: false,
+  hasProof: false,
 });
 
 export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const { account } = useWallet();
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasProof, setHasProof] = useState(false);
 
   const fetchRoles = useCallback(async () => {
     if (!account) {
       setRoles([]);
+      setHasProof(false);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const { getUserRoles } = await import('@/lib/aptosClient');
+      const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
       const response = await getUserRoles(account);
       const normalized = (response?.roles || []).map((role) => String(role?.name || '').toLowerCase());
       setRoles(normalized);
+      try {
+        const proof = await getProofData(account);
+        setHasProof(!!proof);
+      } catch {
+        setHasProof(false);
+      }
     } catch {
       setRoles([]);
+      setHasProof(false);
     } finally {
       setLoading(false);
     }
@@ -67,7 +78,8 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
     hasPosterRole: roles.includes('poster'),
     hasFreelancerRole: roles.includes('freelancer'),
     hasReviewerRole: roles.includes('reviewer'),
-  }), [roles, loading, fetchRoles]);
+    hasProof,
+  }), [roles, loading, fetchRoles, hasProof]);
 
   return (
     <RolesContext.Provider value={value}>
