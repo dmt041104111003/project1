@@ -12,16 +12,16 @@ export const JobIPFSContent: React.FC<JobIPFSContentProps> = ({ jobDetails }) =>
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-blue-800 mb-2">
-                {String(jobDetails.title || 'Untitled Job')}
+                {String(jobDetails.title || 'Công việc chưa có tiêu đề')}
               </h2>
               <p className="text-gray-700 whitespace-pre-wrap">
-                {String(jobDetails.description || 'No description provided')}
+                {String(jobDetails.description || 'Chưa có mô tả')}
               </p>
             </div>
             
             {(jobDetails as any).requirements && (
               <div>
-                <h3 className="text-lg font-bold text-blue-800 mb-2">Requirements</h3>
+                <h3 className="text-lg font-bold text-blue-800 mb-2">Yêu cầu</h3>
                 <p className="text-gray-700 whitespace-pre-wrap">
                   {Array.isArray((jobDetails as any).requirements)
                     ? (jobDetails as any).requirements.join(', ')
@@ -32,14 +32,14 @@ export const JobIPFSContent: React.FC<JobIPFSContentProps> = ({ jobDetails }) =>
             
             {(jobDetails as any).budget && (
               <div>
-                <h3 className="text-lg font-bold text-blue-800 mb-2">Budget</h3>
+                <h3 className="text-lg font-bold text-blue-800 mb-2">Ngân sách</h3>
                 <p className="text-gray-700">{String((jobDetails as any).budget)}</p>
               </div>
             )}
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-600">Job details not available</p>
+            <p className="text-gray-600">Chi tiết công việc không có sẵn</p>
           </div>
         )}
       </Card>

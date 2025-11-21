@@ -5,10 +5,11 @@ torch==2.5.1
 werkzeug==2.0.2
 flask==2.0.2
 flask-cors==6.0.1
-requests
-deepface
-tf-keras
-paddlepaddle==2.6.1
-paddleocr
+requests>=2.31.0
+deepface>=0.0.79
+tensorflow>=2.15.0
+rapidocr-onnxruntime>=1.3.0
 protobuf>=5.28.0
-onnxruntime
+onnxruntime>=1.16.0
+# RetinaFace dependencies (tự động cài khi dùng deepface với retinaface backend)
+# Không cần cài thêm, deepface sẽ tự động handle

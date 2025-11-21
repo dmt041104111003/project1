@@ -47,7 +47,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       return (
         <div className="text-center py-4">
           <p className="text-sm text-red-700 mb-2 font-bold">
-            Bạn cần có role Freelancer để apply job
+            Bạn cần có role Người làm tự do để apply job
           </p>
           <Button
             onClick={() => window.location.href = '/auth/did-verification'}
@@ -55,7 +55,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
             size="sm"
             className="mt-2"
           >
-            Đăng ký role Freelancer
+            Đăng ký role Người làm tự do
           </Button>
         </div>
       );
@@ -88,7 +88,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (isCancelledByPoster) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 font-bold">Job đã bị hủy bởi người đăng</p>
+          <p className="text-sm text-red-700 font-bold">Công việc đã bị hủy bởi người thuê</p>
         </div>
       );
     }
@@ -119,7 +119,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (hasFreelancer && !hasTimedOutMilestone && !(isCancelled && freelancerStake === 0)) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-gray-900 font-medium">Job đã có freelancer</p>
+          <p className="text-sm text-gray-900 font-medium">Công việc đã có người làm tự do</p>
         </div>
       );
     }
@@ -130,7 +130,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           <p className="text-sm text-red-700 font-bold">Đã hết hạn đăng ký apply</p>
           {isReopenedAfterTimeout && (
             <p className="text-xs text-gray-600 mt-1">
-              Job đã được mở lại nhưng hạn đăng ký đã hết hạn
+              Công việc đã được mở lại nhưng hạn đăng ký đã hết hạn
             </p>
           )}
         </div>
@@ -142,7 +142,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
         {isReopenedAfterTimeout && (
           <div className="text-center mb-2">
             <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-300 rounded px-2 py-1">
-              Job đã được mở lại (Freelancer trước đã timeout)
+              Công việc đã được mở lại (Người làm tự do trước đã hết hạn)
             </p>
           </div>
         )}
@@ -152,7 +152,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           size="lg"
           className="w-full bg-white-800 text-black hover:bg-blue-300 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
         >
-          {applying ? 'Đang apply...' : 'Apply Job'}
+          {applying ? 'Đang ứng tuyển...' : 'Ứng tuyển Công việc'}
         </Button>
       </div>
     );
@@ -198,7 +198,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
                       displayState === 'Completed' ? 'Completed' :
                       displayState === 'Disputed' ? 'Disputed' :
                       displayState === 'Cancelled' ? 'Cancelled' :
-                      displayState === 'CancelledByPoster' ? 'Đã hủy bởi người đăng' :
+                               displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
                       displayState || 'Active';
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
@@ -249,7 +249,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           
           {jobData.poster && (
             <div>
-              <div className="text-xs text-gray-600 mb-1">Người đăng</div>
+              <div className="text-xs text-gray-600 mb-1">Người thuê</div>
               <div 
                 className="text-sm font-bold text-blue-600 cursor-pointer hover:text-blue-800 hover:underline break-all"
                 onClick={() => copyAddress(String(jobData.poster))}

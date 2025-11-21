@@ -8,18 +8,15 @@ import { toast } from 'sonner';
 import { JsonJobInput } from './JsonJobInput';
 import { ManualJobForm } from './ManualJobForm';
 import { MilestoneForm, JsonJobParseData } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 
 const TIME_MULTIPLIERS = { 'giây': 1, 'phút': 60, 'giờ': 3600, 'ngày': 86400, 'tuần': 604800, 'tháng': 2592000 } as const;
 const APT_TO_UNITS = 100_000_000;
 
 const checkPosterRoleFromTable = async (address: string): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/role?address=${encodeURIComponent(address)}`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    const rolesData = data.roles || [];
-    return rolesData.some((r: { name: string }) => r.name === 'poster');
+    const { getUserRoles } = await import('@/lib/aptosClient');
+    const { roles } = await getUserRoles(address);
+    return roles.some((r: { name: string }) => r.name === 'poster');
   } catch {
     return false;
   }
@@ -46,7 +43,7 @@ export const PostJobTab: React.FC = () => {
     if (!account) return;
     const check = async () => {
       const hasPoster = await checkPosterRoleFromTable(account);
-      setPosterStatus(hasPoster ? 'Bạn có role Poster.' : 'Bạn chưa có role Poster. Vào trang Role để đăng ký.');
+      setPosterStatus(hasPoster ? 'Bạn có role Người thuê.' : 'Bạn chưa có role Người thuê. Vào trang Role để đăng ký.');
       setCanPostJobs(hasPoster);
     };
     check();
@@ -111,7 +108,7 @@ export const PostJobTab: React.FC = () => {
     if (!hasPoster) {
       setPosterStatus('Bạn chưa có role Poster. Vào trang Role để đăng ký.');
       setCanPostJobs(false);
-      setJobResult('Bạn không có quyền đăng job. Vui lòng đăng ký role Poster trước!');
+      setJobResult('Bạn không có quyền đăng công việc. Vui lòng đăng ký role Người thuê trước!');
       return;
     }
 
@@ -134,10 +131,21 @@ export const PostJobTab: React.FC = () => {
       setIsSubmitting(true);
       setJobResult('Đang tạo job...');
       
-      const ipfsRes = await fetchWithAuth('/api/ipfs/upload', {
+      if (!account) {
+        toast.error('Vui lòng kết nối ví trước');
+        return;
+      }
+      
+      const ipfsRes = await fetch('/api/ipfs/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'job', title: jobTitle, description: jobDescription, requirements: skillsList })
+        body: JSON.stringify({ 
+          address: account,
+          type: 'job', 
+          title: jobTitle, 
+          description: jobDescription, 
+          requirements: skillsList 
+        })
       });
       const ipfsData = await ipfsRes.json();
       if (!ipfsData.success) throw new Error(ipfsData.error);

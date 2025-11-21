@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
-import { getTableHandle, queryJobFromTable, parseOptionAddress } from '@/app/api/job/utils';
+import { getEscrowStore, getJobData } from '@/lib/aptosClient';
+import { parseOptionAddress } from '@/lib/aptosParsers';
 const decryptCid = async (value: string): Promise<string> => {
 	if (!value?.startsWith('enc:')) return value;
 	try {
@@ -32,7 +32,7 @@ const findMilestoneByCid = async (
 	const endId = jobIdFilter ? jobIdFilter : maxScan;
 
 	for (let id = startId; id <= endId; id++) {
-		const jobData = await queryJobFromTable(store.handle, id);
+		const jobData = await getJobData(id);
 		if (!jobData) continue;
 
 		const milestones = Array.isArray(jobData.milestones) ? jobData.milestones : [];
@@ -50,11 +50,11 @@ const findMilestoneByCid = async (
 };
 
 export async function GET(request: NextRequest) {
-	return requireAuth(request, async (req, user) => {
-		const { searchParams } = new URL(req.url);
+	const { searchParams } = new URL(request.url);
 		const cidParam = searchParams.get('cid');
 		const jobIdParam = searchParams.get('jobId');
 		const decodeOnly = searchParams.get('decodeOnly') === 'true';
+	const requesterAddress = searchParams.get('address');
 		
 		if (!cidParam) {
 			return NextResponse.json({ success: false, error: 'cid là bắt buộc' }, { status: 400 });
@@ -62,9 +62,9 @@ export async function GET(request: NextRequest) {
 		
 		const decryptedRequested = await decryptCid(cidParam);
 		
-		const store = await getTableHandle();
+		const store = await getEscrowStore();
 		if (!store?.handle) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy EscrowStore' }, { status: 404 });
+			return NextResponse.json({ success: false, error: 'Không tìm thấy Ký quỹ Store' }, { status: 404 });
 		}
 		
 		let jobData: any = null;
@@ -95,7 +95,10 @@ export async function GET(request: NextRequest) {
 		
 		const poster = typeof jobData.poster === 'string' ? jobData.poster.toLowerCase() : '';
 		const freelancer = (parseOptionAddress(jobData.freelancer) || '').toLowerCase();
-		const requester = user.address.toLowerCase();
+	const requester = (requesterAddress || '').toLowerCase();
+	if (!requester) {
+		return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+	}
 		
 		if (requester !== poster && requester !== freelancer) {
 			return NextResponse.json({ success: false, error: 'Bạn không có quyền truy cập CID này' }, { status: 403 });
@@ -125,6 +128,5 @@ export async function GET(request: NextRequest) {
 			data,
 			jobId,
 			milestoneId: milestoneData?.id ?? milestoneIndex + 1
-		});
 	});
 }

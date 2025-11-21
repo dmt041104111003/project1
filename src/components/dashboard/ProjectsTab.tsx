@@ -27,16 +27,10 @@ export const ProjectsTab: React.FC = () => {
     }
     const checkRoles = async () => {
       try {
-        const res = await fetch(`/api/role?address=${encodeURIComponent(account)}`);
-        if (!res.ok) {
-          setHasPosterRole(false);
-          setHasFreelancerRole(false);
-          return;
-        }
-        const data = await res.json();
-        const rolesData = data.roles || [];
-        setHasPosterRole(rolesData.some((r: { name: string }) => r.name === 'poster'));
-        setHasFreelancerRole(rolesData.some((r: { name: string }) => r.name === 'freelancer'));
+        const { getUserRoles } = await import('@/lib/aptosClient');
+        const { roles } = await getUserRoles(account);
+        setHasPosterRole(roles.some((r: { name: string }) => r.name === 'poster'));
+        setHasFreelancerRole(roles.some((r: { name: string }) => r.name === 'freelancer'));
       } catch {
         setHasPosterRole(false);
         setHasFreelancerRole(false);
@@ -62,14 +56,8 @@ export const ProjectsTab: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/job/list');
-      if (!res.ok) {
-        setJobs([]);
-        return;
-      }
-      
-      const data = await res.json();
-      const allJobs = data.jobs || [];
+      const { getJobsList, getParsedJobData } = await import('@/lib/aptosClient');
+      const { jobs: allJobs } = await getJobsList();
       
       const filteredJobs = allJobs.filter((job: Job) => {
         if (activeTab === 'posted') {
@@ -83,14 +71,13 @@ export const ProjectsTab: React.FC = () => {
         filteredJobs.map(async (job: Job) => {
           let enrichedJob: Job = job;
           try {
-            const [detailRes, cidRes] = await Promise.all([
-              fetch(`/api/job/${job.id}`),
+            const [detailData, cidRes] = await Promise.all([
+              getParsedJobData(job.id),
               fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`),
             ]);
 
-            if (detailRes.ok) {
-              const detailData = await detailRes.json();
-              enrichedJob = { ...enrichedJob, ...detailData.job };
+            if (detailData) {
+              enrichedJob = { ...enrichedJob, ...detailData };
             }
 
             if (cidRes.ok) {
@@ -164,9 +151,9 @@ export const ProjectsTab: React.FC = () => {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             } ${!hasPosterRole ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={!hasPosterRole}
-            title={!hasPosterRole ? 'Bạn cần có role Poster' : ''}
+            title={!hasPosterRole ? 'Bạn cần có role Người thuê' : ''}
           >
-            Jobs Đã Đăng ({jobs.filter(j => j.poster?.toLowerCase() === account?.toLowerCase()).length})
+            Công việc Đã Đăng ({jobs.filter(j => j.poster?.toLowerCase() === account?.toLowerCase()).length})
           </button>
           <button
             onClick={() => {
@@ -179,9 +166,9 @@ export const ProjectsTab: React.FC = () => {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             } ${!hasFreelancerRole ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={!hasFreelancerRole}
-            title={!hasFreelancerRole ? 'Bạn cần có role Freelancer' : ''}
+            title={!hasFreelancerRole ? 'Bạn cần có role Người làm tự do' : ''}
           >
-            Jobs Đã Apply ({jobs.filter(j => j.freelancer?.toLowerCase() === account?.toLowerCase()).length})
+            Công việc Đã Ứng tuyển ({jobs.filter(j => j.freelancer?.toLowerCase() === account?.toLowerCase()).length})
           </button>
         </div>
 
@@ -203,13 +190,13 @@ export const ProjectsTab: React.FC = () => {
             </div>
           ) : (activeTab === 'posted' && !hasPosterRole) ? (
             <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700 mb-2">Bạn cần có role Poster để xem jobs đã đăng.</p>
-              <p className="text-sm text-gray-600">Vui lòng đăng ký role Poster trong trang Role.</p>
+              <p className="text-gray-700 mb-2">Bạn cần có role Người thuê để xem công việc đã đăng.</p>
+              <p className="text-sm text-gray-600">Vui lòng đăng ký role Người thuê trong trang Role.</p>
             </div>
           ) : (activeTab === 'applied' && !hasFreelancerRole) ? (
             <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700 mb-2">Bạn cần có role Freelancer để xem jobs đã apply.</p>
-              <p className="text-sm text-gray-600">Vui lòng đăng ký role Freelancer trong trang Role.</p>
+              <p className="text-gray-700 mb-2">Bạn cần có role Người làm tự do để xem công việc đã ứng tuyển.</p>
+              <p className="text-sm text-gray-600">Vui lòng đăng ký role Người làm tự do trong trang Role.</p>
             </div>
           ) : displayedJobs.length === 0 ? (
             <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">

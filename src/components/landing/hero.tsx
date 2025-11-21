@@ -55,7 +55,7 @@ export function Hero() {
                 </div>
 
                 <div className="border border-gray-300 bg-white p-3">
-                  <div className="font-bold text-gray-900">Bảo vệ escrow</div>
+                  <div className="font-bold text-gray-900">Bảo vệ ký quỹ</div>
                   <div className="text-sm text-gray-600">Bảo vệ thanh toán tự động</div>
                 </div>
 

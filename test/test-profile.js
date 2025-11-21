@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Script test `/api/profile`:
+ * Script test `/api/ipfs/profile`:
  *   node test-profile.js <address> [role] [attackCid]
  *   node test-profile.js <attackCid>            (mode lạm dụng nhanh)
  *
@@ -64,7 +64,7 @@ async function testProfile(address, role) {
 
   const params = new URLSearchParams({ address });
   if (role) params.set('role', role);
-  const url = `${API_BASE}/api/profile?${params.toString()}`;
+  const url = `${API_BASE}/api/ipfs/profile?${params.toString()}`;
   console.log('📡 GET', url);
 
   const result = await safeFetch(url);
@@ -77,15 +77,15 @@ async function testAbuse(address, cid) {
   console.log('🧪 Test 2: Thử nhét CID tùy ý (phải bị chặn)');
 
   const attempts = [
-    `${API_BASE}/api/profile?cid=${encodeURIComponent(cid)}`
+    `${API_BASE}/api/ipfs/profile?cid=${encodeURIComponent(cid)}`
   ];
 
   if (address) {
     attempts.push(
-      `${API_BASE}/api/profile?address=${encodeURIComponent(address)}&cid=${encodeURIComponent(cid)}`
+      `${API_BASE}/api/ipfs/profile?address=${encodeURIComponent(address)}&cid=${encodeURIComponent(cid)}`
     );
     attempts.push(
-      `${API_BASE}/api/profile?address=${encodeURIComponent(address)}&role=poster&cid=${encodeURIComponent(cid)}`
+      `${API_BASE}/api/ipfs/profile?address=${encodeURIComponent(address)}&role=poster&cid=${encodeURIComponent(cid)}`
     );
   }
 

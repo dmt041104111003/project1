@@ -3,7 +3,6 @@ import "./globals.css";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
-import AuthSessionProvider from "../components/providers/SessionProvider";
 
 export const metadata: Metadata = {
   title: "Marketplace2vn",
@@ -19,16 +18,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link href="https://fonts.googleapis.com/css2?family=Gluten:wght@100..900&subset=vietnamese,latin&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased relative">
-        <AuthSessionProvider>
-          <WalletProvider>
-              <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="w-full h-full" style={{ backgroundImage: `url('/images/landing/logo_full.png')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left center', backgroundSize: '80vh', backgroundAttachment: 'fixed', opacity: 0.05 }} />
-              </div>
-              <div className="relative min-h-screen">{children}</div>
-              <Toaster />
-              <SonnerToaster position="bottom-right" richColors />
-          </WalletProvider>
-        </AuthSessionProvider>
+        <WalletProvider>
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <div className="w-full h-full" style={{ backgroundImage: `url('/images/landing/logo_full.png')`, backgroundRepeat: 'no-repeat', backgroundPosition: 'left center', backgroundSize: '80vh', backgroundAttachment: 'fixed', opacity: 0.05 }} />
+          </div>
+          <div className="relative min-h-screen">{children}</div>
+          <Toaster />
+          <SonnerToaster position="bottom-right" richColors />
+        </WalletProvider>
       </body>
     </html>
   );

@@ -120,12 +120,11 @@ export const roleHelpers = {
 };
 
 export const reputationHelpers = {
-  getReputationPoints: async (address: string): Promise<{ ut: number } | null> => {
+  getReputationPoints: async (address: string): Promise<{ ut: number; success: boolean; address: string } | null> => {
     try {
-      const res = await fetch(`/api/reputation?address=${address}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.success ? data : null;
+      const { getReputationPoints } = await import('@/lib/aptosClient');
+      const ut = await getReputationPoints(address);
+      return { ut, success: true, address };
     } catch {
       return null;
     }

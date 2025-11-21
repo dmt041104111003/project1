@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 
 const VERIFICATION_API_URL = process.env.VERIFICATION_API_URL || 'http://localhost:5000';
 
 export async function POST(request: NextRequest) {
-  return requireAuth(request, async (req, user) => {
     try {
-      const requester = (user.address || '').toLowerCase();
-      console.debug('[OCR] Handling request for', requester);
-
-      const formData = await req.formData();
+      const formData = await request.formData();
       const imageFile = formData.get('image') as File | null;
 
       if (!imageFile) {
@@ -43,6 +38,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (data.data.expiry_status === 'expired') {
+        return NextResponse.json(
+          { 
+            error: 'CCCD không chuẩn vì hết hiệu lực',
+            expiry_message: data.data.expiry_message 
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json({
         id_number: data.data.id_number,
         name: data.data.name,
@@ -60,5 +65,4 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-  });
 }

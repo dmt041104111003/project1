@@ -20,7 +20,7 @@ export const Applicants: React.FC<ApplicantsProps> = ({ roleState, jobId, cid, a
   const list = Array.isArray(applicants) ? applicants : [];
   return (
     <div className="mt-3">
-      <h4 className="text-md font-bold text-blue-800 mb-2">Ứng viên</h4>
+      <h4 className="text-md font-bold text-blue-800 mb-2">Người làm tự do</h4>
       {list.length > 0 ? (
         <div className="space-y-2">
           {list.map((a: any, idx: number) => {
@@ -45,7 +45,7 @@ export const Applicants: React.FC<ApplicantsProps> = ({ roleState, jobId, cid, a
           })}
         </div>
       ) : (
-        <div className="text-sm text-gray-700">Chưa có ứng viên</div>
+        <div className="text-sm text-gray-700">Chưa có người làm tự do</div>
       )}
     </div>
   );

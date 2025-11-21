@@ -24,7 +24,7 @@ export function Footer() {
               </span>
              </div>
                 <p className="text-gray-700 mb-4">
-               Nền tảng freelancer phi tập trung với xác minh danh tính và escrow tự động
+               Nền tảng người làm tự do phi tập trung với xác minh danh tính và ký quỹ tự động
              </p>
             <div className="flex gap-4 items-center">
               <a 

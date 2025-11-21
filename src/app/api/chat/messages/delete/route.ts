@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, remove, get } from 'firebase/database';
-import { requireAuth } from '@/app/api/auth/_lib/helpers';
 import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
 
 const database = getFirebaseDatabase();
@@ -17,15 +16,17 @@ const fetchRoomData = async (roomId: string) => {
 };
 
 export async function DELETE(request: NextRequest) {
-  return requireAuth(request, async (req, user) => {
     try {
-      const { messageId, roomId } = await req.json();
+    const { messageId, roomId, address } = await request.json();
 
     if (!messageId || !roomId) {
       return NextResponse.json({ error: 'Message ID và Room ID là bắt buộc' }, { status: 400 });
     }
 
-    const requester = normalizeAddress(user.address);
+    const requester = normalizeAddress(address);
+    if (!requester) {
+      return NextResponse.json({ error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
+    }
 
     const roomData = await fetchRoomData(roomId);
     if (!roomData) {
@@ -60,6 +61,5 @@ export async function DELETE(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Không thể xóa tin nhắn' }, { status: 500 });
     }
-  });
 }
 

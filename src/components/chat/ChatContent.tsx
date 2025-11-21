@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useChat, ChatProvider } from '@/contexts/ChatContext';
 import { useWallet } from '@/contexts/WalletContext';
@@ -9,7 +9,6 @@ import { CreateRoomForm } from './parts/CreateRoomForm';
 import { ChatPanel } from './parts/ChatPanel';
 import { RoomList } from './parts/RoomList';
 import { DeleteConfirm } from './parts/DeleteConfirm';
-import { fetchWithAuth } from '@/utils/api';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
 
@@ -47,7 +46,7 @@ const ChatContentInner: React.FC = () => {
 
   const handleAcceptRoom = async (roomId: string) => {
     try {
-      const response = await fetchWithAuth('/api/chat/messages/post', {
+      const response = await fetch('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,7 +73,8 @@ const ChatContentInner: React.FC = () => {
     try {
       const actualRoomId = selectedRoom || 'general';
       
-      const response = await fetchWithAuth('/api/chat/messages/delete', {
+      const response = await fetch('/api/chat/messages/delete', {
+        credentials: 'include',
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,7 +107,7 @@ const ChatContentInner: React.FC = () => {
     const finalName = `${shortId} ${newName.trim()}`;
     
     try {
-      const response = await fetchWithAuth('/api/chat/messages/post', {
+      const response = await fetch('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,7 +133,7 @@ const ChatContentInner: React.FC = () => {
 
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      const response = await fetchWithAuth('/api/chat/messages/post', {
+      const response = await fetch('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,7 +187,7 @@ const ChatContentInner: React.FC = () => {
     if (!account) return;
     
     try {
-      const response = await fetchWithAuth(`/api/chat/messages?getRooms=true&userAddress=${account}`);
+      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${account}`, { credentials: 'include' });
       const data = await response.json();
       
       if (data.success && data.rooms) {
@@ -214,6 +214,39 @@ const ChatContentInner: React.FC = () => {
   }, [account, loadRoomsFromFirebase]);
 
 
+  const ensureVerified = useCallback(async (): Promise<boolean> => {
+    if (!account) {
+      toast.error('Bạn chưa kết nối ví. Vui lòng kết nối ví trước.');
+      return false;
+    }
+
+    try {
+      const res = await fetch(`/api/proof?address=${encodeURIComponent(account)}`);
+      if (!res.ok) {
+        toast.error('Không thể kiểm tra trạng thái xác minh.');
+        return false;
+      }
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || 'Không thể kiểm tra trạng thái xác minh.');
+        return false;
+      }
+      if (!data.hasProof) {
+        toast.error('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
+        return false;
+      }
+      if (data.verified !== true) {
+        toast.error(data.message || 'Bạn cần hoàn tất xác minh danh tính trước khi tạo phòng chat.');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error checking proof before chat:', error);
+      toast.error('Không thể kiểm tra trạng thái xác minh.');
+      return false;
+    }
+  }, [account]);
+
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoomName.trim() || !newRoomParticipantAddress.trim()) return;
@@ -223,28 +256,54 @@ const ChatContentInner: React.FC = () => {
       return;
     }
 
+    if (!account) {
+      setCreateRoomError('Bạn chưa kết nối ví');
+      return;
+    }
+
+    const participantAddr = newRoomParticipantAddress.trim().toLowerCase();
+    const creatorAddr = account.toLowerCase();
+    
+    if (participantAddr === creatorAddr) {
+      setCreateRoomError('Bạn không thể tạo phòng chat với chính mình');
+      return;
+    }
+
+    // Kiểm tra địa chỉ participant có hợp lệ không
+    if (!participantAddr || !participantAddr.startsWith('0x') || participantAddr.length < 10) {
+      setCreateRoomError('Địa chỉ người nhận không hợp lệ');
+      return;
+    }
+
     setIsCreatingRoom(true);
     setCreateRoomError('');
 
     try {
-      const participantAddr = newRoomParticipantAddress.trim().toLowerCase();
-      if (!account) {
-        setCreateRoomError('Bạn chưa kết nối ví');
+      // Kiểm tra proof của cả 2 người trước khi tạo phòng
+      const [creatorProof, participantProof] = await Promise.all([
+        fetch(`/api/proof?address=${encodeURIComponent(account)}`).then(r => r.json()),
+        fetch(`/api/proof?address=${encodeURIComponent(participantAddr)}`).then(r => r.json())
+      ]);
+
+      if (!creatorProof.success || !creatorProof.hasProof || creatorProof.verified !== true) {
+        setCreateRoomError('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
         setIsCreatingRoom(false);
         return;
       }
-      if (participantAddr === account.toLowerCase()) {
-        setCreateRoomError('Bạn không thể tạo phòng chat với chính mình');
+
+      if (!participantProof.success || !participantProof.hasProof) {
+        setCreateRoomError('Người nhận chưa có xác minh không kiến thức. Không thể tạo phòng.');
         setIsCreatingRoom(false);
         return;
       }
 
       const roomPayload = {
+        address: account,
         name: newRoomName.trim(),
         creatorAddress: account,
         participantAddress: participantAddr
       };
-      const roomResponse = await fetchWithAuth('/api/chat/messages/post', {
+      const roomResponse = await fetch('/api/chat/messages/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roomPayload)
@@ -314,12 +373,7 @@ const ChatContentInner: React.FC = () => {
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={async () => {
-                if (!account) {
-                  toast.error('Bạn chưa có địa chỉ ví. Vui lòng kết nối ví trước khi tạo phòng chat.');
-                  return;
-                }
-                
+              onClick={() => {
                 setShowCreateRoom(true);
               }}
             >

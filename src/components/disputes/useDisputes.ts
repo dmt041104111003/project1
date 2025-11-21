@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { DisputeData } from '@/constants/escrow';
-import { fetchWithAuth } from '@/utils/api';
 import { toast } from 'sonner';
+import { getDisputeData } from '@/lib/aptosClient';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
@@ -22,10 +22,10 @@ export function useDisputes(account?: string | null) {
 
   const getWallet = async () => {
     const wallet = (window as { aptos?: { account: () => Promise<string | { address: string }>; signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos;
-    if (!wallet) throw new Error('Wallet not found');
+    if (!wallet) throw new Error('Không tìm thấy ví');
     const acc = await wallet.account();
     const address = typeof acc === 'string' ? acc : acc?.address;
-    if (!address) throw new Error('Please connect wallet');
+    if (!address) throw new Error('Vui lòng kết nối ví');
     return { wallet, address };
   };
 
@@ -33,14 +33,9 @@ export function useDisputes(account?: string | null) {
     if (!account) return;
     try {
       setCheckingRole(true);
-      const res = await fetchWithAuth(`/api/role?address=${account}`);
-      if (!res.ok) {
-        setIsReviewer(false);
-        return;
-      }
-      const data = await res.json();
-      const rolesArr = Array.isArray(data?.roles) ? data.roles : [];
-      const hasReviewer = rolesArr.some((r: any) => String(r?.name).toLowerCase() === 'reviewer');
+      const { getUserRoles } = await import('@/lib/aptosClient');
+      const { roles } = await getUserRoles(account);
+      const hasReviewer = roles.some((r: any) => String(r?.name).toLowerCase() === 'reviewer');
       setIsReviewer(hasReviewer);
     } catch (e: any) {
       setIsReviewer(false);
@@ -70,27 +65,34 @@ export function useDisputes(account?: string | null) {
 
       const myAddr = normalizeAddress(account);
 
-      const jobsRes = await fetch('/api/job/list');
-      const jobs = await jobsRes.json();
-      const jobItems = Array.isArray(jobs) ? jobs : (Array.isArray(jobs?.jobs) ? jobs.jobs : []);
+      const { getJobsList, getParsedJobData, getDisputeSummary, getDisputeEvidence } = await import('@/lib/aptosClient');
+      const { parseAddressVector } = await import('@/lib/aptosParsers');
+      
+      const jobsData = await getJobsList();
+      const jobItems = jobsData.jobs || [];
 
       const results: DisputeData[] = [];
 
       for (const j of jobItems) {
         const id = Number(j?.id ?? j?.job_id ?? j?.jobId ?? 0);
         if (!id) continue;
-        const detailRes = await fetch(`/api/job/${id}`);
-        if (!detailRes.ok) continue;
-        const detail = await detailRes.json();
-        const disputeId = detail?.job?.dispute_id ?? detail?.dispute_id;
+        
+        const detail = await getParsedJobData(id);
+        if (!detail) continue;
+        
+        // Get raw job data để lấy dispute_id
+        const { getJobData } = await import('@/lib/aptosClient');
+        const rawJobData = await getJobData(id);
+        const disputeId = rawJobData?.dispute_id;
         if (!disputeId || (Array.isArray(disputeId?.vec) && disputeId.vec.length === 0)) continue;
 
         const did = Array.isArray(disputeId?.vec) ? Number(disputeId.vec[0]) : Number(disputeId);
         if (!did) continue;
-        const revRes = await fetch(`/api/dispute?action=get_reviewers&dispute_id=${did}`);
-        if (!revRes.ok) continue;
-        const rev = await revRes.json();
-        const selected: string[] = Array.isArray(rev?.selected_reviewers) ? rev.selected_reviewers : [];
+        
+        const dispute = await getDisputeData(did);
+        if (!dispute) continue;
+        
+        const selected = parseAddressVector(dispute?.selected_reviewers);
         const isAssigned = selected
           .map((a) => normalizeAddress(a))
           .some((a) => a === myAddr);
@@ -100,28 +102,20 @@ export function useDisputes(account?: string | null) {
         let votesCompleted = false;
         let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
         let disputeWinner: boolean | null = null;
-        const sumRes = await fetch(`/api/dispute?action=get_summary&dispute_id=${did}`);
-        if (sumRes.ok) {
-          const sum = await sumRes.json();
-          const voted: string[] = Array.isArray(sum?.voted_reviewers) ? sum.voted_reviewers : [];
+        
+        const summary = await getDisputeSummary(did);
+        if (summary) {
+          const voted: string[] = summary.voted_reviewers || [];
           hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
-          const totalVotes = Number(sum?.counts?.total || 0);
+          const totalVotes = Number(summary.counts?.total || 0);
           votesCompleted = totalVotes >= 3;
-          disputeWinner = sum?.winner;
+          disputeWinner = summary.winner;
           if (disputeWinner !== null && disputeWinner !== undefined && totalVotes >= 3) {
             disputeStatus = 'resolved';
           }
-        } else {
-          const votesRes = await fetch(`/api/dispute?action=get_votes&dispute_id=${did}`);
-          if (votesRes.ok) {
-            const vjson = await votesRes.json();
-            const voted: string[] = Array.isArray(vjson?.voted_reviewers) ? vjson.voted_reviewers : [];
-            hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
-            votesCompleted = voted.length >= 3;
-          }
         }
 
-        const milestones: any[] = Array.isArray(detail?.job?.milestones) ? detail.job.milestones : [];
+        const milestones: any[] = detail.milestones || [];
         let lockedIndex = -1;
         for (let i = 0; i < milestones.length; i++) {
           const st = String(milestones[i]?.status || '');
@@ -140,14 +134,10 @@ export function useDisputes(account?: string | null) {
         }
         
         if (lockedIndex < 0) continue;
-        const evRes = await fetch(`/api/dispute?action=get_evidence&dispute_id=${did}`);
-        let posterEvidenceCid = '';
-        let freelancerEvidenceCid = '';
-        if (evRes.ok) {
-          const ev = await evRes.json();
-          posterEvidenceCid = String(ev?.poster_evidence_cid || '');
-          freelancerEvidenceCid = String(ev?.freelancer_evidence_cid || '');
-        }
+        
+        const evidence = await getDisputeEvidence(did);
+        const posterEvidenceCid = evidence ? String(evidence.poster_evidence_cid || '') : '';
+        const freelancerEvidenceCid = evidence ? String(evidence.freelancer_evidence_cid || '') : '';
 
         results.push({ 
           jobId: id, 

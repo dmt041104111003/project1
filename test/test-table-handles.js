@@ -78,8 +78,8 @@ async function run() {
     const roleRes = await request(`/api/role?address=${encodeURIComponent(ADDRESS)}`);
     logResult('GET /api/role', roleRes);
 
-    const profileRes = await request(`/api/profile?address=${encodeURIComponent(ADDRESS)}`);
-    logResult('GET /api/profile', profileRes);
+    const profileRes = await request(`/api/ipfs/profile?address=${encodeURIComponent(ADDRESS)}`);
+    logResult('GET /api/ipfs/profile', profileRes);
 
     const reputationRes = await request(`/api/reputation?address=${encodeURIComponent(ADDRESS)}`);
     logResult('GET /api/reputation', reputationRes);

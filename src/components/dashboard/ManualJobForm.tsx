@@ -196,7 +196,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
               value={currentMilestone.unit}
               onChange={(e) => setCurrentMilestone({...currentMilestone, unit: e.target.value})}
               disabled={!canPostJobs || isSubmitting}
-              title="Chọn đơn vị thời gian cho milestone"
+              title="Chọn đơn vị thời gian cho cột mốc"
               className={`px-4 py-3 border border-gray-400 ${
                 !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
               }`}
@@ -212,7 +212,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
               type="number"
               value={currentMilestone.reviewPeriod || ''}
               onChange={(e) => setCurrentMilestone({...currentMilestone, reviewPeriod: e.target.value})}
-              placeholder="Review period"
+              placeholder="Thời gian đánh giá"
               disabled={!canPostJobs || isSubmitting}
               className={`w-full sm:w-36 px-4 py-3 border border-gray-400 ${
                 !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
@@ -222,7 +222,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
               value={currentMilestone.reviewUnit || 'ngày'}
               onChange={(e) => setCurrentMilestone({...currentMilestone, reviewUnit: e.target.value})}
               disabled={!canPostJobs || isSubmitting}
-              title="Chọn đơn vị cho review period"
+              title="Chọn đơn vị cho thời gian đánh giá"
               className={`px-4 py-3 border border-gray-400 w-full sm:w-auto ${
                 !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
               }`}
@@ -246,7 +246,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
                     {milestone.amount} APT - {milestone.duration} {milestone.unit}
                     {typeof milestone.reviewPeriod !== 'undefined' && (
                       <>
-                        {` · review: ${milestone.reviewPeriod || milestone.duration} ${milestone.reviewUnit || milestone.unit}`}
+                        {` · đánh giá: ${milestone.reviewPeriod || milestone.duration} ${milestone.reviewUnit || milestone.unit}`}
                       </>
                     )}
                   </span>
@@ -273,7 +273,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
         disabled={!canPostJobs || isSubmitting}
       >
         {!canPostJobs 
-          ? 'Cần verify profile và có role Poster' 
+          ? 'Cần verify profile và có role Người thuê' 
           : isSubmitting 
           ? 'Đang xử lý...' 
           : 'Đăng dự án'}

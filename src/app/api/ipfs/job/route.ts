@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTableHandle, queryJobFromTable } from '@/app/api/job/utils';
+import { getJobData } from '@/lib/aptosClient';
 
 const decryptCid = async (value: string): Promise<string> => {
 	if (!value?.startsWith('enc:')) return value;
@@ -25,12 +25,7 @@ const decryptCid = async (value: string): Promise<string> => {
 
 async function fetchJob(jobId: string): Promise<{ cid: string | null; job: any } | null> {
 	try {
-		const table = await getTableHandle();
-		if (!table?.handle) {
-			return null;
-		}
-
-		const job = await queryJobFromTable(table.handle, Number(jobId));
+		const job = await getJobData(Number(jobId));
 		if (!job) {
 			return null;
 		}
@@ -67,7 +62,7 @@ export async function GET(request: NextRequest) {
 		const jobRecord = await fetchJob(jobId);
 		if (!jobRecord) {
 			return NextResponse.json(
-				{ success: false, error: 'Không tìm thấy job trong EscrowStore' },
+				{ success: false, error: 'Không tìm thấy job trong Ký quỹ Store' },
 				{ status: 404 }
 			);
 		}

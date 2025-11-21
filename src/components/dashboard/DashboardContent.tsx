@@ -14,7 +14,7 @@ export const DashboardContent: React.FC = () => {
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-blue-800 mb-2">Dashboard</h1>
-        <p className="text-lg text-gray-700">Quản lý dự án và ứng viên của bạn</p>
+        <p className="text-lg text-gray-700">Quản lý dự án và người làm tự do của bạn</p>
       </div>
 
       <Tabs className="w-full">

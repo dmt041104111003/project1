@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
-import { copyAddress, copyText, formatAddress } from '@/utils/addressUtils';
-import { fetchWithAuth } from '@/utils/api';
+import { copyAddress, formatAddress } from '@/utils/addressUtils';
 
 type ProfileMeta = {
   cid: string | null;
@@ -22,61 +21,8 @@ export const ReputationContent: React.FC = () => {
   const [profiles, setProfiles] = useState<Record<'freelancer' | 'poster', ProfileMeta | null> | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
-  const [proofInfo, setProofInfo] = useState<{ proof: any; public_signals: any; timestamp?: number } | null>(null);
+  const [proofStatus, setProofStatus] = useState<{ verified: boolean; timestamp?: number | null } | null>(null);
   const [proofMessage, setProofMessage] = useState('');
-
-  const formatProofValue = (value: any): string => {
-    if (Array.isArray(value)) {
-      return value
-        .map((item) =>
-          Array.isArray(item)
-            ? `[${item.map((sub) => String(sub)).join(', ')}]`
-            : String(item)
-        )
-        .join(', ');
-    }
-    if (typeof value === 'object' && value !== null) {
-      return Object.entries(value)
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? formatProofValue(v) : String(v)}`)
-        .join(' | ');
-    }
-    return String(value);
-  };
-
-  const handleCopyProofValue = async (label: string, value: any) => {
-    const serialized = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-    await copyText(serialized, `${label} đã được copy`, 'Không thể copy dữ liệu');
-  };
-
-  const renderProofEntries = (sectionLabel: string, data: any) => {
-    if (!data || typeof data !== 'object') {
-      return (
-        <p className="text-xs text-gray-500">
-          Không tìm thấy dữ liệu {sectionLabel === 'proof' ? 'proof' : 'public signals'}.
-        </p>
-      );
-    }
-
-    return Object.entries(data).map(([key, value]) => {
-      const displayValue = formatProofValue(value);
-      return (
-        <button
-          key={`${sectionLabel}-${key}`}
-          type="button"
-          className="w-full text-left group"
-          onClick={() => handleCopyProofValue(`${sectionLabel}.${key}`, value)}
-        >
-          <div className="border border-gray-200 rounded-md p-3 bg-white transition-colors group-hover:bg-blue-50">
-            <div className="text-[11px] uppercase text-gray-500 font-semibold mb-1">{key}</div>
-            <div className="text-sm font-mono text-gray-800 break-all">{displayValue}</div>
-            <div className="text-[10px] text-blue-600 opacity-0 group-hover:opacity-100 transition">
-              Nhấn để copy
-            </div>
-          </div>
-        </button>
-      );
-    });
-  };
 
   const handleCheck = async () => {
     const address = checkAddress.trim() || account;
@@ -90,23 +36,16 @@ export const ReputationContent: React.FC = () => {
     setCheckedAddress(null);
     setCheckedUT(null);
     setProfiles(null);
-    setProofInfo(null);
+    setProofStatus(null);
     setProofMessage('');
     
     try {
-      const reputationRes = await fetch(
-        `/api/reputation?address=${encodeURIComponent(address)}`
-      );
-
-      if (reputationRes.ok) {
-        const repData = await reputationRes.json();
-        if (repData.success) {
-          setCheckedUT(repData.ut || 0);
-        }
-      }
+      const { getReputationPoints } = await import('@/lib/aptosClient');
+      const ut = await getReputationPoints(address);
+      setCheckedUT(ut);
 
       const profileRes = await fetch(
-        `/api/profile?address=${encodeURIComponent(address)}`
+        `/api/ipfs/profile?address=${encodeURIComponent(address)}`
       );
 
       if (profileRes.ok) {
@@ -119,27 +58,21 @@ export const ReputationContent: React.FC = () => {
       setCheckedAddress(address);
 
       try {
-        const proofRes = await fetchWithAuth(`/api/proof?address=${encodeURIComponent(address)}`);
-        if (proofRes.ok) {
-          const proofData = await proofRes.json();
-          if (proofData?.success && proofData?.proof) {
-            setProofInfo(proofData.proof);
-            setProofMessage('');
-          } else {
-            setProofInfo(null);
-            setProofMessage(proofData?.message || 'Địa chỉ này chưa lưu proof.');
-          }
+        const { getProofData } = await import('@/lib/aptosClient');
+        const proof = await getProofData(address);
+        if (!proof) {
+          setProofStatus(null);
+          setProofMessage('Địa chỉ này chưa lưu proof.');
         } else {
-          if (proofRes.status === 401) {
-            setProofMessage('Cần đăng nhập để xem proof và public signals.');
-          } else {
-            const errText = await proofRes.text().catch(() => '');
-            setProofMessage(errText || 'Không thể lấy proof từ server.');
-          }
-          setProofInfo(null);
+          const timestamp = proof.timestamp ? Number(proof.timestamp) : null;
+          setProofStatus({
+            verified: true, // Nếu có proof trong blockchain thì đã verified
+            timestamp
+          });
+          setProofMessage('Proof hợp lệ (đã lưu trên blockchain).');
         }
       } catch (proofErr: any) {
-        setProofInfo(null);
+        setProofStatus(null);
         setProofMessage(proofErr?.message || 'Không thể lấy proof.');
       }
     } catch (e: any) {
@@ -147,7 +80,7 @@ export const ReputationContent: React.FC = () => {
       setCheckedAddress(null);
       setCheckedUT(null);
       setProfiles(null);
-      setProofInfo(null);
+      setProofStatus(null);
       setProofMessage('');
     } finally {
       setChecking(false);
@@ -275,34 +208,31 @@ export const ReputationContent: React.FC = () => {
                 </div>
               )}
 
-              {(proofInfo || proofMessage) && (
+              {(proofStatus || proofMessage) && (
                 <div className="p-4 bg-gray-50 rounded-md space-y-3">
-                  <div className="text-sm text-gray-600 font-semibold">ZK Proof & Public Signals</div>
-                  {proofInfo ? (
-                    <div className="space-y-4">
-                      {proofInfo.timestamp && (
+                  <div className="text-sm text-gray-600 font-semibold">Trạng thái ZK Proof</div>
+                  {proofStatus ? (
+                    <div className="space-y-3">
+                      {proofStatus.timestamp && (
                         <div className="text-xs text-gray-500">
                           Đã lưu lúc:{' '}
                           <span className="font-mono">
-                            {new Date(Number(proofInfo.timestamp) * 1000).toLocaleString('vi-VN')}
+                            {new Date(Number(proofStatus.timestamp) * 1000).toLocaleString('vi-VN')}
                           </span>
                         </div>
                       )}
-                      <div className="text-[11px] text-gray-500 italic">
-                        Nhấn vào từng dòng để copy giá trị tương ứng.
+                      <div
+                        className={`text-base font-semibold ${
+                          proofStatus.verified ? 'text-green-700' : 'text-red-600'
+                        }`}
+                      >
+                        {proofStatus.verified ? 'Proof hợp lệ' : 'Proof không hợp lệ'}
                       </div>
-                      <div className="space-y-2">
-                        <div className="text-xs uppercase text-gray-600 font-semibold">Proof</div>
-                        <div className="space-y-2">
-                          {renderProofEntries('proof', proofInfo.proof)}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-xs uppercase text-gray-600 font-semibold">Public Signals</div>
-                        <div className="space-y-2">
-                          {renderProofEntries('public_signals', proofInfo.public_signals)}
-                        </div>
-                      </div>
+                      {proofMessage && (
+                        <p className="text-sm text-gray-600">
+                          {proofMessage}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-gray-600">{proofMessage}</p>
