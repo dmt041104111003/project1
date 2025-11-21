@@ -3,12 +3,16 @@ module job_work_board::dispute {
     use std::option;
     use std::string::String;
     use aptos_framework::signer;
+    use aptos_framework::timestamp;
+    use aptos_framework::account;
+    use aptos_framework::event;
     use aptos_std::table::{Self, Table};
     use job_work_board::role;
     use job_work_board::escrow;
     use job_work_board::reputation;
 
     const MIN_REVIEWERS: u64 = 3; 
+    const REVIEWER_VOTE_DELAY: u64 = 180; // 3 minutes
 
     enum DisputeStatus has copy, drop, store {
         Open,
@@ -32,12 +36,22 @@ module job_work_board::dispute {
         status: DisputeStatus,
         votes: vector<Vote>,
         selected_reviewers: vector<address>,
+        created_at: u64,
     }
 
     struct DisputeStore has key {
         table: Table<u64, Dispute>,
         next_dispute_id: u64,
         reviewer_load: Table<address, u64>,
+        reviewer_events: event::EventHandle<ReviewerDisputeEvent>,
+    }
+
+    struct ReviewerDisputeEvent has drop, store {
+        dispute_id: u64,
+        job_id: u64,
+        milestone_id: u64,
+        reviewer: address,
+        timestamp: u64,
     }
 
     fun init_module(admin: &signer) {
@@ -45,6 +59,7 @@ module job_work_board::dispute {
             table: table::new(),
             next_dispute_id: 1,
             reviewer_load: table::new(),
+            reviewer_events: account::new_event_handle<ReviewerDisputeEvent>(admin),
         });
     }
 
@@ -165,6 +180,8 @@ module job_work_board::dispute {
         let dispute_id = store.next_dispute_id;
         store.next_dispute_id = store.next_dispute_id + 1;
 
+        let created_at = timestamp::now_seconds();
+
         table::add(&mut store.table, dispute_id, Dispute {
             id: dispute_id,
             job_id,
@@ -176,6 +193,7 @@ module job_work_board::dispute {
             status: DisputeStatus::Voting,
             votes: vector::empty<Vote>(),
             selected_reviewers: selected,
+            created_at,
         });
 
         let sel_len_mark = vector::length(&selected);
@@ -188,6 +206,16 @@ module job_work_board::dispute {
             } else {
                 table::add(&mut store.reviewer_load, r2, 1);
             };
+            event::emit_event(
+                &mut store.reviewer_events,
+                ReviewerDisputeEvent {
+                    dispute_id,
+                    job_id,
+                    milestone_id,
+                    reviewer: r2,
+                    timestamp: created_at,
+                }
+            );
             m = m + 1;
         };
 
@@ -207,6 +235,8 @@ module job_work_board::dispute {
         
         assert!(dispute.status == DisputeStatus::Voting, 1);
         assert!(reviewer_addr != dispute.poster && reviewer_addr != dispute.freelancer, 1);
+        let now = timestamp::now_seconds();
+        assert!(now >= dispute.created_at + REVIEWER_VOTE_DELAY, 11);
 
         let allowed = false;
         let k = 0;

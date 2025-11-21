@@ -58,7 +58,11 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       const { jobs: allJobs } = await getJobsList();
       
       const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
-      const appliedJobs = allJobs.filter((job: Job) => job.freelancer?.toLowerCase() === account.toLowerCase());
+      const appliedJobs = allJobs.filter((job: Job) => {
+        const freelancerMatch = job.freelancer?.toLowerCase() === account.toLowerCase();
+        const pendingMatch = job.pending_freelancer?.toLowerCase() === account.toLowerCase();
+        return freelancerMatch || pendingMatch;
+      });
 
       setPostedCount(postedJobs.length);
       setAppliedCount(appliedJobs.length);

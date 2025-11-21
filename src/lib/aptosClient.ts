@@ -277,6 +277,7 @@ export async function getJobsList(maxJobs: number = 200) {
       const stateStr = parseState(jobData?.state);
       const freelancer = parseOptionAddress(jobData?.freelancer);
       const milestones = jobData?.milestones || [];
+      const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
 
       jobs.push({
         id,
@@ -284,6 +285,7 @@ export async function getJobsList(maxJobs: number = 200) {
         total_amount: Number(jobData?.total_escrow || 0),
         milestones_count: milestones.length,
         has_freelancer: !!freelancer,
+        pending_freelancer: pendingFreelancer,
         state: stateStr,
         poster: jobData?.poster,
         freelancer,
@@ -306,6 +308,9 @@ export async function getParsedJobData(jobId: number) {
 
   const stateStr = parseState(jobData?.state);
   const freelancer = parseOptionAddress(jobData?.freelancer);
+  const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
+  const pendingStake = jobData?.pending_stake ? Number(jobData.pending_stake) : 0;
+  const pendingFee = jobData?.pending_fee ? Number(jobData.pending_fee) : 0;
   const applyDeadline = jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined;
   const mutualCancelRequestedBy = parseOptionAddress(jobData?.mutual_cancel_requested_by);
   const freelancerWithdrawRequestedBy = parseOptionAddress(jobData?.freelancer_withdraw_requested_by);
@@ -331,6 +336,9 @@ export async function getParsedJobData(jobId: number) {
     state: stateStr,
     poster: jobData?.poster,
     freelancer,
+    pending_freelancer: pendingFreelancer,
+    pending_stake: pendingStake,
+    pending_fee: pendingFee,
     apply_deadline: applyDeadline,
     mutual_cancel_requested_by: mutualCancelRequestedBy,
     freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy,
@@ -379,5 +387,49 @@ export async function getDisputeEvidence(disputeId: number) {
     poster_evidence_cid: parseOptionString(dispute?.poster_evidence_cid) || '',
     freelancer_evidence_cid: parseOptionString(dispute?.freelancer_evidence_cid) || '',
   };
+}
+
+/**
+ * Fetch reviewer assignment events
+ */
+export async function getReviewerDisputeEvents(limit: number = 200) {
+  try {
+    const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${CONTRACT_ADDRESS}::dispute::DisputeStore/reviewer_events?limit=${limit}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get dispute history for a reviewer (filtered client-side)
+ */
+export async function getReviewerDisputeHistory(address: string, limit: number = 200) {
+  if (!address) return [];
+  const normalize = (addr: string) => {
+    const lower = String(addr || '').toLowerCase();
+    const noPrefix = lower.startsWith('0x') ? lower.slice(2) : lower;
+    const trimmed = noPrefix.replace(/^0+/, '');
+    return '0x' + (trimmed.length === 0 ? '0' : trimmed);
+  };
+  const normalized = normalize(address);
+  const events = await getReviewerDisputeEvents(limit);
+  return events
+    .filter((evt: any) => {
+      const reviewer = normalize(evt?.data?.reviewer || '');
+      return reviewer === normalized;
+    })
+    .map((evt: any) => ({
+      disputeId: Number(evt?.data?.dispute_id || evt?.data?.disputeId || 0),
+      jobId: Number(evt?.data?.job_id || evt?.data?.jobId || 0),
+      milestoneId: Number(evt?.data?.milestone_id || evt?.data?.milestoneId || 0),
+      timestamp: Number(evt?.data?.timestamp || 0),
+    }))
+    .filter((item: any) => Number(item.disputeId) > 0);
 }
 

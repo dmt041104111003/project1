@@ -11,6 +11,7 @@ export interface Job {
   ipfsUrl?: string;
   poster: string;
   freelancer: string | null;
+  pending_freelancer?: string | null;
   total_amount: number;
   milestones_count: number;
   milestones?: any[];
@@ -19,6 +20,8 @@ export interface Job {
   mutual_cancel_requested_by?: string | null;
   freelancer_withdraw_requested_by?: string | null;
   apply_deadline?: number;
+  pending_stake?: number;
+  pending_fee?: number;
 }
 
 export interface JobListItem {
@@ -39,8 +42,11 @@ export interface JobData {
   state?: any;
   poster?: string;
   freelancer?: any;
+  pending_freelancer?: string | null;
   apply_deadline?: number | string;
   freelancer_stake?: number | string;
+  pending_stake?: number | string;
+  pending_fee?: number | string;
 }
 
 export interface Milestone {
@@ -76,6 +82,13 @@ export interface DisputeData {
   disputeWinner?: boolean | null;
 }
 
+export interface DisputeHistoryItem {
+  disputeId: number;
+  jobId: number;
+  milestoneId: number;
+  timestamp: number;
+}
+
 export interface JobCardProps {
   job: Job;
   account: string | null;
@@ -90,6 +103,9 @@ export interface JobSidebarProps {
   applying: boolean;
   onApply: () => void;
   latestFreelancerAddress?: string | null;
+  pendingFreelancerAddress?: string | null;
+  withdrawingApplication?: boolean;
+  onWithdrawApplication?: () => void;
 }
 
 export interface JobIPFSContentProps {

@@ -19,6 +19,7 @@ export const JobDetailContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [withdrawingApplication, setWithdrawingApplication] = useState(false);
 
   const getFreelancerFromOption = (value: any): string | null => {
     if (!value) return null;
@@ -44,6 +45,7 @@ export const JobDetailContent: React.FC = () => {
   };
 
   const latestFreelancerAddress = getFreelancerFromOption(jobData?.freelancer) || getLatestFreelancerFromMetadata();
+  const pendingFreelancerAddress = jobData?.pending_freelancer || null;
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -128,6 +130,27 @@ export const JobDetailContent: React.FC = () => {
       toast.error(`Lỗi khi ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleWithdrawPendingApplication = async () => {
+    if (!jobId || !account || !pendingFreelancerAddress || account.toLowerCase() !== pendingFreelancerAddress.toLowerCase()) {
+      toast.error('Bạn không có ứng tuyển đang chờ duyệt để rút.');
+      return;
+    }
+    try {
+      setWithdrawingApplication(true);
+      const { escrowHelpers } = await import('@/utils/contractHelpers');
+      const payload = escrowHelpers.withdrawApplication(Number(jobId));
+      const wallet = (window as any).aptos;
+      if (!wallet) throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
+      const tx = await wallet.signAndSubmitTransaction(payload);
+      toast.success(tx?.hash ? `Đã rút ứng tuyển! TX: ${tx.hash}` : 'Đã gửi yêu cầu rút ứng tuyển.');
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err: unknown) {
+      toast.error(`Lỗi khi rút ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
+    } finally {
+      setWithdrawingApplication(false);
     }
   };
 
@@ -295,6 +318,9 @@ export const JobDetailContent: React.FC = () => {
           applying={applying}
           onApply={handleApply}
           latestFreelancerAddress={latestFreelancerAddress}
+          pendingFreelancerAddress={pendingFreelancerAddress}
+          withdrawingApplication={withdrawingApplication}
+          onWithdrawApplication={handleWithdrawPendingApplication}
         />
       </div>
     </>

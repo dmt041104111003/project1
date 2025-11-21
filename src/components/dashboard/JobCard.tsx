@@ -1,13 +1,14 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
 import { JobCardProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { escrowHelpers } from '@/utils/contractHelpers';
 
-  const getStateDisplay = (state: unknown, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
+const getStateDisplay = (state: unknown, applyDeadline?: number, hasFreelancer?: boolean): { text: string; classes: string } => {
   const stateStr = typeof state === 'string' ? state : 'Active';
   
   const applyDeadlineExpired = applyDeadline
@@ -25,6 +26,12 @@ import { formatAddress, copyAddress } from '@/utils/addressUtils';
     return {
       text: 'Mở',
       classes: 'bg-green-100 text-green-800 border-green-300'
+    };
+  }
+  if (stateStr === 'PendingApproval') {
+    return {
+      text: 'Đang chờ duyệt ứng viên',
+      classes: 'bg-orange-100 text-orange-800 border-orange-300'
     };
   }
   if (stateStr === 'InProgress') {
@@ -53,13 +60,14 @@ import { formatAddress, copyAddress } from '@/utils/addressUtils';
 
 
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
+  const [reviewingCandidate, setReviewingCandidate] = useState(false);
+  const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const handleWithdraw = async () => {
     toast.warning('Bạn có chắc muốn rút lại công việc này? Cọc và ký quỹ sẽ được hoàn về ví của bạn.', {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
           try {
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
             const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
             const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
@@ -85,11 +93,48 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     });
   };
 
+  const handleReviewCandidate = async (approve: boolean) => {
+    setReviewingCandidate(true);
+    try {
+      const payload = escrowHelpers.reviewCandidate(job.id, approve);
+      const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
+      if (!wallet) throw new Error('Không tìm thấy ví');
+      const tx = await wallet.signAndSubmitTransaction(payload);
+      toast.success(`${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công! TX: ${tx?.hash || 'N/A'}`);
+      setTimeout(() => onUpdate(), 2000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Không thể xử lý ứng viên: ${errorMessage}`);
+    } finally {
+      setReviewingCandidate(false);
+    }
+  };
+
+  const handleWithdrawApplicationPending = async () => {
+    setWithdrawingApplication(true);
+    try {
+      const payload = escrowHelpers.withdrawApplication(job.id);
+      const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
+      if (!wallet) throw new Error('Không tìm thấy ví');
+      const tx = await wallet.signAndSubmitTransaction(payload);
+      toast.success(`Đã rút ứng tuyển! TX: ${tx?.hash || 'N/A'}`);
+      setTimeout(() => onUpdate(), 2000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      toast.error(`Không thể rút ứng tuyển: ${errorMessage}`);
+    } finally {
+      setWithdrawingApplication(false);
+    }
+  };
+
   const stateDisplay = getStateDisplay(job.state, job.apply_deadline, job.has_freelancer);
+  const pendingCandidate = job.pending_freelancer || null;
+  const isPoster = account?.toLowerCase() === job.poster?.toLowerCase();
+  const isPendingCandidate = pendingCandidate && account?.toLowerCase() === pendingCandidate.toLowerCase();
   const canShowWithdraw = activeTab === 'posted' && 
     !job.has_freelancer && 
     job.state === 'Posted' && 
-    account?.toLowerCase() === job.poster?.toLowerCase();
+    isPoster;
 
   return (
     <div className="border border-gray-400 bg-gray-50 p-4 rounded">
@@ -162,6 +207,59 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
           >
             Rút lại công việc (Nhận cọc + ký quỹ)
           </Button>
+        </div>
+      )}
+
+      {job.state === 'PendingApproval' && pendingCandidate && (
+        <div className="mt-3 mb-3 p-3 border-2 border-yellow-300 bg-yellow-50 rounded">
+          <p className="text-xs text-yellow-800 mb-2">
+            {isPoster
+              ? 'Có ứng viên đang chờ bạn phê duyệt. Nếu từ chối, ứng viên sẽ được hoàn stake và phí.'
+              : isPendingCandidate
+                ? 'Ứng tuyển của bạn đang chờ người thuê phê duyệt. Bạn có thể rút nếu thay đổi quyết định.'
+                : 'Công việc đang chờ Người thuê phê duyệt ứng viên hiện tại.'}
+          </p>
+          <div className="text-xs text-gray-700 mb-3 flex flex-wrap items-center gap-2">
+            <span className="font-semibold">Ứng viên:</span>
+            <span
+              className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
+              onClick={() => copyAddress(pendingCandidate)}
+            >
+              {formatAddress(pendingCandidate)}
+            </span>
+          </div>
+          {isPoster && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-green-600 text-white hover:bg-green-700"
+                onClick={() => handleReviewCandidate(true)}
+                disabled={reviewingCandidate}
+              >
+                {reviewingCandidate ? 'Đang phê duyệt...' : 'Phê duyệt ứng viên'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleReviewCandidate(false)}
+                disabled={reviewingCandidate}
+              >
+                {reviewingCandidate ? 'Đang xử lý...' : 'Từ chối & hoàn tiền'}
+              </Button>
+            </div>
+          )}
+          {isPendingCandidate && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleWithdrawApplicationPending}
+                disabled={withdrawingApplication}
+              >
+                {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
