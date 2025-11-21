@@ -55,24 +55,23 @@ export const JobDetailContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
+        // Query trực tiếp từ Aptos
         const { getParsedJobData } = await import('@/lib/aptosClient');
-        const jobData = await getParsedJobData(Number(jobId));
+        const [jobData, ipfsRes] = await Promise.all([
+          getParsedJobData(Number(jobId)),
+          fetch(`/api/ipfs/job?jobId=${jobId}`),
+        ]);
         
         if (!jobData) {
           throw new Error('Job not found');
         }
-        
         setJobData(jobData);
         
-        const res = await fetch(`/api/ipfs/job?jobId=${jobId}`);
-        const data = await res.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Không thể tải chi tiết công việc từ IPFS');
-        }
-        
-        if (data.data) {
-          setJobDetails(data.data);
+        if (ipfsRes.ok) {
+          const ipfsData = await ipfsRes.json();
+          if (ipfsData.success && ipfsData.data) {
+            setJobDetails(ipfsData.data);
+          }
         }
       } catch (err: unknown) {
         const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';

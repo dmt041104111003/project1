@@ -167,63 +167,26 @@ export async function checkDuplicateProof(
 ): Promise<{ isDuplicate: boolean; matchedAddress: string | null }> {
   try {
     const roleStore = await fetchContractResource('role::RoleStore');
-    const proofHashesHandle = roleStore?.proof_hashes?.handle;
-    const proofsHandle = roleStore?.proofs?.handle;
+    const identityHashesHandle = roleStore?.identity_hashes?.handle;
     
-    if (!proofHashesHandle) {
-      console.log('[ZK Proof] Không có proof_hashes table handle, tiếp tục');
+    if (!identityHashesHandle) {
+      console.log('[ZK Proof] Không có identity_hashes table handle, tiếp tục');
       return { isDuplicate: false, matchedAddress: null };
     }
 
-    const keyCandidates = [
-      { hex: encodeJsonToHex(extendedPublicSignals), type: 'extended' },
-      { hex: encodeJsonToHex(publicSignals), type: 'legacy' },
-    ];
+    console.log(`[ZK Proof] Querying identity_hashes table với identity_hash: ${inputData.id_hash}...`);
+    const matchedAddress = await queryTableItem({
+      handle: identityHashesHandle,
+      keyType: 'u64',
+      valueType: 'address',
+      key: inputData.id_hash,
+    });
 
-    let matchedAddress: string | null = null;
-    let matchedType: string | null = null;
-
-    for (const candidate of keyCandidates) {
-      console.log(`[ZK Proof] Querying proof_hashes table with ${candidate.type} key...`);
-      const data = await queryTableItem({
-        handle: proofHashesHandle,
-        keyType: 'vector<u8>',
-        valueType: 'address',
-        key: `0x${candidate.hex}`,
-      });
-      if (data) {
-        matchedAddress = String(data).toLowerCase();
-        matchedType = candidate.type;
-        break;
-      }
-    }
-
-    if (matchedAddress && matchedAddress !== normalizedRequester && proofsHandle) {
-      if (matchedType !== 'legacy') {
-        try {
-          const existingProofStruct = await queryTableItem({
-            handle: proofsHandle,
-            keyType: 'address',
-            valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
-            key: matchedAddress
-          });
-          if (existingProofStruct?.public_signals) {
-            const existingRaw = decodeVectorU8(existingProofStruct.public_signals);
-            if (existingRaw) {
-              try {
-                const normalizedExisting = normalizePublicSignalsPayload(existingRaw);
-                const existingIdentity = normalizedExisting.meta?.identity_hash ?? null;
-                if (existingIdentity !== null && existingIdentity === inputData.id_hash) {
-                  return { isDuplicate: true, matchedAddress };
-                }
-              } catch {
-                console.log('[ZK Proof] Legacy proof của địa chỉ', matchedAddress, 'không có identity hash.');
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('[ZK Proof] Không thể kiểm tra thông tin proof hiện có:', err);
-        }
+    if (matchedAddress) {
+      const normalizedMatched = String(matchedAddress).toLowerCase();
+      if (normalizedMatched !== normalizedRequester) {
+        console.log(`[ZK Proof] Phát hiện duplicate: identity_hash ${inputData.id_hash} đã được dùng bởi ${normalizedMatched}`);
+        return { isDuplicate: true, matchedAddress: normalizedMatched };
       }
     }
 

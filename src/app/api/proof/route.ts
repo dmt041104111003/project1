@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
+    const shouldVerify = searchParams.get('verify') !== 'false'; // Default true for backward compatibility
 
     if (!address) {
       return NextResponse.json(
@@ -120,6 +121,16 @@ export async function GET(request: NextRequest) {
         verified: null,
         message: 'Địa chỉ này chưa có proof'
       });
+    }
+
+    // If verify=false, just return hasProof without verification
+    if (!shouldVerify) {
+      return NextResponse.json({
+        success: true,
+        hasProof: true,
+        verified: null,
+        message: 'Proof exists (not verified)'
+      }, { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } });
     }
 
     console.log('Proof struct:', JSON.stringify(proofStruct, null, 2));

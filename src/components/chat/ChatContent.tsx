@@ -45,6 +45,7 @@ const ChatContentInner: React.FC = () => {
   };
 
   const handleAcceptRoom = async (roomId: string) => {
+    if (!account) return;
     try {
       const response = await fetch('/api/chat/messages/post', {
         method: 'POST',
@@ -52,7 +53,7 @@ const ChatContentInner: React.FC = () => {
         body: JSON.stringify({
           acceptRoom: true,
           roomIdToAccept: roomId,
-          senderId: account
+          address: account
         })
       });
 
@@ -114,7 +115,7 @@ const ChatContentInner: React.FC = () => {
           updateRoomName: true,
           roomIdToUpdate: roomId,
           newName: finalName,
-          senderId: account
+          address: account
         })
       });
 
@@ -128,35 +129,6 @@ const ChatContentInner: React.FC = () => {
       }
     } catch {
       toast.error('Lỗi khi cập nhật tên phòng');
-    }
-  };
-
-  const handleDeleteRoom = async (roomId: string) => {
-    try {
-      const response = await fetch('/api/chat/messages/post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deleteRoom: true,
-          roomIdToDelete: roomId,
-          senderId: account
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Đã xóa phòng chat');
-        if (selectedRoom === roomId) {
-          setSelectedRoom('');
-          setRoomId('');
-        }
-        loadRoomsFromFirebase();
-      } else {
-        toast.error(data.error || 'Lỗi khi xóa phòng');
-      }
-    } catch {
-      toast.error('Lỗi khi xóa phòng');
     }
   };
 
@@ -187,7 +159,10 @@ const ChatContentInner: React.FC = () => {
     if (!account) return;
     
     try {
-      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${account}`, { credentials: 'include' });
+      const response = await fetch(
+        `/api/chat/messages?getRooms=true&userAddress=${encodeURIComponent(account)}&address=${encodeURIComponent(account)}`,
+        { credentials: 'include' }
+      );
       const data = await response.json();
       
       if (data.success && data.rooms) {
@@ -301,7 +276,8 @@ const ChatContentInner: React.FC = () => {
         address: account,
         name: newRoomName.trim(),
         creatorAddress: account,
-        participantAddress: participantAddr
+        participantAddress: participantAddr,
+        senderId: account
       };
       const roomResponse = await fetch('/api/chat/messages/post', {
         method: 'POST',
@@ -360,7 +336,6 @@ const ChatContentInner: React.FC = () => {
             setRoomId(id);
           }}
           onAccept={handleAcceptRoom}
-          onDelete={handleDeleteRoom}
           onEditName={handleEditRoomName}
           currentUserAddress={account || ''}
         />

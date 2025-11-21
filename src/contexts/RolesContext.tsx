@@ -45,16 +45,16 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
     }
     setLoading(true);
     try {
+      // Query trực tiếp từ Aptos
       const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
-      const response = await getUserRoles(account);
-      const normalized = (response?.roles || []).map((role) => String(role?.name || '').toLowerCase());
+      const [rolesData, proofData] = await Promise.all([
+        getUserRoles(account),
+        getProofData(account),
+      ]);
+      
+      const normalized = (rolesData?.roles || []).map((role: any) => String(role?.name || '').toLowerCase());
       setRoles(normalized);
-      try {
-        const proof = await getProofData(account);
-        setHasProof(!!proof);
-      } catch {
-        setHasProof(false);
-      }
+      setHasProof(!!proofData);
     } catch {
       setRoles([]);
       setHasProof(false);

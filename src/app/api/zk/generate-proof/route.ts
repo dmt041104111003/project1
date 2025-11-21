@@ -248,7 +248,8 @@ export async function POST(request: NextRequest) {
       proof,
       public_signals: extendedPublicSignals,
       raw_public_signals: publicSignals,
-      solidity_calldata: solidityCalldata
+      solidity_calldata: solidityCalldata,
+      identity_hash: inputData.id_hash  // Thêm identity_hash để check duplicate
     });
   } catch (error: unknown) {
     console.error('ZK Proof Generation Error:', error);

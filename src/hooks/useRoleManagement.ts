@@ -138,9 +138,25 @@ export function useRoleManagement(account: string | null) {
       }
       
       const { roleHelpers } = await import('@/utils/contractHelpers');
+      // Lấy identity_hash từ API response hoặc từ public_signals array
+      let identityHash = zkData.identity_hash;
+      if (!identityHash) {
+        // Fallback: lấy từ public_signals array (index 1) hoặc từ meta
+        if (Array.isArray(zkData.public_signals?.signals) && zkData.public_signals.signals.length >= 2) {
+          identityHash = Number(zkData.public_signals.signals[1]);
+        } else if (zkData.public_signals?.identity_hash) {
+          identityHash = zkData.public_signals.identity_hash;
+        } else if (Array.isArray(zkData.raw_public_signals) && zkData.raw_public_signals.length >= 2) {
+          identityHash = Number(zkData.raw_public_signals[1]);
+        }
+      }
+      if (!identityHash) {
+        throw new Error('Không tìm thấy identity_hash trong proof data');
+      }
       const proofPayload = roleHelpers.storeProof(
         JSON.stringify(zkData.proof),
-        JSON.stringify(zkData.public_signals)
+        JSON.stringify(zkData.public_signals),
+        identityHash
       );
 
       await window.aptos.signAndSubmitTransaction(proofPayload);

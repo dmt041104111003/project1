@@ -5,6 +5,54 @@
 
 import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND } from '@/constants/contracts';
 
+const APTOS_API_KEY =
+  process.env.NEXT_PUBLIC_APTOS_API_KEY ||
+  process.env.APTOS_API_KEY ||
+  '';
+
+const withAptosHeaders = (init?: RequestInit): RequestInit => {
+  const headers = new Headers(init?.headers);
+  if (APTOS_API_KEY) {
+    if (!headers.has('x-api-key')) {
+      headers.set('x-api-key', APTOS_API_KEY);
+    }
+    if (!headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${APTOS_API_KEY}`);
+    }
+  }
+  return {
+    ...init,
+    headers,
+  };
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const MAX_RETRY = 3;
+const CACHE_TTL = 30_000; // 30 seconds for server-side
+
+type CacheEntry<T> = {
+  timestamp: number;
+  data: T | null;
+};
+
+const resourceCache = new Map<string, CacheEntry<any>>();
+const tableCache = new Map<string, CacheEntry<any>>();
+const eventsCache = new Map<string, CacheEntry<any>>();
+const inflightResourceRequests = new Map<string, Promise<any>>();
+const inflightTableRequests = new Map<string, Promise<any>>();
+const inflightEventsRequests = new Map<string, Promise<any>>();
+
+const aptosFetch = async (input: RequestInfo | URL, init?: RequestInit, attempt = 0): Promise<Response> => {
+  const response = await fetch(input, withAptosHeaders(init));
+  if (response.status === 429 && attempt < MAX_RETRY) {
+    const backoff = 300 * Math.pow(2, attempt);
+    await sleep(backoff);
+    return aptosFetch(input, init, attempt + 1);
+  }
+  return response;
+};
+
 const contractResource = (path: string) => `${CONTRACT_ADDRESS}::${path}`;
 
 /**
@@ -27,27 +75,42 @@ function normalizeKey(keyType: string, key: any) {
  * Fetch contract resource data từ Aptos node
  */
 export async function fetchContractResource<T = any>(resourcePath: string): Promise<T | null> {
-  try {
-    const resourceType = contractResource(resourcePath);
-    const res = await fetch(
-      `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`
-    );
-    if (!res.ok) {
-      return null;
-    }
-    const responseText = await res.text();
-    if (!responseText || responseText.trim() === '') {
-      return null;
-    }
+  const resourceType = contractResource(resourcePath);
+  const cacheKey = resourceType;
+  const cached = resourceCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  if (inflightResourceRequests.has(cacheKey)) {
+    return inflightResourceRequests.get(cacheKey) as Promise<T | null>;
+  }
+
+  const promise = (async () => {
     try {
+      const res = await aptosFetch(
+        `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`
+      );
+      if (!res.ok) {
+        return null;
+      }
+      const responseText = await res.text();
+      if (!responseText || responseText.trim() === '') {
+        return null;
+      }
       const payload = JSON.parse(responseText);
-      return payload?.data ?? null;
+      const data = payload?.data ?? null;
+      resourceCache.set(cacheKey, { timestamp: Date.now(), data });
+      return data;
     } catch {
       return null;
+    } finally {
+      inflightResourceRequests.delete(cacheKey);
     }
-  } catch {
-    return null;
-  }
+  })();
+
+  inflightResourceRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /**
@@ -59,37 +122,51 @@ export async function queryTableItem<T = any>(params: {
   valueType: string;
   key: any;
 }): Promise<T | null> {
-  try {
-    const normalizedKey = normalizeKey(params.keyType, params.key);
-    const requestBody = {
-      key_type: params.keyType,
-      value_type: params.valueType,
-      key: normalizedKey,
-    };
-    
-    const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${params.handle}/item`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-    
-    if (!res.ok) {
-      if (res.status === 404) return null;
-      return null;
-    }
-    const responseText = await res.text();
-    if (!responseText || responseText.trim() === '') {
-      return null;
-    }
+  const normalizedKey = normalizeKey(params.keyType, params.key);
+  const cacheKey = `${params.handle}:${params.keyType}:${params.valueType}:${JSON.stringify(normalizedKey)}`;
+  const cached = tableCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  if (inflightTableRequests.has(cacheKey)) {
+    return inflightTableRequests.get(cacheKey) as Promise<T | null>;
+  }
+
+  const promise = (async () => {
     try {
-      const data = JSON.parse(responseText);
-      return data ?? null;
+      const requestBody = {
+        key_type: params.keyType,
+        value_type: params.valueType,
+        key: normalizedKey,
+      };
+      
+      const res = await aptosFetch(`${APTOS_NODE_URL}/v1/tables/${params.handle}/item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        return null;
+      }
+      const responseText = await res.text();
+      if (!responseText || responseText.trim() === '') {
+        return null;
+      }
+      const data = JSON.parse(responseText) ?? null;
+      tableCache.set(cacheKey, { timestamp: Date.now(), data });
+      return data;
     } catch {
       return null;
+    } finally {
+      inflightTableRequests.delete(cacheKey);
     }
-  } catch {
-    return null;
-  }
+  })();
+
+  inflightTableRequests.set(cacheKey, promise);
+  return promise;
 }
 
 /**
@@ -108,7 +185,13 @@ export function extractHandle(data: any, path: string[]): string | null {
 /**
  * Get user roles từ blockchain
  */
+/**
+ * Get user roles - có thể dùng events để optimize nhưng vẫn query table để lấy CID
+ */
 export async function getUserRoles(address: string) {
+  const normalizedAddr = address.toLowerCase();
+  
+  // Query table để lấy full data (bao gồm CID)
   const roleStore = await fetchContractResource('role::RoleStore');
   const handle = roleStore?.users?.handle || null;
   
@@ -166,6 +249,53 @@ export async function getUserRoles(address: string) {
     roles.push({ name: 'reviewer', cids: [] });
   }
 
+  return { roles };
+}
+
+/**
+ * Get user roles từ events (nhanh hơn, nhưng không có CID)
+ * Dùng để check role nhanh, sau đó query table nếu cần CID
+ */
+export async function getUserRolesFromEvents(address: string, limit: number = 200) {
+  const normalizedAddr = address.toLowerCase();
+  const events = await getRoleRegisteredEvents(limit);
+  
+  const roles: any[] = [];
+  const seenRoles = new Set<string>();
+  
+  // Lọc events của user này, lấy role mới nhất cho mỗi role_kind
+  const userEvents = events
+    .filter((e: any) => {
+      const eventAddr = String(e.data?.address || '').toLowerCase();
+      return eventAddr === normalizedAddr;
+    })
+    .sort((a: any, b: any) => {
+      const timeA = Number(a.data?.registered_at || 0);
+      const timeB = Number(b.data?.registered_at || 0);
+      return timeB - timeA; // Mới nhất trước
+    });
+  
+  for (const event of userEvents) {
+    const roleKind = Number(event.data?.role_kind || 0);
+    const roleKey = `${normalizedAddr}_${roleKind}`;
+    
+    if (seenRoles.has(roleKey)) continue;
+    seenRoles.add(roleKey);
+    
+    let roleName = '';
+    if (roleKind === ROLE_KIND.FREELANCER) roleName = 'freelancer';
+    else if (roleKind === ROLE_KIND.POSTER) roleName = 'poster';
+    else if (roleKind === ROLE_KIND.REVIEWER) roleName = 'reviewer';
+    
+    if (roleName) {
+      const cid = event.data?.cid || null;
+      roles.push({ 
+        name: roleName, 
+        cids: cid ? [cid] : [] 
+      });
+    }
+  }
+  
   return { roles };
 }
 
@@ -259,40 +389,205 @@ export async function getEscrowStore() {
 }
 
 /**
- * Get list of jobs (parsed)
+ * Generic function để query events từ Aptos (với cache)
+ */
+async function queryEvents(eventType: string, limit: number = 200) {
+  const cacheKey = `${eventType}_${limit}`;
+  const cached = eventsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  if (inflightEventsRequests.has(cacheKey)) {
+    return inflightEventsRequests.get(cacheKey) as Promise<any[]>;
+  }
+
+  const promise = (async () => {
+    try {
+      const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${eventType}?limit=${limit}`;
+      const res = await aptosFetch(url);
+      if (!res.ok) {
+        return [];
+      }
+      const data = await res.json();
+      const events = Array.isArray(data) ? data : [];
+      eventsCache.set(cacheKey, { timestamp: Date.now(), data: events });
+      return events;
+    } catch {
+      return [];
+    } finally {
+      inflightEventsRequests.delete(cacheKey);
+    }
+  })();
+
+  inflightEventsRequests.set(cacheKey, promise);
+  return promise;
+}
+
+/**
+ * Query JobCreatedEvent từ Aptos (với cache)
+ */
+export async function getJobCreatedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::escrow::JobCreatedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query ProofStoredEvent từ Aptos
+ */
+export async function getProofStoredEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::role::ProofStoredEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query RoleRegisteredEvent từ Aptos
+ */
+export async function getRoleRegisteredEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::role::RoleRegisteredEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query ReputationChangedEvent từ Aptos
+ */
+export async function getReputationChangedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::reputation::ReputationChangedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query DisputeOpenedEvent từ Aptos
+ */
+export async function getDisputeOpenedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeOpenedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query DisputeVotedEvent từ Aptos
+ */
+export async function getDisputeVotedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeVotedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query EvidenceAddedEvent từ Aptos
+ */
+export async function getEvidenceAddedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::dispute::EvidenceAddedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Query DisputeResolvedEvent từ Aptos
+ */
+export async function getDisputeResolvedEvents(limit: number = 200) {
+  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeResolvedEvent`;
+  return queryEvents(eventType, limit);
+}
+
+/**
+ * Get list of jobs (parsed) - optimized using events
  */
 export async function getJobsList(maxJobs: number = 200) {
-  const store = await getEscrowStore();
-  if (!store) return { jobs: [] };
+  // Query events để lấy job IDs
+  const events = await getJobCreatedEvents(maxJobs);
+  
+  if (events.length === 0) {
+    // Fallback: nếu không có events, dùng cách cũ (scan table)
+    const store = await getEscrowStore();
+    if (!store) return { jobs: [] };
 
-  const jobs: any[] = [];
-  const maxScan = Math.min(store.nextJobId, maxJobs);
+    const jobs: any[] = [];
+    const maxScan = Math.min(store.nextJobId, maxJobs);
+    const { parseState, parseOptionAddress } = await import('./aptosParsers');
+
+    for (let id = 1; id < maxScan; id++) {
+      const jobData = await getJobData(id);
+      if (jobData) {
+        const stateStr = parseState(jobData?.state);
+        const freelancer = parseOptionAddress(jobData?.freelancer);
+        const milestones = jobData?.milestones || [];
+        const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
+
+        jobs.push({
+          id,
+          cid: jobData?.cid || '',
+          total_amount: Number(jobData?.total_escrow || 0),
+          milestones_count: milestones.length,
+          has_freelancer: !!freelancer,
+          pending_freelancer: pendingFreelancer,
+          state: stateStr,
+          poster: jobData?.poster,
+          freelancer,
+          apply_deadline: jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined,
+        });
+      }
+    }
+    return { jobs };
+  }
+
+  // Extract job IDs từ events và sort theo created_at (mới nhất trước)
+  const jobEvents = events
+    .map((evt: any) => ({
+      job_id: Number(evt?.data?.job_id || 0),
+      created_at: Number(evt?.data?.created_at || 0),
+      poster: evt?.data?.poster || '',
+      cid: evt?.data?.cid || '',
+      total_amount: Number(evt?.data?.total_amount || 0),
+      milestones_count: Number(evt?.data?.milestones_count || 0),
+      apply_deadline: Number(evt?.data?.apply_deadline || 0),
+    }))
+    .filter((e: any) => e.job_id > 0)
+    .sort((a: any, b: any) => b.created_at - a.created_at) // Mới nhất trước
+    .slice(0, maxJobs);
 
   // Import parsers
   const { parseState, parseOptionAddress } = await import('./aptosParsers');
 
-  for (let id = 1; id < maxScan; id++) {
-    const jobData = await getJobData(id);
-    if (jobData) {
-      const stateStr = parseState(jobData?.state);
-      const freelancer = parseOptionAddress(jobData?.freelancer);
-      const milestones = jobData?.milestones || [];
-      const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
+  // Query job details từ table (parallel batch - 15 at a time)
+  const jobIds = jobEvents.map((e: any) => e.job_id);
+  const jobDetails: any[] = [];
+  
+  // Batch process để tránh rate limit
+  const BATCH_SIZE = 15;
+  for (let i = 0; i < jobIds.length; i += BATCH_SIZE) {
+    const batch = jobIds.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (id: number) => {
+        const jobData = await getJobData(id);
+        if (!jobData) return null;
+        
+        const stateStr = parseState(jobData?.state);
+        const freelancer = parseOptionAddress(jobData?.freelancer);
+        const milestones = jobData?.milestones || [];
+        const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
 
-      jobs.push({
-        id,
-        cid: jobData?.cid || '',
-        total_amount: Number(jobData?.total_escrow || 0),
-        milestones_count: milestones.length,
-        has_freelancer: !!freelancer,
-        pending_freelancer: pendingFreelancer,
-        state: stateStr,
-        poster: jobData?.poster,
-        freelancer,
-        apply_deadline: jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined,
-      });
-    }
+        // Merge event data với table data
+        const eventData = jobEvents.find((e: any) => e.job_id === id);
+        
+        return {
+          id,
+          cid: eventData?.cid || jobData?.cid || '',
+          total_amount: eventData?.total_amount || Number(jobData?.total_escrow || 0),
+          milestones_count: eventData?.milestones_count || milestones.length,
+          has_freelancer: !!freelancer,
+          pending_freelancer: pendingFreelancer,
+          state: stateStr,
+          poster: eventData?.poster || jobData?.poster,
+          freelancer,
+          apply_deadline: eventData?.apply_deadline || (jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined),
+          created_at: eventData?.created_at,
+        };
+      })
+    );
+    jobDetails.push(...batchResults.filter((j) => j !== null));
   }
+
+  // Sort lại theo created_at (mới nhất trước)
+  const jobs = jobDetails.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   return { jobs };
 }
@@ -304,7 +599,12 @@ export async function getParsedJobData(jobId: number) {
   const jobData = await getJobData(jobId);
   if (!jobData) return null;
 
-  const { parseState, parseOptionAddress, parseMilestoneStatus } = await import('./aptosParsers');
+  const {
+    parseState,
+    parseOptionAddress,
+    parseMilestoneStatus,
+    parseOptionString,
+  } = await import('./aptosParsers');
 
   const stateStr = parseState(jobData?.state);
   const freelancer = parseOptionAddress(jobData?.freelancer);
@@ -315,14 +615,23 @@ export async function getParsedJobData(jobId: number) {
   const mutualCancelRequestedBy = parseOptionAddress(jobData?.mutual_cancel_requested_by);
   const freelancerWithdrawRequestedBy = parseOptionAddress(jobData?.freelancer_withdraw_requested_by);
 
+  const toNumber = (value: any) => {
+    if (value === null || value === undefined) return 0;
+    const num = Number(value);
+    return Number.isNaN(num) ? 0 : num;
+  };
+
   const milestones = (jobData?.milestones || []).map((m: any) => {
     const statusStr = parseMilestoneStatus(m?.status);
     return {
-      id: String(m?.id || 0),
-      amount: String(m?.amount || 0),
-      deadline: String(m?.deadline || 0),
+      id: toNumber(m?.id),
+      amount: toNumber(m?.amount),
+      duration: toNumber(m?.duration),
+      review_period: toNumber(m?.review_period),
+      deadline: toNumber(m?.deadline),
+      review_deadline: toNumber(m?.review_deadline),
       status: statusStr,
-      evidence_cid: m?.evidence_cid || null,
+      evidence_cid: parseOptionString(m?.evidence_cid) || null,
     };
   });
 
@@ -395,7 +704,7 @@ export async function getDisputeEvidence(disputeId: number) {
 export async function getReviewerDisputeEvents(limit: number = 200) {
   try {
     const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${CONTRACT_ADDRESS}::dispute::DisputeStore/reviewer_events?limit=${limit}`;
-    const res = await fetch(url);
+    const res = await aptosFetch(url);
     if (!res.ok) {
       return [];
     }

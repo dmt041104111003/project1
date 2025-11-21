@@ -55,8 +55,17 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
     setLoading(true);
     try {
-      const { getJobsList, getParsedJobData } = await import('@/lib/aptosClient');
-      const { jobs: allJobs } = await getJobsList();
+      // Query trực tiếp từ Aptos events
+      const { getJobsList } = await import('@/lib/aptosClient');
+      const jobsRes = await getJobsList(200);
+      if (!jobsRes.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+      const jobsData = await jobsRes.json();
+      if (!jobsData.success) {
+        throw new Error(jobsData.error || 'Failed to fetch jobs');
+      }
+      const allJobs = jobsData.jobs || [];
       
       const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
       const appliedJobs = allJobs.filter((job: Job) => {
@@ -70,10 +79,11 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
       const filteredJobs = activeTab === 'posted' ? postedJobs : appliedJobs;
 
-      const jobsWithMetadata = await Promise.all(
+        const jobsWithMetadata = await Promise.all(
         filteredJobs.map(async (job: Job) => {
           let enrichedJob: Job = job;
           try {
+            const { getParsedJobData } = await import('@/lib/aptosClient');
             const [detailData, cidRes] = await Promise.all([
               getParsedJobData(job.id),
               fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`),

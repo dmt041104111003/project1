@@ -44,6 +44,10 @@ module job_work_board::dispute {
         next_dispute_id: u64,
         reviewer_load: Table<address, u64>,
         reviewer_events: event::EventHandle<ReviewerDisputeEvent>,
+        dispute_opened_events: event::EventHandle<DisputeOpenedEvent>,
+        dispute_voted_events: event::EventHandle<DisputeVotedEvent>,
+        evidence_added_events: event::EventHandle<EvidenceAddedEvent>,
+        dispute_resolved_events: event::EventHandle<DisputeResolvedEvent>,
     }
 
     struct ReviewerDisputeEvent has drop, store {
@@ -54,12 +58,56 @@ module job_work_board::dispute {
         timestamp: u64,
     }
 
+    struct DisputeOpenedEvent has drop, store {
+        dispute_id: u64,
+        job_id: u64,
+        milestone_id: u64,
+        poster: address,
+        freelancer: address,
+        opened_by: address,
+        evidence_cid: option::Option<String>,
+        selected_reviewers_count: u64,
+        created_at: u64,
+    }
+
+    struct DisputeVotedEvent has drop, store {
+        dispute_id: u64,
+        job_id: u64,
+        milestone_id: u64,
+        reviewer: address,
+        vote_choice: bool,
+        voted_at: u64,
+    }
+
+    struct EvidenceAddedEvent has drop, store {
+        dispute_id: u64,
+        job_id: u64,
+        milestone_id: u64,
+        added_by: address,
+        evidence_cid: String,
+        added_at: u64,
+    }
+
+    struct DisputeResolvedEvent has drop, store {
+        dispute_id: u64,
+        job_id: u64,
+        milestone_id: u64,
+        winner_is_freelancer: bool,
+        freelancer_votes: u64,
+        poster_votes: u64,
+        resolved_at: u64,
+    }
+
     fun init_module(admin: &signer) {
         move_to(admin, DisputeStore {
             table: table::new(),
             next_dispute_id: 1,
             reviewer_load: table::new(),
             reviewer_events: account::new_event_handle<ReviewerDisputeEvent>(admin),
+            dispute_opened_events: account::new_event_handle<DisputeOpenedEvent>(admin),
+            dispute_voted_events: account::new_event_handle<DisputeVotedEvent>(admin),
+            evidence_added_events: account::new_event_handle<EvidenceAddedEvent>(admin),
+            dispute_resolved_events: account::new_event_handle<DisputeResolvedEvent>(admin),
         });
     }
 
@@ -220,6 +268,23 @@ module job_work_board::dispute {
         };
 
         escrow::lock_for_dispute(job_id, milestone_id, dispute_id);
+
+        // Emit dispute opened event
+        let selected_count = vector::length(&selected);
+        event::emit_event(
+            &mut store.dispute_opened_events,
+            DisputeOpenedEvent {
+                dispute_id,
+                job_id,
+                milestone_id,
+                poster: poster_addr,
+                freelancer: freelancer_addr,
+                opened_by: caller,
+                evidence_cid: option::some(evidence_cid),
+                selected_reviewers_count: selected_count,
+                created_at,
+            }
+        );
     }
 
 
@@ -263,6 +328,19 @@ module job_work_board::dispute {
 
         vector::push_back(&mut dispute.votes, Vote { reviewer: reviewer_addr, choice: vote_choice });
 
+        // Emit vote event
+        event::emit_event(
+            &mut store.dispute_voted_events,
+            DisputeVotedEvent {
+                dispute_id,
+                job_id: dispute.job_id,
+                milestone_id: dispute.milestone_id,
+                reviewer: reviewer_addr,
+                vote_choice,
+                voted_at: now,
+            }
+        );
+
         if (vector::length(&dispute.votes) >= MIN_REVIEWERS) {
             tally_votes(dispute_id);
         };
@@ -282,6 +360,20 @@ module job_work_board::dispute {
         } else {
             dispute.freelancer_evidence_cid = option::some(evidence_cid);
         };
+
+        // Emit evidence added event
+        let now = timestamp::now_seconds();
+        event::emit_event(
+            &mut store.evidence_added_events,
+            EvidenceAddedEvent {
+                dispute_id,
+                job_id: dispute.job_id,
+                milestone_id: dispute.milestone_id,
+                added_by: caller,
+                evidence_cid,
+                added_at: now,
+            }
+        );
     }
 
     public fun tally_votes(dispute_id: u64) acquires DisputeStore {
@@ -313,6 +405,21 @@ module job_work_board::dispute {
         } else {
             return
         };
+
+        // Emit dispute resolved event (only if resolved)
+        let now = timestamp::now_seconds();
+        event::emit_event(
+            &mut store.dispute_resolved_events,
+            DisputeResolvedEvent {
+                dispute_id,
+                job_id: dispute.job_id,
+                milestone_id: dispute.milestone_id,
+                winner_is_freelancer,
+                freelancer_votes,
+                poster_votes,
+                resolved_at: now,
+            }
+        );
 
         let votes_len = vector::length(&dispute.votes);
         let v = 0;

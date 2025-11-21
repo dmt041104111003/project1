@@ -29,6 +29,26 @@ module job_work_board::escrow {
         Expired
     }
 
+    fun job_state_to_string(state: JobState): String {
+        if (state == JobState::Posted) {
+            std::string::utf8(b"Posted")
+        } else if (state == JobState::PendingApproval) {
+            std::string::utf8(b"PendingApproval")
+        } else if (state == JobState::InProgress) {
+            std::string::utf8(b"InProgress")
+        } else if (state == JobState::Completed) {
+            std::string::utf8(b"Completed")
+        } else if (state == JobState::Cancelled) {
+            std::string::utf8(b"Cancelled")
+        } else if (state == JobState::CancelledByPoster) {
+            std::string::utf8(b"CancelledByPoster")
+        } else if (state == JobState::Disputed) {
+            std::string::utf8(b"Disputed")
+        } else {
+            std::string::utf8(b"Expired")
+        }
+    }
+
     enum MilestoneStatus has copy, drop, store {
         Pending,
         Submitted,
@@ -75,7 +95,13 @@ module job_work_board::escrow {
     struct EscrowStore has key {
         table: Table<u64, Job>,
         next_job_id: u64,
-        events: aptos_framework::event::EventHandle<ClaimTimeoutEvent>
+        claim_timeout_events: aptos_framework::event::EventHandle<ClaimTimeoutEvent>,
+        job_created_events: aptos_framework::event::EventHandle<JobCreatedEvent>,
+        job_applied_events: aptos_framework::event::EventHandle<JobAppliedEvent>,
+        job_state_changed_events: aptos_framework::event::EventHandle<JobStateChangedEvent>,
+        milestone_submitted_events: aptos_framework::event::EventHandle<MilestoneSubmittedEvent>,
+        milestone_accepted_events: aptos_framework::event::EventHandle<MilestoneAcceptedEvent>,
+        milestone_rejected_events: aptos_framework::event::EventHandle<MilestoneRejectedEvent>
     }
 
     struct ClaimTimeoutEvent has drop, store {
@@ -86,11 +112,63 @@ module job_work_board::escrow {
         freelancer_stake_claimed: u64
     }
 
+    struct JobCreatedEvent has drop, store {
+        job_id: u64,
+        poster: address,
+        cid: String,
+        total_amount: u64,
+        milestones_count: u64,
+        apply_deadline: u64,
+        created_at: u64
+    }
+
+    struct JobAppliedEvent has drop, store {
+        job_id: u64,
+        freelancer: address,
+        applied_at: u64
+    }
+
+    struct JobStateChangedEvent has drop, store {
+        job_id: u64,
+        old_state: String,
+        new_state: String,
+        changed_at: u64
+    }
+
+    struct MilestoneSubmittedEvent has drop, store {
+        job_id: u64,
+        milestone_id: u64,
+        freelancer: address,
+        evidence_cid: String,
+        submitted_at: u64
+    }
+
+    struct MilestoneAcceptedEvent has drop, store {
+        job_id: u64,
+        milestone_id: u64,
+        freelancer: address,
+        amount: u64,
+        accepted_at: u64
+    }
+
+    struct MilestoneRejectedEvent has drop, store {
+        job_id: u64,
+        milestone_id: u64,
+        poster: address,
+        rejected_at: u64
+    }
+
     fun init_module(admin: &signer) {
         move_to(admin, EscrowStore {
             table: table::new(),
             next_job_id: 1,
-            events: account::new_event_handle<ClaimTimeoutEvent>(admin)
+            claim_timeout_events: account::new_event_handle<ClaimTimeoutEvent>(admin),
+            job_created_events: account::new_event_handle<JobCreatedEvent>(admin),
+            job_applied_events: account::new_event_handle<JobAppliedEvent>(admin),
+            job_state_changed_events: account::new_event_handle<JobStateChangedEvent>(admin),
+            milestone_submitted_events: account::new_event_handle<MilestoneSubmittedEvent>(admin),
+            milestone_accepted_events: account::new_event_handle<MilestoneAcceptedEvent>(admin),
+            milestone_rejected_events: account::new_event_handle<MilestoneRejectedEvent>(admin)
         });
     }
 
@@ -169,6 +247,19 @@ module job_work_board::escrow {
             dispute_pool: fee,
             freelancer_withdraw_requested_by: option::none(),
         });
+
+        aptos_framework::event::emit_event(
+            &mut store.job_created_events,
+            JobCreatedEvent {
+                job_id,
+                poster: poster_addr,
+                cid,
+                total_amount: poster_deposit,
+                milestones_count: n,
+                apply_deadline,
+                created_at: now
+            }
+        );
     }
 
     public entry fun apply_job(freelancer: &signer, job_id: u64) acquires EscrowStore {
@@ -195,6 +286,15 @@ module job_work_board::escrow {
         
         coin::merge(&mut job.stake_pool, stake);
         coin::merge(&mut job.dispute_pool, fee);
+
+        aptos_framework::event::emit_event(
+            &mut store.job_applied_events,
+            JobAppliedEvent {
+                job_id,
+                freelancer: freelancer_addr,
+                applied_at: now
+            }
+        );
     }
 
     fun refund_pending_candidate(job: &mut Job, candidate: address) {
@@ -221,11 +321,23 @@ module job_work_board::escrow {
         assert!(job.poster == poster_addr, 1);
         assert!(option::is_some(&job.pending_freelancer), 1);
         let candidate = *option::borrow(&job.pending_freelancer);
+        let old_state = job.state;
 
         if (!approve) {
             refund_pending_candidate(job, candidate);
             job.pending_freelancer = option::none();
             job.state = JobState::Posted;
+            
+            let now = timestamp::now_seconds();
+            aptos_framework::event::emit_event(
+                &mut store.job_state_changed_events,
+                JobStateChangedEvent {
+                    job_id,
+                    old_state: job_state_to_string(old_state),
+                    new_state: job_state_to_string(JobState::Posted),
+                    changed_at: now
+                }
+            );
             return;
         };
 
@@ -245,6 +357,16 @@ module job_work_board::escrow {
                 first_milestone.deadline = now + first_milestone.duration;
             };
         };
+
+        aptos_framework::event::emit_event(
+            &mut store.job_state_changed_events,
+            JobStateChangedEvent {
+                job_id,
+                old_state: job_state_to_string(old_state),
+                new_state: job_state_to_string(JobState::InProgress),
+                changed_at: now
+            }
+        );
     }
 
     public entry fun withdraw_application(
@@ -275,7 +397,18 @@ module job_work_board::escrow {
         
         let now = timestamp::now_seconds();
         if (job.apply_deadline > 0 && now > job.apply_deadline) {
+            let old_state = job.state;
             job.state = JobState::Expired;
+            
+            aptos_framework::event::emit_event(
+                &mut store.job_state_changed_events,
+                JobStateChangedEvent {
+                    job_id,
+                    old_state: job_state_to_string(old_state),
+                    new_state: job_state_to_string(JobState::Expired),
+                    changed_at: now
+                }
+            );
         };
     }
 
@@ -310,6 +443,17 @@ module job_work_board::escrow {
         milestone.status = MilestoneStatus::Submitted;
         milestone.evidence_cid = option::some(evidence_cid);
         milestone.review_deadline = now + milestone.review_period;
+
+        aptos_framework::event::emit_event(
+            &mut store.milestone_submitted_events,
+            MilestoneSubmittedEvent {
+                job_id,
+                milestone_id,
+                freelancer: freelancer_addr,
+                evidence_cid,
+                submitted_at: now
+            }
+        );
     }
 
     public entry fun confirm_milestone(poster: &signer, job_id: u64, milestone_id: u64) acquires EscrowStore {
@@ -327,17 +471,40 @@ module job_work_board::escrow {
         let now = timestamp::now_seconds();
         assert!(now <= milestone.review_deadline, 1);
 
+        let milestone_amount = milestone.amount;
         milestone.status = MilestoneStatus::Accepted;
 
         if (option::is_some(&job.freelancer)) {
             let freelancer = *option::borrow(&job.freelancer);
-            process_milestone_payment(job, milestone.amount, freelancer);
+            process_milestone_payment(job, milestone_amount, freelancer);
             set_next_milestone_deadline(job, i);
+
+            aptos_framework::event::emit_event(
+                &mut store.milestone_accepted_events,
+                MilestoneAcceptedEvent {
+                    job_id,
+                    milestone_id,
+                    freelancer,
+                    amount: milestone_amount,
+                    accepted_at: now
+                }
+            );
         };
 
         if (are_all_milestones_accepted(&job.milestones)) {
+            let old_state = job.state;
             job.state = JobState::Completed;
             return_stakes(job);
+
+            aptos_framework::event::emit_event(
+                &mut store.job_state_changed_events,
+                JobStateChangedEvent {
+                    job_id,
+                    old_state: job_state_to_string(old_state),
+                    new_state: job_state_to_string(JobState::Completed),
+                    changed_at: now
+                }
+            );
         };
     }
 
@@ -357,7 +524,28 @@ module job_work_board::escrow {
         assert!(now <= milestone.review_deadline, 1);
 
         milestone.status = MilestoneStatus::Locked;
+        let old_state = job.state;
         job.state = JobState::Disputed;
+
+        aptos_framework::event::emit_event(
+            &mut store.milestone_rejected_events,
+            MilestoneRejectedEvent {
+                job_id,
+                milestone_id,
+                poster: poster_addr,
+                rejected_at: now
+            }
+        );
+
+        aptos_framework::event::emit_event(
+            &mut store.job_state_changed_events,
+            JobStateChangedEvent {
+                job_id,
+                old_state: job_state_to_string(old_state),
+                new_state: job_state_to_string(JobState::Disputed),
+                changed_at: now
+            }
+        );
     }
 
     public entry fun claim_timeout(s: &signer, job_id: u64, milestone_id: u64) acquires EscrowStore {
@@ -402,7 +590,7 @@ module job_work_board::escrow {
             };
             
             aptos_framework::event::emit_event(
-                &mut store.events,
+                &mut store.claim_timeout_events,
                 ClaimTimeoutEvent {
                     job_id,
                     milestone_id,
@@ -531,10 +719,22 @@ module job_work_board::escrow {
             job.freelancer_stake = 0;
         };
         
+        let old_state = job.state;
         job.freelancer = option::none();
         job.state = JobState::Cancelled;
         job.mutual_cancel_requested_by = option::none();
-        job.freelancer_withdraw_requested_by = option::none();  
+        job.freelancer_withdraw_requested_by = option::none();
+
+        let now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.job_state_changed_events,
+            JobStateChangedEvent {
+                job_id,
+                old_state: job_state_to_string(old_state),
+                new_state: job_state_to_string(JobState::Cancelled),
+                changed_at: now
+            }
+        );
     }
 
     public entry fun reject_mutual_cancel(freelancer: &signer, job_id: u64) acquires EscrowStore {
@@ -576,7 +776,19 @@ module job_work_board::escrow {
             job.poster_stake = 0;
         };
 
+        let old_state = job.state;
         job.state = JobState::CancelledByPoster;
+
+        let now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.job_state_changed_events,
+            JobStateChangedEvent {
+                job_id,
+                old_state: job_state_to_string(old_state),
+                new_state: job_state_to_string(JobState::CancelledByPoster),
+                changed_at: now
+            }
+        );
     }
 
     public entry fun freelancer_withdraw(freelancer: &signer, job_id: u64) acquires EscrowStore {
@@ -698,10 +910,34 @@ module job_work_board::escrow {
         };
         
         if (are_all_milestones_accepted(&job.milestones)) {
+            let old_state = job.state;
             job.state = JobState::Completed;
             return_stakes(job);
+
+            let now = timestamp::now_seconds();
+            aptos_framework::event::emit_event(
+                &mut store.job_state_changed_events,
+                JobStateChangedEvent {
+                    job_id,
+                    old_state: job_state_to_string(old_state),
+                    new_state: job_state_to_string(JobState::Completed),
+                    changed_at: now
+                }
+            );
         } else {
+            let old_state = job.state;
             job.state = JobState::InProgress;
+
+            let now = timestamp::now_seconds();
+            aptos_framework::event::emit_event(
+                &mut store.job_state_changed_events,
+                JobStateChangedEvent {
+                    job_id,
+                    old_state: job_state_to_string(old_state),
+                    new_state: job_state_to_string(JobState::InProgress),
+                    changed_at: now
+                }
+            );
         };
     }
 

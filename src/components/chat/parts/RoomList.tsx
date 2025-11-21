@@ -19,7 +19,6 @@ type Props = {
   selectedRoomId?: string;
   onSelect: (id: string) => void;
   onAccept: (id: string) => void;
-  onDelete: (id: string) => void;
   onEditName: (id: string, newName: string) => void;
   currentUserAddress: string;
 };
@@ -32,7 +31,6 @@ export const RoomList: React.FC<Props> = ({
   selectedRoomId,
   onSelect,
   onAccept,
-  onDelete,
   onEditName,
   currentUserAddress,
 }) => {
@@ -228,25 +226,6 @@ export const RoomList: React.FC<Props> = ({
                               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-200"
                             >
                               Sửa tên phòng
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(null);
-                                toast.warning('Bạn có chắc chắn muốn xóa phòng chat này?', {
-                                  action: {
-                                    label: 'Xóa',
-                                    onClick: () => onDelete(room.id)
-                                  },
-                                  cancel: {
-                                    label: 'Hủy',
-                                    onClick: () => {}
-                                  }
-                                });
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-200"
-                            >
-                              Xóa phòng
                             </button>
                           </>
                         )}

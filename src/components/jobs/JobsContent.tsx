@@ -25,9 +25,10 @@ export const JobsContent: React.FC = () => {
         setLoading(true);
         setError(null);
         
+        // Query trực tiếp từ Aptos events
         const { getJobsList } = await import('@/lib/aptosClient');
-        const { jobs } = await getJobsList();
-        setJobs(jobs || []);
+        const result = await getJobsList(200);
+        setJobs(result.jobs || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Không thể tải danh sách công việc');
       } finally {

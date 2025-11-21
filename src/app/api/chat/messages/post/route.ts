@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ref, push, serverTimestamp, update, remove, get, set } from 'firebase/database';
+import { ref, push, serverTimestamp, update, get, set } from 'firebase/database';
 import { getFirebaseDatabase } from '@/app/api/chat/_lib/firebaseServer';
-import { fetchContractResource, queryTableItem } from '@/lib/aptosClient';
-import { CONTRACT_ADDRESS } from '@/constants/contracts';
+import { getProofStoredEvents } from '@/lib/aptosClient';
 
 const database = getFirebaseDatabase();
 
@@ -29,26 +28,33 @@ const userIsMember = (roomData: any, address: string) => {
 
 const ensureRoomMembership = (roomData: any, address: string) => userIsMember(roomData, address);
 
-let cachedProofHandle: string | null | undefined;
-
-const getProofHandle = async (): Promise<string | null> => {
-  if (cachedProofHandle === undefined) {
-    const roleStore = await fetchContractResource('role::RoleStore');
-    cachedProofHandle = roleStore?.proofs?.handle || null;
-  }
-  return cachedProofHandle ?? null;
-};
+const proofCache = new Map<string, { hasProof: boolean; timestamp: number }>();
+const PROOF_CACHE_TTL = 30000; // 30 seconds
 
 const hasProof = async (address: string): Promise<boolean> => {
-  const handle = await getProofHandle();
-  if (!handle) return false;
-  const proof = await queryTableItem({
-    handle,
-    keyType: 'address',
-    valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
-    key: address,
-  });
-  return !!proof;
+  const normalizedAddr = normalizeAddress(address);
+  
+  const cached = proofCache.get(normalizedAddr);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp) < PROOF_CACHE_TTL) {
+    return cached.hasProof;
+  }
+  
+  try {
+    const events = await getProofStoredEvents(200);
+    
+    const hasProofResult = events.some((event: any) => {
+      const eventAddr = String(event.data?.address || '').toLowerCase();
+      return eventAddr === normalizedAddr;
+    });
+    
+    proofCache.set(normalizedAddr, { hasProof: hasProofResult, timestamp: now });
+    
+    return hasProofResult;
+  } catch (error) {
+    console.error('Error checking proof from events:', error);
+    return false;
+  }
 };
 
 export async function POST(request: NextRequest) {
@@ -65,8 +71,6 @@ export async function POST(request: NextRequest) {
       participantAddress,
       acceptRoom,
       roomIdToAccept,
-      deleteRoom,
-      roomIdToDelete,
       updateRoomName,
       roomIdToUpdate,
       newName,
@@ -207,19 +211,6 @@ export async function POST(request: NextRequest) {
       }
       await update(ref(database, `chatRooms/${roomIdToUpdate}`), { name: trimmedName });
       return NextResponse.json({ success: true, message: 'Đã cập nhật tên phòng' });
-    }
-
-    if (deleteRoom && roomIdToDelete) {
-      const roomData = await fetchRoomData(roomIdToDelete);
-      if (!roomData) {
-        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
-      }
-      if (!ensureRoomMembership(roomData, requester)) {
-        return NextResponse.json({ success: false, error: 'Bạn không có quyền xóa phòng này' }, { status: 403 });
-      }
-      await remove(ref(database, `chatRooms/${roomIdToDelete}`));
-      await remove(ref(database, `chats/${roomIdToDelete}/messages`)).catch(() => {});
-      return NextResponse.json({ success: true, message: 'Đã xóa phòng chat' });
     }
 
     if (!text || !roomId) {
