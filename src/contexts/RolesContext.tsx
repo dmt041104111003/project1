@@ -45,8 +45,8 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
     }
     setLoading(true);
     try {
-      // Query từ events và proof table
-      const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
+      const { getUserRoles, getProofData, clearRoleEventsCache } = await import('@/lib/aptosClient');
+      clearRoleEventsCache();
       const [rolesData, proofData] = await Promise.all([
         getUserRoles(account),
         getProofData(account),
@@ -55,6 +55,9 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
       const normalized = (rolesData?.roles || []).map((role: any) => String(role?.name || '').toLowerCase());
       setRoles(normalized);
       setHasProof(!!proofData);
+      
+      // Trigger global refresh
+      window.dispatchEvent(new CustomEvent('rolesUpdated'));
     } catch {
       setRoles([]);
       setHasProof(false);

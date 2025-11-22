@@ -29,9 +29,16 @@ export function useRoleManagement(account: string | null) {
     
     setLoadingRoles(true);
     try {
-      const { getUserRoles } = await import('@/lib/aptosClient');
+      const { getUserRoles, clearRoleEventsCache } = await import('@/lib/aptosClient');
+      clearRoleEventsCache();
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const { roles } = await getUserRoles(account);
       setRoles(roles || []);
+      if (roles && roles.length > 0) {
+        setFaceVerified(true);
+      }
+      
+      window.dispatchEvent(new CustomEvent('rolesUpdated'));
     } catch {
       setRoles([]);
     } finally {
@@ -138,10 +145,8 @@ export function useRoleManagement(account: string | null) {
       }
       
       const { roleHelpers } = await import('@/utils/contractHelpers');
-      // Lấy identity_hash từ API response hoặc từ public_signals array
       let identityHash = zkData.identity_hash;
       if (!identityHash) {
-        // Fallback: lấy từ public_signals array (index 1) hoặc từ meta
         if (Array.isArray(zkData.public_signals?.signals) && zkData.public_signals.signals.length >= 2) {
           identityHash = Number(zkData.public_signals.signals[1]);
         } else if (zkData.public_signals?.identity_hash) {
@@ -312,10 +317,13 @@ export function useRoleManagement(account: string | null) {
       setMessage(MESSAGES.SUCCESS.REGISTRATION_SUCCESS);
       setRole('');
       setDesc('');
-      setFaceVerified(false);
       setUploadedCid('');
       
       await refreshRoles();
+      
+      setTimeout(async () => {
+        await refreshRoles();
+      }, 3000);
     } catch (error: any) {
       setMessage(error?.message || MESSAGES.ERROR.REGISTRATION_FAILED);
     } finally {

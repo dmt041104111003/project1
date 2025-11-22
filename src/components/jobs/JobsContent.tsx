@@ -22,25 +22,37 @@ export const JobsContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [latestFreelancers, setLatestFreelancers] = useState<Record<number, string | null>>({});
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Query trực tiếp từ Aptos events
-        const { getJobsList } = await import('@/lib/aptosClient');
-        const result = await getJobsList(200);
-        setJobs(result.jobs || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Không thể tải danh sách công việc');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchJobs();
+  const fetchJobs = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Query trực tiếp từ Aptos events
+      const { getJobsList } = await import('@/lib/aptosClient');
+      const result = await getJobsList(200);
+      setJobs(result.jobs || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể tải danh sách công việc');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    const handleJobsUpdated = () => {
+      setTimeout(() => fetchJobs(), 1000);
+    };
+
+    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    
+    return () => {
+      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+    };
+  }, [fetchJobs]);
 
   useEffect(() => {
     const jobsNeedingLookup = jobs.filter((job) => !job.freelancer && job.cid);

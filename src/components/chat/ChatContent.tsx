@@ -7,10 +7,10 @@ import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 import { useProofVerification } from '@/hooks/useProofVerification';
 import { formatTime } from '@/utils/timeUtils';
-import { CreateRoomForm } from './parts/CreateRoomForm';
-import { ChatPanel } from './parts/ChatPanel';
-import { RoomList } from './parts/RoomList';
-import { DeleteConfirm } from './parts/DeleteConfirm';
+import { CreateRoomForm } from './CreateRoomForm';
+import { ChatPanel } from './ChatPanel';
+import { RoomList } from './RoomList';
+import { DeleteConfirm } from './DeleteConfirm';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
   const { checkProof, checkMultipleProofs } = useProofVerification();

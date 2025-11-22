@@ -14,12 +14,15 @@ import { getJobStateDisplay } from '@/utils/jobStateUtils';
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
   const [reviewingCandidate, setReviewingCandidate] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const handleWithdraw = async () => {
     toast.warning('Bạn có chắc muốn rút lại công việc này? Cọc và ký quỹ sẽ được hoàn về ví của bạn.', {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
+          if (withdrawing) return;
           try {
+            setWithdrawing(true);
             const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
             const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
@@ -28,12 +31,15 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             const tx = await wallet.signAndSubmitTransaction(payload);
 
             toast.success(`Rút công việc thành công! TX: ${tx?.hash || 'N/A'}`);
+            window.dispatchEvent(new CustomEvent('jobsUpdated'));
             setTimeout(() => {
               onUpdate();
-            }, 2000);
+            }, 1000);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
+          } finally {
+            setWithdrawing(false);
           }
         }
       },
@@ -53,7 +59,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       if (!wallet) throw new Error('Không tìm thấy ví');
       const tx = await wallet.signAndSubmitTransaction(payload);
       toast.success(`${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công! TX: ${tx?.hash || 'N/A'}`);
-      setTimeout(() => onUpdate(), 2000);
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      setTimeout(() => onUpdate(), 1000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể xử lý ứng viên: ${errorMessage}`);
@@ -70,7 +77,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       if (!wallet) throw new Error('Không tìm thấy ví');
       const tx = await wallet.signAndSubmitTransaction(payload);
       toast.success(`Đã rút ứng tuyển! TX: ${tx?.hash || 'N/A'}`);
-      setTimeout(() => onUpdate(), 2000);
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      setTimeout(() => onUpdate(), 1000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể rút ứng tuyển: ${errorMessage}`);
@@ -153,9 +161,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
           <Button
             size="sm"
             onClick={handleWithdraw}
-            className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1"
+            disabled={withdrawing || reviewingCandidate || withdrawingApplication}
+            className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Rút lại công việc (Nhận cọc + ký quỹ)
+            {withdrawing ? 'Đang rút...' : 'Rút lại công việc (Nhận cọc + ký quỹ)'}
           </Button>
         </div>
       )}
@@ -182,17 +191,18 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                className="bg-green-600 text-white hover:bg-green-700"
+                className="bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleReviewCandidate(true)}
-                disabled={reviewingCandidate}
+                disabled={reviewingCandidate || withdrawing || withdrawingApplication}
               >
                 {reviewingCandidate ? 'Đang phê duyệt...' : 'Phê duyệt ứng viên'}
               </Button>
               <Button
                 size="sm"
                 variant="outline"
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleReviewCandidate(false)}
-                disabled={reviewingCandidate}
+                disabled={reviewingCandidate || withdrawing || withdrawingApplication}
               >
                 {reviewingCandidate ? 'Đang xử lý...' : 'Từ chối & hoàn tiền'}
               </Button>
@@ -203,8 +213,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
               <Button
                 size="sm"
                 variant="outline"
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleWithdrawApplicationPending}
-                disabled={withdrawingApplication}
+                disabled={withdrawingApplication || reviewingCandidate || withdrawing}
               >
                 {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển'}
               </Button>

@@ -5,7 +5,7 @@ authors = []
 license = "MIT"
 
 [addresses]
-job_work_board = "0x84570ca591644c50b6f6ed02f1cc538c53a142bb67e198c8fbd4c03dae0ee198"
+job_work_board = "0x55491d4abd9f4b3c0aa4d09b469ba7f2482523065e116846ef7701ea59bfb842"
 [dependencies]
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "mainnet" }
 AptosStdlib = { git = "https://github.com/aptos-labs/aptos-core.git", rev = "mainnet", subdir = "aptos-move/framework/aptos-stdlib" }

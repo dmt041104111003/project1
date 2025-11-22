@@ -255,8 +255,8 @@ export async function getProofData(address: string) {
 }
 
 
-async function queryEvents(eventType: string, limit: number = 200) {
-  const cacheKey = `${eventType}_${limit}`;
+async function queryEvents(eventHandle: string, fieldName: string, limit: number = 200) {
+  const cacheKey = `${eventHandle}_${fieldName}_${limit}`;
   const cached = eventsCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
@@ -268,16 +268,21 @@ async function queryEvents(eventType: string, limit: number = 200) {
 
   const promise = (async () => {
     try {
-      const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${eventType}?limit=${limit}`;
+      const encodedEventHandle = encodeURIComponent(eventHandle);
+      const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodedEventHandle}/${fieldName}?limit=${limit}`;
       const res = await aptosFetch(url);
       if (!res.ok) {
+        if (res.status === 400) {
+          console.error(`Failed to query events for ${eventHandle}/${fieldName}:`, res.status, res.statusText);
+        }
         return [];
       }
       const data = await res.json();
       const events = Array.isArray(data) ? data : [];
       eventsCache.set(cacheKey, { timestamp: Date.now(), data: events });
       return events;
-    } catch {
+    } catch (error) {
+      console.error(`Error querying events for ${eventHandle}/${fieldName}:`, error);
       return [];
     } finally {
       inflightEventsRequests.delete(cacheKey);
@@ -289,81 +294,135 @@ async function queryEvents(eventType: string, limit: number = 200) {
 }
 
 export async function getJobCreatedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::escrow::JobCreatedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_created_events', limit);
 }
 
 export async function getJobAppliedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::escrow::JobAppliedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_applied_events', limit);
 }
 
 export async function getJobStateChangedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::escrow::JobStateChangedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_state_changed_events', limit);
+}
+
+export async function getMilestoneCreatedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_created_events', limit);
 }
 
 export async function getMilestoneSubmittedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::escrow::MilestoneSubmittedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_submitted_events', limit);
+}
+
+export async function getMilestoneAcceptedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_accepted_events', limit);
+}
+
+export async function getMilestoneRejectedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_rejected_events', limit);
+}
+
+export async function getClaimTimeoutEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'claim_timeout_events', limit);
 }
 
 export async function getProofStoredEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::role::ProofStoredEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  return queryEvents(eventHandle, 'proof_stored_events', limit);
 }
 
 export async function getRoleRegisteredEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::role::RoleRegisteredEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  return queryEvents(eventHandle, 'role_registered_events', limit);
+}
+
+export function clearRoleEventsCache() {
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  const cacheKey = `${eventHandle}_role_registered_events_200`;
+  eventsCache.delete(cacheKey);
 }
 
 export async function getReputationChangedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::reputation::ReputationChangedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::reputation::RepStore`;
+  return queryEvents(eventHandle, 'reputation_changed_events', limit);
 }
 
 export async function getDisputeOpenedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeOpenedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_opened_events', limit);
 }
 
 export async function getDisputeVotedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeVotedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_voted_events', limit);
 }
 
 export async function getEvidenceAddedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::dispute::EvidenceAddedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'evidence_added_events', limit);
 }
 
 export async function getDisputeResolvedEvents(limit: number = 200) {
-  const eventType = `${CONTRACT_ADDRESS}::dispute::DisputeResolvedEvent`;
-  return queryEvents(eventType, limit);
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_resolved_events', limit);
 }
 
 export async function getJobsList(maxJobs: number = 200) {
-  const events = await getJobCreatedEvents(maxJobs);
+  const [createdEvents, appliedEvents, stateEvents] = await Promise.all([
+    getJobCreatedEvents(maxJobs),
+    getJobAppliedEvents(maxJobs),
+    getJobStateChangedEvents(maxJobs),
+  ]);
   
-  if (events.length === 0) {
+  if (createdEvents.length === 0) {
     return { jobs: [] };
   }
 
-  const jobs = events
-    .map((evt: any) => ({
-      id: Number(evt?.data?.job_id || 0),
-      created_at: Number(evt?.data?.created_at || 0),
-      poster: evt?.data?.poster || '',
-      cid: evt?.data?.cid || '',
-      total_amount: Number(evt?.data?.total_amount || 0),
-      milestones_count: Number(evt?.data?.milestones_count || 0),
-      apply_deadline: Number(evt?.data?.apply_deadline || 0),
-      has_freelancer: false,
-      pending_freelancer: null,
-      state: 'Posted',
-      freelancer: null,
-    }))
+  const appliedMap = new Map<number, string>();
+  appliedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const freelancer = String(evt?.data?.freelancer || '');
+    if (jobId > 0 && freelancer) {
+      appliedMap.set(jobId, freelancer);
+    }
+  });
+
+  const stateMap = new Map<number, string>();
+  stateEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const newState = String(evt?.data?.new_state || '');
+    if (jobId > 0 && newState) {
+      stateMap.set(jobId, newState);
+    }
+  });
+
+  const jobs = createdEvents
+    .map((evt: any) => {
+      const jobId = Number(evt?.data?.job_id || 0);
+      const freelancer = appliedMap.get(jobId) || null;
+      const state = stateMap.get(jobId) || 'Posted';
+      
+      return {
+        id: jobId,
+        created_at: Number(evt?.data?.created_at || 0),
+        poster: evt?.data?.poster || '',
+        cid: evt?.data?.cid || '',
+        total_amount: Number(evt?.data?.total_amount || 0),
+        milestones_count: Number(evt?.data?.milestones_count || 0),
+        apply_deadline: Number(evt?.data?.apply_deadline || 0),
+        has_freelancer: !!freelancer,
+        pending_freelancer: null,
+        state: state,
+        freelancer: freelancer,
+      };
+    })
     .filter((e: any) => e.id > 0)
     .sort((a: any, b: any) => b.created_at - a.created_at)
     .slice(0, maxJobs);
@@ -372,21 +431,99 @@ export async function getJobsList(maxJobs: number = 200) {
 }
 
 export async function getParsedJobData(jobId: number) {
-  const events = await getJobCreatedEvents(200);
-  const jobEvent = events.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
+  const [createdEvents, appliedEvents, stateEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents] = await Promise.all([
+    getJobCreatedEvents(200),
+    getJobAppliedEvents(200),
+    getJobStateChangedEvents(200),
+    getMilestoneCreatedEvents(200),
+    getMilestoneSubmittedEvents(200),
+    getMilestoneAcceptedEvents(200),
+    getMilestoneRejectedEvents(200),
+  ]);
   
+  const jobEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
   if (!jobEvent) return null;
+
+  const appliedEvent = appliedEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
+  const freelancer = appliedEvent?.data?.freelancer || null;
+
+  const stateEvent = stateEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .sort((a: any, b: any) => Number(b?.data?.changed_at || 0) - Number(a?.data?.changed_at || 0))[0];
+  const state = stateEvent?.data?.new_state || 'Posted';
+
+  const baseMilestones = milestoneCreatedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .map((e: any) => ({
+      id: Number(e?.data?.milestone_id || 0),
+      amount: Number(e?.data?.amount || 0),
+      duration: Number(e?.data?.duration || 0),
+      deadline: Number(e?.data?.deadline || 0),
+      review_period: Number(e?.data?.review_period || 0),
+      review_deadline: Number(e?.data?.review_deadline || 0),
+      status: { __variant__: 'Pending' },
+      evidence_cid: null,
+    }))
+    .sort((a: any, b: any) => a.id - b.id);
+
+  const submittedMap = new Map<number, { evidence_cid: string; submitted_at: number }>();
+  milestoneSubmittedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      submittedMap.set(milestoneId, {
+        evidence_cid: String(e?.data?.evidence_cid || ''),
+        submitted_at: Number(e?.data?.submitted_at || 0),
+      });
+    });
+
+  const acceptedMap = new Map<number, number>();
+  milestoneAcceptedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      acceptedMap.set(milestoneId, Number(e?.data?.accepted_at || 0));
+    });
+
+  const rejectedMap = new Map<number, number>();
+  milestoneRejectedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      rejectedMap.set(milestoneId, Number(e?.data?.rejected_at || 0));
+    });
+
+  const milestones = baseMilestones.map((m: any) => {
+    const submitted = submittedMap.get(m.id);
+    const accepted = acceptedMap.get(m.id);
+    const rejected = rejectedMap.get(m.id);
+    
+    let status = m.status;
+    if (accepted) {
+      status = { __variant__: 'Accepted' };
+    } else if (rejected) {
+      status = { __variant__: 'Locked' };
+    } else if (submitted) {
+      status = { __variant__: 'Submitted' };
+    }
+
+    return {
+      ...m,
+      status,
+      evidence_cid: submitted?.evidence_cid || null,
+    };
+  });
 
   return {
     id: jobId,
     cid: jobEvent?.data?.cid || '',
     total_amount: Number(jobEvent?.data?.total_amount || 0),
-    milestones_count: Number(jobEvent?.data?.milestones_count || 0),
-    milestones: [],
-    has_freelancer: false,
-    state: 'Posted',
+    milestones_count: Number(jobEvent?.data?.milestones_count || milestones.length || 0),
+    milestones: milestones,
+    has_freelancer: !!freelancer,
+    state: state,
     poster: jobEvent?.data?.poster || '',
-    freelancer: null,
+    freelancer: freelancer,
     pending_freelancer: null,
     pending_stake: 0,
     pending_fee: 0,
@@ -473,17 +610,8 @@ export async function getDisputeEvidence(disputeId: number) {
 }
 
 export async function getReviewerDisputeEvents(limit: number = 200) {
-  try {
-    const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${CONTRACT_ADDRESS}::dispute::DisputeStore/reviewer_events?limit=${limit}`;
-    const res = await aptosFetch(url);
-    if (!res.ok) {
-      return [];
-    }
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'reviewer_events', limit);
 }
 
 export async function getReviewerDisputeHistory(address: string, limit: number = 200) {

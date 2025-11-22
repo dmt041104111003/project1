@@ -59,14 +59,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       // Query trực tiếp từ Aptos events
       const { getJobsList } = await import('@/lib/aptosClient');
       const jobsRes = await getJobsList(200);
-      if (!jobsRes.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
-      const jobsData = await jobsRes.json();
-      if (!jobsData.success) {
-        throw new Error(jobsData.error || 'Failed to fetch jobs');
-      }
-      const allJobs = jobsData.jobs || [];
+      const allJobs = jobsRes.jobs || [];
       
       const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
       const appliedJobs = allJobs.filter((job: Job) => {
@@ -124,6 +117,28 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
     }
   }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
+  useEffect(() => {
+    const handleRolesUpdated = () => {
+      if (account) {
+        setTimeout(() => fetchJobs(), 1000);
+      }
+    };
+    
+    const handleJobsUpdated = () => {
+      if (account) {
+        setTimeout(() => fetchJobs(), 1000);
+      }
+    };
+
+    window.addEventListener('rolesUpdated', handleRolesUpdated);
+    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    
+    return () => {
+      window.removeEventListener('rolesUpdated', handleRolesUpdated);
+      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+    };
+  }, [account, fetchJobs]);
+
   const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobs.slice(
     currentPage * JOBS_PER_PAGE,
@@ -175,17 +190,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           }}
         />
 
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <Button 
-            onClick={fetchJobs} 
-            variant="outline" 
-            disabled={loading} 
-            className="!bg-white !text-black !border-2 !border-black py-2 font-bold hover:!bg-gray-100"
-          >
-            {loading ? 'Đang tải...' : 'Làm mới'}
-          </Button>
-        </div>
-
+    
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
             <LoadingState message="Đang tải dự án..." />

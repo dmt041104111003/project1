@@ -49,43 +49,55 @@ export const JobDetailContent: React.FC = () => {
   const latestFreelancerAddress = getFreelancerFromOption(jobData?.freelancer) || getLatestFreelancerFromMetadata();
   const pendingFreelancerAddress = jobData?.pending_freelancer || null;
 
-  useEffect(() => {
-    const fetchJobDetails = async () => {
-      if (!jobId) return;
+  const fetchJobDetails = React.useCallback(async () => {
+    if (!jobId) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
       
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Query trực tiếp từ Aptos
-        const { getParsedJobData } = await import('@/lib/aptosClient');
-        const [jobData, ipfsRes] = await Promise.all([
-          getParsedJobData(Number(jobId)),
-          fetch(`/api/ipfs/job?jobId=${jobId}`),
-        ]);
-        
-        if (!jobData) {
-          throw new Error('Job not found');
-        }
-        setJobData(jobData);
-        
-        if (ipfsRes.ok) {
-          const ipfsData = await ipfsRes.json();
-          if (ipfsData.success && ipfsData.data) {
-            setJobDetails(ipfsData.data);
-          }
-        }
-      } catch (err: unknown) {
-        const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';
-        setError(errorMsg);
-        toast.error(errorMsg);
-      } finally {
-        setLoading(false);
+      // Query trực tiếp từ Aptos
+      const { getParsedJobData } = await import('@/lib/aptosClient');
+      const [jobData, ipfsRes] = await Promise.all([
+        getParsedJobData(Number(jobId)),
+        fetch(`/api/ipfs/job?jobId=${jobId}`),
+      ]);
+      
+      if (!jobData) {
+        throw new Error('Job not found');
       }
+      setJobData(jobData);
+      
+      if (ipfsRes.ok) {
+        const ipfsData = await ipfsRes.json();
+        if (ipfsData.success && ipfsData.data) {
+          setJobDetails(ipfsData.data);
+        }
+      }
+    } catch (err: unknown) {
+      const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId]);
+
+  useEffect(() => {
+    fetchJobDetails();
+  }, [fetchJobDetails]);
+
+  useEffect(() => {
+    const handleJobsUpdated = () => {
+      setTimeout(() => fetchJobDetails(), 1000);
     };
 
-    fetchJobDetails();
-  }, [jobId]);
+    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    
+    return () => {
+      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+    };
+  }, [fetchJobDetails]);
 
   useEffect(() => {
     if (!account) {

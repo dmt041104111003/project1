@@ -101,7 +101,8 @@ module job_work_board::escrow {
         job_state_changed_events: aptos_framework::event::EventHandle<JobStateChangedEvent>,
         milestone_submitted_events: aptos_framework::event::EventHandle<MilestoneSubmittedEvent>,
         milestone_accepted_events: aptos_framework::event::EventHandle<MilestoneAcceptedEvent>,
-        milestone_rejected_events: aptos_framework::event::EventHandle<MilestoneRejectedEvent>
+        milestone_rejected_events: aptos_framework::event::EventHandle<MilestoneRejectedEvent>,
+        milestone_created_events: aptos_framework::event::EventHandle<MilestoneCreatedEvent>
     }
 
     struct ClaimTimeoutEvent has drop, store {
@@ -158,6 +159,17 @@ module job_work_board::escrow {
         rejected_at: u64
     }
 
+    struct MilestoneCreatedEvent has drop, store {
+        job_id: u64,
+        milestone_id: u64,
+        amount: u64,
+        duration: u64,
+        deadline: u64,
+        review_period: u64,
+        review_deadline: u64,
+        created_at: u64
+    }
+
     fun init_module(admin: &signer) {
         move_to(admin, EscrowStore {
             table: table::new(),
@@ -168,7 +180,8 @@ module job_work_board::escrow {
             job_state_changed_events: account::new_event_handle<JobStateChangedEvent>(admin),
             milestone_submitted_events: account::new_event_handle<MilestoneSubmittedEvent>(admin),
             milestone_accepted_events: account::new_event_handle<MilestoneAcceptedEvent>(admin),
-            milestone_rejected_events: account::new_event_handle<MilestoneRejectedEvent>(admin)
+            milestone_rejected_events: account::new_event_handle<MilestoneRejectedEvent>(admin),
+            milestone_created_events: account::new_event_handle<MilestoneCreatedEvent>(admin)
         });
     }
 
@@ -204,25 +217,44 @@ module job_work_board::escrow {
         let job_id = store.next_job_id;
         store.next_job_id = store.next_job_id + 1;
         let milestones = vector::empty<Milestone>();
+        let now = timestamp::now_seconds();
+        let apply_deadline = now + apply_deadline_duration;
         i = 0;
         while (i < n) {
             let deadline_duration = *vector::borrow(&milestone_deadlines, i);
             let review_period = *vector::borrow(&milestone_review_periods, i);
+            let milestone_amount = *vector::borrow(&milestone_amounts, i);
+            let milestone_id = i;
+            let deadline = 0;
+            let review_deadline = 0;
+            
             vector::push_back(&mut milestones, Milestone {
-                id: i,
-                amount: *vector::borrow(&milestone_amounts, i),
+                id: milestone_id,
+                amount: milestone_amount,
                 duration: deadline_duration,  
-                deadline: 0,  
+                deadline,  
                 review_period,
-                review_deadline: 0,
+                review_deadline,
                 status: MilestoneStatus::Pending,
                 evidence_cid: option::none()
             });
+            
+            aptos_framework::event::emit_event(
+                &mut store.milestone_created_events,
+                MilestoneCreatedEvent {
+                    job_id,
+                    milestone_id,
+                    amount: milestone_amount,
+                    duration: deadline_duration,
+                    deadline,
+                    review_period,
+                    review_deadline,
+                    created_at: now
+                }
+            );
+            
             i = i + 1;
         };
-
-        let now = timestamp::now_seconds();
-        let apply_deadline = now + apply_deadline_duration;
 
         table::add(&mut store.table, job_id, Job {
             id: job_id,

@@ -1,10 +1,10 @@
 import { ReputationContent } from '@/components/reputation/ReputationContent';
-import { ReputationLayout } from '@/components/reputation/ReputationLayout';
+import { PageLayout } from '@/components/common';
 
 export default function ReputationPage() {
   return (
-    <ReputationLayout>
+    <PageLayout>
       <ReputationContent />
-    </ReputationLayout>
+    </PageLayout>
   );
 }
