@@ -614,6 +614,32 @@ export async function getReviewerDisputeEvents(limit: number = 200) {
   return queryEvents(eventHandle, 'reviewer_events', limit);
 }
 
+export async function getDisputeData(disputeId: number) {
+  const openedEvents = await getDisputeOpenedEvents(200);
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
+  if (!disputeEvent) return null;
+
+  const reviewerEvents = await getReviewerDisputeEvents(200);
+  const selectedReviewers = reviewerEvents
+    .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+    .map((e: any) => String(e?.data?.reviewer || ''))
+    .filter((addr: string) => addr.length > 0);
+
+  return {
+    dispute_id: disputeId,
+    job_id: Number(disputeEvent?.data?.job_id || 0),
+    milestone_id: Number(disputeEvent?.data?.milestone_id || 0),
+    poster: String(disputeEvent?.data?.poster || ''),
+    freelancer: String(disputeEvent?.data?.freelancer || ''),
+    opened_by: String(disputeEvent?.data?.opened_by || ''),
+    evidence_cid: disputeEvent?.data?.evidence_cid || null,
+    selected_reviewers: { vec: selectedReviewers },
+    selected_reviewers_count: Number(disputeEvent?.data?.selected_reviewers_count || 0),
+    created_at: Number(disputeEvent?.data?.created_at || 0),
+  };
+}
+
 export async function getReviewerDisputeHistory(address: string, limit: number = 200) {
   if (!address) return [];
   const normalize = (addr: string) => {
