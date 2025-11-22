@@ -32,6 +32,8 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   pendingFreelancerAddress,
   withdrawingApplication,
   onWithdrawApplication,
+  reviewingCandidate = false,
+  onReviewCandidate,
 }) => {
   if (!jobData) return null;
 
@@ -107,11 +109,12 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     
     const applyDeadlineExpiredForApply = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
     
-    if (stateStr === 'PendingApproval') {
+    if (pendingCandidate && (stateStr === 'PendingApproval' || stateStr === 'Posted')) {
       const isPendingCandidate = pendingCandidate && account && pendingCandidate.toLowerCase() === account.toLowerCase();
+      const isPoster = account && jobData?.poster && account.toLowerCase() === String(jobData.poster).toLowerCase();
       return (
         <div className="text-center py-4 space-y-3">
-          <p className="text-sm text-orange-700 font-bold">
+          <p className="text-sm text-blue-800 font-bold">
             Công việc đang chờ Người thuê phê duyệt ứng viên.
           </p>
           {pendingCandidate && (
@@ -119,15 +122,42 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
               Ứng viên hiện tại: {formatAddress(pendingCandidate)}
             </p>
           )}
+          {isPoster && onReviewCandidate && (
+            <div className="space-y-2">
+              <p className="text-xs text-blue-800 mb-2 font-bold">
+                Bạn có thể phê duyệt hoặc từ chối ứng viên. Nếu từ chối, ứng viên sẽ được hoàn stake và phí.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => onReviewCandidate(true)}
+                  disabled={reviewingCandidate || withdrawingApplication}
+                  size="sm"
+                  variant="primary"
+                  className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reviewingCandidate ? 'Đang phê duyệt...' : 'Phê duyệt ứng viên'}
+                </Button>
+                <Button
+                  onClick={() => onReviewCandidate(false)}
+                  disabled={reviewingCandidate || withdrawingApplication}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reviewingCandidate ? 'Đang xử lý...' : 'Từ chối & hoàn tiền'}
+                </Button>
+              </div>
+            </div>
+          )}
           {isPendingCandidate && onWithdrawApplication && (
             <Button
               onClick={onWithdrawApplication}
-              disabled={withdrawingApplication}
+              disabled={withdrawingApplication || reviewingCandidate}
               variant="outline"
               size="sm"
               className="w-full"
             >
-              {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển'}
+              {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất stake và phí)'}
             </Button>
           )}
         </div>
@@ -172,7 +202,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       <div className="space-y-2">
         {isReopenedAfterTimeout && (
           <div className="text-center mb-2">
-            <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-300 rounded px-2 py-1">
+            <p className="text-xs text-blue-800 font-bold bg-gray-50 border-2 border-blue-800 rounded px-2 py-1">
               Công việc đã được mở lại (Người làm tự do trước đã hết hạn)
             </p>
           </div>
@@ -181,7 +211,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           onClick={onApply}
           disabled={applying}
           size="lg"
-          className="w-full bg-white-800 text-black hover:bg-blue-300 disabled:bg-blue-400 disabled:text-white py-4 text-lg font-bold"
+          className="w-full py-4 text-lg font-bold"
         >
           {applying ? 'Đang ứng tuyển...' : 'Ứng tuyển Công việc'}
         </Button>
@@ -235,15 +265,15 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
     const base = 'px-2 py-1 text-xs font-bold border-2';
-    if (isExpiredPosted) return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
-    if (state === 'Cancelled') return `${base} bg-orange-100 text-orange-800 border-orange-300`;
-    if (state === 'CancelledByPoster') return `${base} bg-red-100 text-red-800 border-red-300`;
-    if (state === 'Posted') return `${base} bg-green-100 text-green-800 border-green-300`;
-    if (state === 'PendingApproval') return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
-    if (state === 'InProgress') return `${base} bg-blue-100 text-blue-800 border-blue-300`;
-    if (state === 'Completed') return `${base} bg-gray-100 text-gray-800 border-gray-300`;
-    if (state === 'Disputed') return `${base} bg-red-100 text-red-800 border-red-300`;
-    return `${base} bg-gray-100 text-gray-800 border-gray-300`;
+    if (isExpiredPosted) return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'Cancelled') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'CancelledByPoster') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'Posted') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'PendingApproval') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'InProgress') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'Completed') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    if (state === 'Disputed') return `${base} bg-gray-50 text-blue-800 border-blue-800`;
+    return `${base} bg-gray-50 text-blue-800 border-blue-800`;
   };
 
   return (

@@ -29,14 +29,14 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
 
-  if (!canInteract || isCancelled || !freelancer || jobState === 'Disputed') return null;
+  if (!canInteract || isCancelled || !freelancer || jobState === 'Disputed' || jobState === 'PendingApproval') return null;
 
   return (
-    <div className="mt-4 p-3 border-2 border-orange-300 bg-orange-50 rounded">
-      <h5 className="text-sm font-bold text-orange-800 mb-2">Dừng dự án</h5>
+    <div className="mt-4 p-3 border-2 border-blue-800 bg-gray-50 rounded">
+      <h5 className="text-sm font-bold text-blue-800 mb-2">Dừng dự án</h5>
 
       {mutualCancelRequestedBy && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
-        <div className="mb-2 p-2 bg-blue-100 border border-blue-300 rounded">
+        <div className="mb-2 p-2 bg-gray-50 border-2 border-blue-800 rounded">
           {isPoster ? (
             <p className="text-xs text-blue-800 font-bold">
               ✓ Bạn đã yêu cầu hủy. Đang chờ freelancer xác nhận...
@@ -50,13 +50,13 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
       )}
 
       {freelancerWithdrawRequestedBy && freelancerWithdrawRequestedBy.toLowerCase() === freelancer?.toLowerCase() && (
-        <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded">
+        <div className="mb-2 p-2 bg-gray-50 border-2 border-blue-800 rounded">
           {isFreelancer ? (
-            <p className="text-xs text-red-800 font-bold">
+            <p className="text-xs text-blue-800 font-bold">
               ✓ Bạn đã yêu cầu rút. Đang chờ poster xác nhận...
             </p>
           ) : (
-            <p className="text-xs text-red-800 font-bold">
+            <p className="text-xs text-blue-800 font-bold">
               ⚠ Freelancer đã yêu cầu rút. Bạn có muốn chấp nhận không?
             </p>
           )}
@@ -67,9 +67,10 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         {isPoster && !mutualCancelRequestedBy && (
           <Button
             size="sm"
+            variant="primary"
             onClick={onMutualCancel}
             disabled={cancelling || !!freelancerWithdrawRequestedBy}
-            className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             title={freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : ''}
           >
             {cancelling ? 'Đang xử lý...' : 'Yêu cầu hủy (Mutual Cancel)'}
@@ -80,17 +81,19 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
           <>
             <Button
               size="sm"
+              variant="primary"
               onClick={onAcceptFreelancerWithdraw}
               disabled={acceptingWithdraw || rejectingWithdraw}
-              className="bg-green-100 text-black hover:bg-green-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {acceptingWithdraw ? 'Đang xử lý...' : 'Chấp nhận rút'}
             </Button>
             <Button
               size="sm"
+              variant="outline"
               onClick={onRejectFreelancerWithdraw}
               disabled={acceptingWithdraw || rejectingWithdraw}
-              className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {rejectingWithdraw ? 'Đang xử lý...' : 'Từ chối rút'}
             </Button>
@@ -101,17 +104,19 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
           <>
             <Button
               size="sm"
+              variant="primary"
               onClick={onAcceptMutualCancel}
               disabled={acceptingCancel || rejectingCancel}
-              className="bg-green-100 text-black hover:bg-green-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {acceptingCancel ? 'Đang xử lý...' : 'Chấp nhận hủy'}
             </Button>
             <Button
               size="sm"
+              variant="outline"
               onClick={onRejectMutualCancel}
               disabled={acceptingCancel || rejectingCancel}
-              className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {rejectingCancel ? 'Đang xử lý...' : 'Từ chối hủy'}
             </Button>
@@ -121,9 +126,10 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         {isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy && (
           <Button
             size="sm"
+            variant="outline"
             onClick={onFreelancerWithdraw}
             disabled={withdrawing}
-            className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất stake nếu được chấp nhận)'}
           </Button>
