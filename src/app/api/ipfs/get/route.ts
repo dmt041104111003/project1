@@ -1,51 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEscrowStore, getJobData } from '@/lib/aptosClient';
-import { parseOptionAddress } from '@/lib/aptosParsers';
-const decryptCid = async (value: string): Promise<string> => {
-	if (!value?.startsWith('enc:')) return value;
-	try {
-		const [, ivB64, ctB64] = value.split(':');
-		const key = await crypto.subtle.importKey('raw', Buffer.from(process.env.CID_SECRET_B64!, 'base64'), { name: 'AES-GCM' }, false, ['decrypt']);
-		const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Buffer.from(ivB64, 'base64') }, key, Buffer.from(ctB64, 'base64'));
-		return new TextDecoder().decode(pt);
-	} catch {
-		return value;
-	}
-};
+import { getJobCreatedEvents, getJobAppliedEvents, getMilestoneSubmittedEvents } from '@/lib/aptosClient';
+import { decryptCid } from '@/lib/encryption';
 
-const parseEvidenceCid = (raw: any): string | null => {
-	if (!raw) return null;
-	if (typeof raw === 'string') return raw;
-	if (raw?.vec && Array.isArray(raw.vec) && raw.vec.length > 0) {
-		return raw.vec[0];
-	}
-	return null;
+const normalizeAddress = (addr?: string | null): string => {
+	if (!addr) return '';
+	const value = String(addr).toLowerCase();
+	return value.startsWith('0x') ? value : `0x${value}`;
 };
 
 const findMilestoneByCid = async (
-	store: { handle: string; nextJobId: number },
 	targetCid: string,
 	jobIdFilter?: number
-): Promise<{ job: any; jobId: number; milestone: any; milestoneIndex: number } | null> => {
-	const maxScan = Math.min(store.nextJobId, 200);
-	const startId = jobIdFilter ? jobIdFilter : 1;
-	const endId = jobIdFilter ? jobIdFilter : maxScan;
-
-	for (let id = startId; id <= endId; id++) {
-		const jobData = await getJobData(id);
-		if (!jobData) continue;
-
-		const milestones = Array.isArray(jobData.milestones) ? jobData.milestones : [];
-		for (let idx = 0; idx < milestones.length; idx++) {
-			const evidenceCid = parseEvidenceCid(milestones[idx]?.evidence_cid);
-			if (!evidenceCid) continue;
-			const decrypted = await decryptCid(evidenceCid);
-			if (decrypted === targetCid) {
-				return { job: jobData, jobId: id, milestone: milestones[idx], milestoneIndex: idx };
-			}
+): Promise<{ jobId: number; milestoneId: number; poster: string; freelancer: string } | null> => {
+	// Query milestone submitted events
+	const milestoneEvents = await getMilestoneSubmittedEvents(200);
+	
+	// Filter by jobId if provided
+	const filteredEvents = jobIdFilter 
+		? milestoneEvents.filter((e: any) => Number(e?.data?.job_id || 0) === jobIdFilter)
+		: milestoneEvents;
+	
+	// Find milestone with matching evidence_cid
+	for (const event of filteredEvents) {
+		const evidenceCid = String(event?.data?.evidence_cid || '');
+		if (!evidenceCid) continue;
+		
+		const decrypted = await decryptCid(evidenceCid);
+		if (decrypted === targetCid) {
+			const jobId = Number(event?.data?.job_id || 0);
+			const milestoneId = Number(event?.data?.milestone_id || 0);
+			const freelancer = normalizeAddress(event?.data?.freelancer);
+			
+			// Get poster from JobCreatedEvent
+			const createdEvents = await getJobCreatedEvents(200);
+			const jobCreatedEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
+			const poster = normalizeAddress(jobCreatedEvent?.data?.poster || '');
+			
+			return { jobId, milestoneId, poster, freelancer };
 		}
 	}
-
+	
 	return null;
 };
 
@@ -60,17 +54,7 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ success: false, error: 'cid là bắt buộc' }, { status: 400 });
 		}
 		
-		const decryptedRequested = await decryptCid(cidParam);
-		
-		const store = await getEscrowStore();
-		if (!store?.handle) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy Ký quỹ Store' }, { status: 404 });
-		}
-		
-		let jobData: any = null;
-		let jobId: number | null = null;
-		let milestoneData: any = null;
-		let milestoneIndex: number | null = null;
+		const decryptedRequested = await decryptCid(cidParam) || cidParam;
 		
 		let jobIdFilter: number | undefined;
 		if (jobIdParam) {
@@ -81,21 +65,13 @@ export async function GET(request: NextRequest) {
 			jobIdFilter = parsedJobId;
 		}
 		
-		const match = await findMilestoneByCid(store, decryptedRequested, jobIdFilter);
-		if (match) {
-			jobData = match.job;
-			jobId = match.jobId;
-			milestoneData = match.milestone;
-			milestoneIndex = match.milestoneIndex;
-		}
-		
-		if (!jobData || !jobId || milestoneData === null || milestoneIndex === null) {
+		const match = await findMilestoneByCid(decryptedRequested, jobIdFilter);
+		if (!match) {
 			return NextResponse.json({ success: false, error: 'Không tìm thấy milestone tương ứng với CID' }, { status: 404 });
 		}
 		
-		const poster = typeof jobData.poster === 'string' ? jobData.poster.toLowerCase() : '';
-		const freelancer = (parseOptionAddress(jobData.freelancer) || '').toLowerCase();
-	const requester = (requesterAddress || '').toLowerCase();
+		const { jobId, milestoneId, poster, freelancer } = match;
+		const requester = normalizeAddress(requesterAddress);
 	if (!requester) {
 		return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
 	}
@@ -112,7 +88,7 @@ export async function GET(request: NextRequest) {
 				cid: decryptedRequested,
 				url: ipfsUrl,
 				jobId,
-				milestoneId: milestoneData?.id ?? milestoneIndex + 1
+				milestoneId
 			});
 		}
 		
@@ -127,6 +103,6 @@ export async function GET(request: NextRequest) {
 			cid: decryptedRequested,
 			data,
 			jobId,
-			milestoneId: milestoneData?.id ?? milestoneIndex + 1
-	});
+			milestoneId
+		});
 }

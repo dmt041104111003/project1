@@ -4,24 +4,15 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
-import { toast } from 'sonner';
-import { MilestoneItem } from './milestones/MilestoneItem';
-import { JobCancelActions } from './milestones/JobCancelActions';
-import { parseStatus } from './milestones/MilestoneUtils';
+import { MilestoneItem } from './MilestoneItem';
+import { JobCancelActions } from './JobCancelActions';
 import { MilestonesListProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { useMilestoneHandlers } from '@/hooks/useMilestoneHandlers';
+import { useDisputeData } from '@/hooks/useDisputeData';
+import { useMilestoneState } from '@/hooks/useMilestoneState';
 
 const MILESTONES_PER_PAGE = 4;
-
-const executeTransaction = async (payload: unknown): Promise<string> => {
-  if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
-    throw new Error(payload.error);
-  }
-  const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-  if (!wallet) throw new Error('Không tìm thấy ví');
-  const tx = await wallet.signAndSubmitTransaction(payload);
-  return tx?.hash || 'N/A';
-};
 
 export const MilestonesList: React.FC<MilestonesListProps> = ({
   jobId,
@@ -34,54 +25,48 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   onUpdate
 }) => {
   const { account } = useWallet();
-  const [submittingId, setSubmittingId] = useState<number | null>(null);
-  const [confirmingId, setConfirmingId] = useState<number | null>(null);
-  const [rejectingId, setRejectingId] = useState<number | null>(null);
-  const [claimingId, setClaimingId] = useState<number | null>(null);
-  const [cancelling, setCancelling] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
-  const [acceptingCancel, setAcceptingCancel] = useState(false);
-  const [rejectingCancel, setRejectingCancel] = useState(false);
-  const [acceptingWithdraw, setAcceptingWithdraw] = useState(false);
-  const [rejectingWithdraw, setRejectingWithdraw] = useState(false);
   const [evidenceCids, setEvidenceCids] = useState<Record<number, string>>({});
   const [disputeEvidenceCids, setDisputeEvidenceCids] = useState<Record<number, string>>({});
-  const [openingDisputeId, setOpeningDisputeId] = useState<number | null>(null);
-  const [submittingEvidenceId, setSubmittingEvidenceId] = useState<number | null>(null);
-  const [hasDisputeId, setHasDisputeId] = useState<boolean>(false);
-  const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null); 
-  const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false); 
-  const [unlockingNonDisputed, setUnlockingNonDisputed] = useState(false);
-  const [claimedMilestones, setClaimedMilestones] = useState<Set<number>>(new Set());
   const [milestonePage, setMilestonePage] = useState(0);
 
-  const isPoster = account?.toLowerCase() === poster?.toLowerCase();
-  const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
+  const isPoster = Boolean(account?.toLowerCase() === poster?.toLowerCase());
+  const isFreelancer = Boolean(account && freelancer && account.toLowerCase() === freelancer.toLowerCase());
   const canInteract = jobState === 'InProgress' || jobState === 'Posted' || jobState === 'Disputed';
   const isCancelled = jobState === 'Cancelled';
+
+  const { hasDisputeId, disputeWinner, disputeVotesDone } = useDisputeData(jobId);
+  const { hasWithdrawableMilestones, shouldHideCancelActions } = useMilestoneState(milestones, jobState, hasDisputeId);
   
-  const nowMs = Date.now();
-
-  const hasWithdrawableMilestones = milestones.some(m => {
-    const status = parseStatus(m.status);
-    return status === 'Pending' || status === 'Submitted';
-  });
-
-  const hasPendingConfirmMilestone = milestones.some(m => {
-    const status = parseStatus(m.status);
-    return status === 'Submitted';
-  });
-
-  const hasExpiredMilestone = milestones.some(m => {
-    const deadline = Number(m.deadline || 0);
-    if (!deadline) return false;
-    const status = parseStatus(m.status);
-    const isAccepted = status === 'Accepted';
-    return deadline * 1000 < nowMs && !isAccepted;
-  });
-
-  const shouldHideCancelActions =
-    hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed' || hasExpiredMilestone;
+  const {
+    submittingId,
+    confirmingId,
+    rejectingId,
+    claimingId,
+    cancelling,
+    withdrawing,
+    acceptingCancel,
+    rejectingCancel,
+    acceptingWithdraw,
+    rejectingWithdraw,
+    openingDisputeId,
+    submittingEvidenceId,
+    unlockingNonDisputed,
+    claimedMilestones,
+    handleSubmitMilestone: handleSubmitMilestoneBase,
+    handleConfirmMilestone,
+    handleRejectMilestone,
+    handleOpenDispute: handleOpenDisputeBase,
+    handleSubmitEvidence: handleSubmitEvidenceBase,
+    handleClaimDispute: handleClaimDisputeBase,
+    handleClaimTimeout: handleClaimTimeoutBase,
+    handleMutualCancel: handleMutualCancelBase,
+    handleAcceptMutualCancel: handleAcceptMutualCancelBase,
+    handleRejectMutualCancel,
+    handleFreelancerWithdraw: handleFreelancerWithdrawBase,
+    handleAcceptFreelancerWithdraw: handleAcceptFreelancerWithdrawBase,
+    handleRejectFreelancerWithdraw,
+    handleUnlockNonDisputedMilestones: handleUnlockNonDisputedMilestonesBase,
+  } = useMilestoneHandlers(jobId, isPoster, isFreelancer, onUpdate);
 
   const globalActionLocked =
     submittingId !== null ||
@@ -107,501 +92,59 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
     setDisputeEvidenceCids(prev => ({ ...prev, [milestoneId]: cid }));
   };
 
-  React.useEffect(() => {
-    const load = async () => {
-      try {
-        const { getJobData, getDisputeSummary } = await import('@/lib/aptosClient');
-        const { parseOptionBool } = await import('@/lib/aptosParsers');
-        
-        const rawJobData = await getJobData(Number(jobId));
-        if (!rawJobData) return;
-        
-        const opt = rawJobData?.dispute_id;
-        const exists = Array.isArray(opt?.vec) ? opt.vec.length > 0 : Boolean(opt);
-        setHasDisputeId(!!exists);
-        const did = exists ? (Array.isArray(opt?.vec) ? Number(opt.vec[0]) : Number(opt)) : 0;
-        let finalWinner: boolean | null = null;
-        let votesDone = false;
-        
-        const winnerFromJob = parseOptionBool(rawJobData?.dispute_winner);
-        if (winnerFromJob !== null) {
-          finalWinner = winnerFromJob;
-          votesDone = true;
-        }
-        
-        if (finalWinner === null && did) {
-          const summary = await getDisputeSummary(did);
-          if (summary) {
-            if (typeof summary.winner === 'boolean') {
-              finalWinner = summary.winner;
-              votesDone = true;
-            } else {
-              const totalVotes = Number(summary.counts?.total || 0);
-              votesDone = totalVotes >= 3;
-            }
-          }
-        }
-        
-        setDisputeVotesDone(votesDone);
-        setDisputeWinner(finalWinner);
-      } catch {}
-    };
-    load();
-  }, [jobId]);
-
   const handleSubmitMilestone = async (milestoneId: number) => {
     const evidenceCid = evidenceCids[milestoneId] || '';
-    if (!account || !isFreelancer || !evidenceCid.trim()) {
-      toast.error('Vui lòng upload file evidence trước');
-      return;
-    }
-
-    try {
-      setSubmittingId(milestoneId);
-      const { escrowHelpers } = await import('@/utils/contractHelpers');
-      const payload = escrowHelpers.submitMilestone(jobId, milestoneId, evidenceCid.trim());
-      const txHash = await executeTransaction(payload);
-      toast.success(`Nộp cột mốc thành công! TX: ${txHash}`);
+    const success = await handleSubmitMilestoneBase(milestoneId, evidenceCid);
+    if (success) {
       setEvidenceCids(prev => {
         const updated = { ...prev };
         delete updated[milestoneId];
         return updated;
       });
-      setTimeout(() => onUpdate?.(), 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi: ${errorMessage}`);
-    } finally {
-      setSubmittingId(null);
     }
-  };
-
-  const handleConfirmMilestone = async (milestoneId: number) => {
-    if (!account || !isPoster) return;
-      try {
-        setConfirmingId(milestoneId);
-        try {
-          const { getParsedJobData } = await import('@/lib/aptosClient');
-          const jobData = await getParsedJobData(Number(jobId));
-          if (jobData) {
-            const milestone = jobData?.milestones?.find((m: { id: string | number }) => Number(m.id) === milestoneId);
-            if (milestone) {
-              const reviewDeadline = Number(milestone.review_deadline || 0);
-              const now = Math.floor(Date.now() / 1000);
-              if (reviewDeadline > 0 && now > reviewDeadline) {
-                throw new Error('Hạn đánh giá đã hết. Bạn không thể xác nhận hoặc từ chối cột mốc này nữa. Người làm tự do có thể yêu cầu hết hạn.');
-              }
-            }
-          }
-        } catch (err) {
-          if (err instanceof Error && err.message.includes('Review deadline')) {
-            throw err;
-          }
-        }
-      
-      const { escrowHelpers } = await import('@/utils/contractHelpers');
-      const payload = escrowHelpers.confirmMilestone(jobId, milestoneId);
-      const txHash = await executeTransaction(payload);
-      toast.success(`Xác nhận cột mốc thành công! TX: ${txHash}`);
-      setTimeout(() => onUpdate?.(), 2000);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
-      if (errorMsg.includes('Review deadline has passed')) {
-        toast.error('Đã hết thời gian đánh giá. Bạn không thể xác nhận cột mốc này nữa. Người làm tự do có thể yêu cầu hết hạn.');
-      } else {
-        toast.error(`Lỗi: ${errorMsg}`);
-      }
-    } finally {
-      setConfirmingId(null);
-    }
-  };
-
-  const handleRejectMilestone = async (milestoneId: number) => {
-    if (!account || !isPoster) return;
-    toast.warning('Bạn có chắc muốn từ chối cột mốc này? Việc này sẽ mở tranh chấp.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setRejectingId(milestoneId);
-            try {
-              const { getParsedJobData } = await import('@/lib/aptosClient');
-              const jobData = await getParsedJobData(Number(jobId));
-              if (jobData) {
-                const milestone = jobData?.milestones?.find((m: { id: string | number }) => Number(m.id) === milestoneId);
-                if (milestone) {
-                  const reviewDeadline = Number(milestone.review_deadline || 0);
-                  const now = Math.floor(Date.now() / 1000);
-                  if (reviewDeadline > 0 && now > reviewDeadline) {
-                    throw new Error('Hạn đánh giá đã hết. Bạn không thể xác nhận hoặc từ chối cột mốc này nữa. Người làm tự do có thể yêu cầu hết hạn.');
-                  }
-                }
-              }
-            } catch (err) {
-              if (err instanceof Error && err.message.includes('Review deadline')) {
-                throw err;
-              }
-            }
-            
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.rejectMilestone(jobId, milestoneId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Từ chối cột mốc thành công! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
-            if (errorMsg.includes('Review deadline has passed')) {
-              toast.error('Đã hết thời gian đánh giá. Bạn không thể từ chối cột mốc này nữa. Người làm tự do có thể yêu cầu hết hạn.');
-            } else {
-              toast.error(`Lỗi: ${errorMsg}`);
-            }
-          } finally {
-            setRejectingId(null);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
   };
 
   const handleOpenDispute = async (milestoneId: number) => {
-    if (!account || (!isPoster && !isFreelancer)) return;
     const evidenceCid = (disputeEvidenceCids[milestoneId] || '').trim();
-    if (!evidenceCid) {
-      toast.error('Vui lòng upload CID bằng chứng trước khi mở tranh chấp');
-      return;
-    }
-    try {
-      setOpeningDisputeId(milestoneId);
-      const { disputeHelpers } = await import('@/utils/contractHelpers');
-      const payload = disputeHelpers.openDispute(jobId, milestoneId, evidenceCid);
-      const txHash = await executeTransaction(payload);
-      toast.success(`Mở tranh chấp thành công! TX: ${txHash}`);
-      setHasDisputeId(true);
-      setTimeout(() => onUpdate?.(), 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi: ${errorMessage}`);
-    } finally {
-      setOpeningDisputeId(null);
-    }
+    await handleOpenDisputeBase(milestoneId, evidenceCid);
   };
 
   const handleSubmitEvidence = async (milestoneId: number) => {
-    if (!account) return;
     const evidenceCid = (disputeEvidenceCids[milestoneId] || '').trim();
-    if (!evidenceCid) {
-      toast.error('Vui lòng upload CID bằng chứng trước khi gửi');
-      return;
-    }
-    try {
-      setSubmittingEvidenceId(milestoneId);
-      const { getJobData } = await import('@/lib/aptosClient');
-      const rawJobData = await getJobData(Number(jobId));
-      if (!rawJobData) throw new Error('Không tìm thấy job');
-      const disputeOpt = rawJobData?.dispute_id;
-      const disputeId = Array.isArray(disputeOpt?.vec) ? Number(disputeOpt.vec[0]) : Number(disputeOpt);
-      if (!disputeId) throw new Error('Không tìm thấy dispute_id cho job này');
-
-      const { disputeHelpers } = await import('@/utils/contractHelpers');
-      const payload = disputeHelpers.addEvidence(disputeId, evidenceCid);
-      const txHash = await executeTransaction(payload);
-      toast.success(`Đã gửi bằng chứng cho tranh chấp! TX: ${txHash}`);
-      setTimeout(() => onUpdate?.(), 1500);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi: ${errorMessage}`);
-    } finally {
-      setSubmittingEvidenceId(null);
-    }
+    await handleSubmitEvidenceBase(milestoneId, evidenceCid);
   };
 
   const handleClaimDispute = async (milestoneId: number) => {
-    if (!account) return;
-    if (disputeWinner === null) return;
-    const isWinnerFreelancer = disputeWinner === true;
-    if (isWinnerFreelancer && !isFreelancer) return;
-    if (!isWinnerFreelancer && !isPoster) return;
-    try {
-      setClaimedMilestones(prev => new Set(prev).add(milestoneId));
-      
-      const { escrowHelpers } = await import('@/utils/contractHelpers');
-      const payload = isWinnerFreelancer 
-        ? escrowHelpers.claimDisputePayment(jobId, milestoneId)
-        : escrowHelpers.claimDisputeRefund(jobId, milestoneId);
-      const txHash = await executeTransaction(payload);
-      toast.success(`Đã yêu cầu tranh chấp ${isWinnerFreelancer ? 'thanh toán' : 'hoàn tiền'}! TX: ${txHash}`);
-      setTimeout(() => {
-        onUpdate?.();
-        setClaimedMilestones(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(milestoneId);
-          return newSet;
-        });
-      }, 1500);
-    } catch (err) {
-      setClaimedMilestones(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(milestoneId);
-        return newSet;
-      });
-      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi: ${errorMessage}`);
-    }
+    await handleClaimDisputeBase(milestoneId, disputeWinner);
   };
 
   const handleClaimTimeout = async (milestoneId: number) => {
-    if (!account) return;
-    
     const milestone = milestones.find(m => Number(m.id) === milestoneId);
-    const statusStr = milestone ? parseStatus(milestone.status) : '';
     const reviewDeadline = milestone?.review_deadline ? Number(milestone.review_deadline) : 0;
     const reviewTimeout = reviewDeadline > 0 && reviewDeadline * 1000 < Date.now();
-    if (isPoster && statusStr === 'Pending') {
-      toast.warning('Bạn có chắc muốn yêu cầu hết hạn? Người làm tự do sẽ mất cọc và công việc sẽ mở lại cho người khác ứng tuyển.', {
-        action: {
-          label: 'Xác nhận',
-          onClick: async () => {
-            try {
-              setClaimingId(milestoneId);
-              const { escrowHelpers } = await import('@/utils/contractHelpers');
-              const payload = escrowHelpers.claimTimeout(jobId, milestoneId);
-              const txHash = await executeTransaction(payload);
-              toast.success(`Yêu cầu hết hạn thành công! TX: ${txHash}`);
-              setTimeout(() => onUpdate?.(), 2000);
-            } catch (err) {
-              const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-              toast.error(`Lỗi: ${errorMessage}`);
-            } finally {
-              setClaimingId(null);
-            }
-          }
-        },
-        cancel: { label: 'Hủy', onClick: () => {} },
-        duration: 10000
-      });
-    } else if (isFreelancer && statusStr === 'Submitted' && reviewTimeout) {
-      toast.warning('Bạn có chắc muốn yêu cầu hết hạn? Người thuê không phản hồi trong thời gian quy định, cột mốc sẽ tự động được chấp nhận và bạn sẽ nhận thanh toán.', {
-        action: {
-          label: 'Xác nhận',
-          onClick: async () => {
-            try {
-              setClaimingId(milestoneId);
-              const { escrowHelpers } = await import('@/utils/contractHelpers');
-              const payload = escrowHelpers.claimTimeout(jobId, milestoneId);
-              const txHash = await executeTransaction(payload);
-              toast.success(`Yêu cầu hết hạn thành công! Cột mốc đã được chấp nhận và thanh toán đã được gửi. TX: ${txHash}`);
-              setTimeout(() => onUpdate?.(), 2000);
-            } catch (err) {
-              const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-              toast.error(`Lỗi: ${errorMessage}`);
-            } finally {
-              setClaimingId(null);
-            }
-          }
-        },
-        cancel: { label: 'Hủy', onClick: () => {} },
-        duration: 10000
-      });
-    }
+    await handleClaimTimeoutBase(milestoneId, milestone, reviewTimeout);
   };
 
   const handleMutualCancel = async () => {
-    if (!account || !isPoster) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể yêu cầu hủy công việc khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
-    toast.warning('Bạn có chắc muốn yêu cầu hủy công việc? Người làm tự do sẽ được thông báo để xác nhận.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setCancelling(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.mutualCancel(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Đã gửi yêu cầu hủy công việc! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setCancelling(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
+    await handleMutualCancelBase(jobState, hasDisputeId, disputeWinner);
   };
 
   const handleAcceptMutualCancel = async () => {
-    if (!account || !isFreelancer) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể chấp nhận hủy công việc khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
-    toast.warning('Bạn có chắc muốn chấp nhận hủy công việc? Người thuê sẽ nhận ký quỹ, cả 2 cọc sẽ về bạn.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setAcceptingCancel(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.acceptMutualCancel(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Chấp nhận hủy công việc thành công! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setAcceptingCancel(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
-  };
-
-  const handleRejectMutualCancel = async () => {
-    if (!account || !isFreelancer) return;
-    toast.warning('Bạn có chắc muốn từ chối hủy công việc? Công việc sẽ tiếp tục bình thường.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setRejectingCancel(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.rejectMutualCancel(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Đã từ chối hủy công việc. Công việc sẽ tiếp tục! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setRejectingCancel(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
+    await handleAcceptMutualCancelBase(jobState, hasDisputeId, disputeWinner);
   };
 
   const handleFreelancerWithdraw = async () => {
-    if (!account || !isFreelancer) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể yêu cầu rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
-    toast.warning('Bạn có chắc muốn yêu cầu rút? Người thuê sẽ được thông báo để xác nhận. Nếu được chấp nhận, bạn sẽ mất cọc (1 APT) và công việc sẽ mở lại.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setWithdrawing(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.freelancerWithdraw(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Đã gửi yêu cầu rút! Đang chờ người thuê xác nhận. TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setWithdrawing(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
+    await handleFreelancerWithdrawBase(jobState, hasDisputeId, disputeWinner);
   };
 
   const handleAcceptFreelancerWithdraw = async () => {
-    if (!account || !isPoster) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể chấp nhận người làm tự do rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
-    toast.warning('Bạn có chắc muốn chấp nhận người làm tự do rút? Người làm tự do sẽ mất cọc (1 APT) về bạn và công việc sẽ mở lại.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setAcceptingWithdraw(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.acceptFreelancerWithdraw(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Chấp nhận người làm tự do rút thành công! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setAcceptingWithdraw(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
-  };
-
-  const handleRejectFreelancerWithdraw = async () => {
-    if (!account || !isPoster) return;
-    toast.warning('Bạn có chắc muốn từ chối người làm tự do rút? Công việc sẽ tiếp tục bình thường.', {
-      action: {
-        label: 'Xác nhận',
-        onClick: async () => {
-          try {
-            setRejectingWithdraw(true);
-            const { escrowHelpers } = await import('@/utils/contractHelpers');
-            const payload = escrowHelpers.rejectFreelancerWithdraw(jobId);
-            const txHash = await executeTransaction(payload);
-            toast.success(`Đã từ chối người làm tự do rút. Công việc sẽ tiếp tục! TX: ${txHash}`);
-            setTimeout(() => onUpdate?.(), 2000);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
-            setRejectingWithdraw(false);
-          }
-        }
-      },
-      cancel: { label: 'Hủy', onClick: () => {} },
-      duration: 10000
-    });
+    await handleAcceptFreelancerWithdrawBase(jobState, hasDisputeId, disputeWinner);
   };
 
   const handleUnlockNonDisputedMilestones = async () => {
-    if (!account || !isPoster) {
-      toast.error('Chỉ người thuê mới có thể rút ký quỹ');
-      return;
-    }
-    if (jobState !== 'Disputed') {
-      toast.error('Công việc phải ở trạng thái Tranh chấp mới có thể rút ký quỹ');
-      return;
-    }
-    try {
-      setUnlockingNonDisputed(true);
-      const { escrowHelpers } = await import('@/utils/contractHelpers');
-      const payload = escrowHelpers.unlockNonDisputedMilestones(jobId);
-      const txHash = await executeTransaction(payload);
-      toast.success(`Rút ký quỹ các cột mốc không tranh chấp thành công! TX: ${txHash}`);
-      setTimeout(() => onUpdate?.(), 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi: ${errorMessage}`);
-    } finally {
-      setUnlockingNonDisputed(false);
-    }
+    await handleUnlockNonDisputedMilestonesBase(jobState);
   };
+
 
   if (!milestones || milestones.length === 0) {
     return null;

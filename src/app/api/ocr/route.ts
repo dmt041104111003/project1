@@ -22,14 +22,34 @@ export async function POST(request: NextRequest) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Lỗi OCR từ API Python' }));
+        let errorData: any = { error: 'Lỗi OCR từ API Python' };
+        try {
+          const text = await response.text();
+          if (text && text.trim()) {
+            errorData = JSON.parse(text);
+          }
+        } catch {
+        }
         return NextResponse.json(
           { error: errorData.error || 'Lỗi OCR từ API Python' },
           { status: response.status }
         );
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        const text = await response.text();
+        if (!text || !text.trim()) {
+          throw new Error('Empty response from Python API');
+        }
+        data = JSON.parse(text);
+      } catch (error) {
+        console.error('Failed to parse Python API response:', error);
+        return NextResponse.json(
+          { error: 'Lỗi khi xử lý response từ Python API' },
+          { status: 500 }
+        );
+      }
 
       if (!data.success || !data.data) {
         return NextResponse.json(

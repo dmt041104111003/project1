@@ -70,7 +70,7 @@ async function testContractFunctions() {
   const registerFreelancerPayload = roleHelpers.registerFreelancer('cid123');
   console.log('Register Freelancer Payload:', JSON.stringify(registerFreelancerPayload, null, 2));
   
-  const storeProofPayload = roleHelpers.storeProof('{"proof":"test"}', '["signals"]');
+  const storeProofPayload = roleHelpers.storeProof('{"proof":"test"}', '["signals"]', 123456789);
   console.log('Store Proof Payload function:', storeProofPayload.function);
   console.log('Store Proof Payload args length:', storeProofPayload.arguments.length);
   console.log('');

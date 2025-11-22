@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useChat, ChatProvider } from '@/contexts/ChatContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
-import { CreateRoomForm } from './parts/CreateRoomForm';
-import { ChatPanel } from './parts/ChatPanel';
-import { RoomList } from './parts/RoomList';
-import { DeleteConfirm } from './parts/DeleteConfirm';
+import { useProofVerification } from '@/hooks/useProofVerification';
+import { formatTime } from '@/utils/timeUtils';
+import { CreateRoomForm } from './CreateRoomForm';
+import { ChatPanel } from './ChatPanel';
+import { RoomList } from './RoomList';
+import { DeleteConfirm } from './DeleteConfirm';
 const ChatContentInner: React.FC = () => {
   const { account } = useWallet();
+  const { checkProof, checkMultipleProofs } = useProofVerification();
 
   const [message, setMessage] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -45,6 +48,7 @@ const ChatContentInner: React.FC = () => {
   };
 
   const handleAcceptRoom = async (roomId: string) => {
+    if (!account) return;
     try {
       const response = await fetch('/api/chat/messages/post', {
         method: 'POST',
@@ -52,7 +56,7 @@ const ChatContentInner: React.FC = () => {
         body: JSON.stringify({
           acceptRoom: true,
           roomIdToAccept: roomId,
-          senderId: account
+          address: account
         })
       });
 
@@ -114,7 +118,7 @@ const ChatContentInner: React.FC = () => {
           updateRoomName: true,
           roomIdToUpdate: roomId,
           newName: finalName,
-          senderId: account
+          address: account
         })
       });
 
@@ -131,63 +135,16 @@ const ChatContentInner: React.FC = () => {
     }
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    try {
-      const response = await fetch('/api/chat/messages/post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deleteRoom: true,
-          roomIdToDelete: roomId,
-          senderId: account
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Đã xóa phòng chat');
-        if (selectedRoom === roomId) {
-          setSelectedRoom('');
-          setRoomId('');
-        }
-        loadRoomsFromFirebase();
-      } else {
-        toast.error(data.error || 'Lỗi khi xóa phòng');
-      }
-    } catch {
-      toast.error('Lỗi khi xóa phòng');
-    }
-  };
-
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    if (messageDate.getTime() === today.getTime()) {
-      return `Hôm nay ${date.toLocaleTimeString('vi-VN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })}`;
-    } else {
-      return date.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-  };
 
 
   const loadRoomsFromFirebase = React.useCallback(async () => {
     if (!account) return;
     
     try {
-      const response = await fetch(`/api/chat/messages?getRooms=true&userAddress=${account}`, { credentials: 'include' });
+      const response = await fetch(
+        `/api/chat/messages?getRooms=true&userAddress=${encodeURIComponent(account)}&address=${encodeURIComponent(account)}`,
+        { credentials: 'include' }
+      );
       const data = await response.json();
       
       if (data.success && data.rooms) {
@@ -214,38 +171,6 @@ const ChatContentInner: React.FC = () => {
   }, [account, loadRoomsFromFirebase]);
 
 
-  const ensureVerified = useCallback(async (): Promise<boolean> => {
-    if (!account) {
-      toast.error('Bạn chưa kết nối ví. Vui lòng kết nối ví trước.');
-      return false;
-    }
-
-    try {
-      const res = await fetch(`/api/proof?address=${encodeURIComponent(account)}`);
-      if (!res.ok) {
-        toast.error('Không thể kiểm tra trạng thái xác minh.');
-        return false;
-      }
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.error || 'Không thể kiểm tra trạng thái xác minh.');
-        return false;
-      }
-      if (!data.hasProof) {
-        toast.error('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
-        return false;
-      }
-      if (data.verified !== true) {
-        toast.error(data.message || 'Bạn cần hoàn tất xác minh danh tính trước khi tạo phòng chat.');
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error('Error checking proof before chat:', error);
-      toast.error('Không thể kiểm tra trạng thái xác minh.');
-      return false;
-    }
-  }, [account]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,19 +204,15 @@ const ChatContentInner: React.FC = () => {
     setCreateRoomError('');
 
     try {
-      // Kiểm tra proof của cả 2 người trước khi tạo phòng
-      const [creatorProof, participantProof] = await Promise.all([
-        fetch(`/api/proof?address=${encodeURIComponent(account)}`).then(r => r.json()),
-        fetch(`/api/proof?address=${encodeURIComponent(participantAddr)}`).then(r => r.json())
-      ]);
-
-      if (!creatorProof.success || !creatorProof.hasProof || creatorProof.verified !== true) {
+      const isCreatorVerified = await checkProof();
+      if (!isCreatorVerified) {
         setCreateRoomError('Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.');
         setIsCreatingRoom(false);
         return;
       }
 
-      if (!participantProof.success || !participantProof.hasProof) {
+      const proofResults = await checkMultipleProofs([participantAddr]);
+      if (!proofResults[participantAddr]) {
         setCreateRoomError('Người nhận chưa có xác minh không kiến thức. Không thể tạo phòng.');
         setIsCreatingRoom(false);
         return;
@@ -301,7 +222,8 @@ const ChatContentInner: React.FC = () => {
         address: account,
         name: newRoomName.trim(),
         creatorAddress: account,
-        participantAddress: participantAddr
+        participantAddress: participantAddr,
+        senderId: account
       };
       const roomResponse = await fetch('/api/chat/messages/post', {
         method: 'POST',
@@ -360,7 +282,6 @@ const ChatContentInner: React.FC = () => {
             setRoomId(id);
           }}
           onAccept={handleAcceptRoom}
-          onDelete={handleDeleteRoom}
           onEditName={handleEditRoomName}
           currentUserAddress={account || ''}
         />

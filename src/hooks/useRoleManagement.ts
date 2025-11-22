@@ -29,9 +29,16 @@ export function useRoleManagement(account: string | null) {
     
     setLoadingRoles(true);
     try {
-      const { getUserRoles } = await import('@/lib/aptosClient');
+      const { getUserRoles, clearRoleEventsCache } = await import('@/lib/aptosClient');
+      clearRoleEventsCache();
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const { roles } = await getUserRoles(account);
       setRoles(roles || []);
+      if (roles && roles.length > 0) {
+        setFaceVerified(true);
+      }
+      
+      window.dispatchEvent(new CustomEvent('rolesUpdated'));
     } catch {
       setRoles([]);
     } finally {
@@ -138,9 +145,23 @@ export function useRoleManagement(account: string | null) {
       }
       
       const { roleHelpers } = await import('@/utils/contractHelpers');
+      let identityHash = zkData.identity_hash;
+      if (!identityHash) {
+        if (Array.isArray(zkData.public_signals?.signals) && zkData.public_signals.signals.length >= 2) {
+          identityHash = Number(zkData.public_signals.signals[1]);
+        } else if (zkData.public_signals?.identity_hash) {
+          identityHash = zkData.public_signals.identity_hash;
+        } else if (Array.isArray(zkData.raw_public_signals) && zkData.raw_public_signals.length >= 2) {
+          identityHash = Number(zkData.raw_public_signals[1]);
+        }
+      }
+      if (!identityHash) {
+        throw new Error('Không tìm thấy identity_hash trong proof data');
+      }
       const proofPayload = roleHelpers.storeProof(
         JSON.stringify(zkData.proof),
-        JSON.stringify(zkData.public_signals)
+        JSON.stringify(zkData.public_signals),
+        identityHash
       );
 
       await window.aptos.signAndSubmitTransaction(proofPayload);
@@ -296,10 +317,13 @@ export function useRoleManagement(account: string | null) {
       setMessage(MESSAGES.SUCCESS.REGISTRATION_SUCCESS);
       setRole('');
       setDesc('');
-      setFaceVerified(false);
       setUploadedCid('');
       
       await refreshRoles();
+      
+      setTimeout(async () => {
+        await refreshRoles();
+      }, 3000);
     } catch (error: any) {
       setMessage(error?.message || MESSAGES.ERROR.REGISTRATION_FAILED);
     } finally {

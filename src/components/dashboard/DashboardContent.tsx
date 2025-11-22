@@ -53,20 +53,20 @@ export const DashboardContent: React.FC = () => {
             ? [{ value: 'projects' as TabType, label: 'Dự Án' }]
             : []),
         ]}
-        activeTab={activeTab}
+          activeTab={activeTab}
         onChange={(value) => setActiveTab(value as TabType)}
       />
 
       {activeTab === 'post' && hasPosterRole && (
-        <PostJobTab hasPosterRole={hasPosterRole} />
-      )}
+            <PostJobTab hasPosterRole={hasPosterRole} />
+        )}
 
       {activeTab === 'projects' && (hasPosterRole || hasFreelancerRole) && (
-        <ProjectsTab
-          hasPosterRole={hasPosterRole}
-          hasFreelancerRole={hasFreelancerRole}
-        />
-      )}
+            <ProjectsTab
+              hasPosterRole={hasPosterRole}
+              hasFreelancerRole={hasFreelancerRole}
+            />
+        )}
     </>
   );
 };

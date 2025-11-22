@@ -8,6 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
 import { SegmentedTabs } from '@/components/ui';
+import { LoadingState, EmptyState } from '@/components/common';
 
 const JOBS_PER_PAGE = 1;
 
@@ -55,8 +56,10 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
     setLoading(true);
     try {
-      const { getJobsList, getParsedJobData } = await import('@/lib/aptosClient');
-      const { jobs: allJobs } = await getJobsList();
+      // Query trực tiếp từ Aptos events
+      const { getJobsList } = await import('@/lib/aptosClient');
+      const jobsRes = await getJobsList(200);
+      const allJobs = jobsRes.jobs || [];
       
       const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
       const appliedJobs = allJobs.filter((job: Job) => {
@@ -70,10 +73,11 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
       const filteredJobs = activeTab === 'posted' ? postedJobs : appliedJobs;
 
-      const jobsWithMetadata = await Promise.all(
+        const jobsWithMetadata = await Promise.all(
         filteredJobs.map(async (job: Job) => {
           let enrichedJob: Job = job;
           try {
+            const { getParsedJobData } = await import('@/lib/aptosClient');
             const [detailData, cidRes] = await Promise.all([
               getParsedJobData(job.id),
               fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`),
@@ -113,6 +117,28 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
     }
   }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
 
+  useEffect(() => {
+    const handleRolesUpdated = () => {
+      if (account) {
+        setTimeout(() => fetchJobs(), 1000);
+      }
+    };
+    
+    const handleJobsUpdated = () => {
+      if (account) {
+        setTimeout(() => fetchJobs(), 1000);
+      }
+    };
+
+    window.addEventListener('rolesUpdated', handleRolesUpdated);
+    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    
+    return () => {
+      window.removeEventListener('rolesUpdated', handleRolesUpdated);
+      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+    };
+  }, [account, fetchJobs]);
+
   const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobs.slice(
     currentPage * JOBS_PER_PAGE,
@@ -127,11 +153,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   }, [jobs.length, currentPage]);
 
   if (!account) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-20">
-        <p className="text-xl text-gray-700">Vui lòng kết nối wallet</p>
-      </div>
-    );
+    return <EmptyState message="Vui lòng kết nối wallet" />;
   }
 
   return (
@@ -168,30 +190,18 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           }}
         />
 
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <Button 
-            onClick={fetchJobs} 
-            variant="outline" 
-            disabled={loading} 
-            className="!bg-white !text-black !border-2 !border-black py-2 font-bold hover:!bg-gray-100"
-          >
-            {loading ? 'Đang tải...' : 'Làm mới'}
-          </Button>
-        </div>
-
+    
         <div className="space-y-4">
           {loading && jobs.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-700">Đang tải dự án...</p>
-            </div>
+            <LoadingState message="Đang tải dự án..." />
           ) : displayedJobs.length === 0 ? (
-            <div className="text-center py-8 border border-gray-300 bg-gray-50 rounded">
-              <p className="text-gray-700">
-                {activeTab === 'posted' 
+            <EmptyState
+              message={
+                activeTab === 'posted' 
                   ? 'Bạn chưa đăng job nào.' 
-                  : 'Bạn chưa apply job nào.'}
-              </p>
-            </div>
+                  : 'Bạn chưa apply job nào.'
+              }
+            />
           ) : (
             <>
               {displayedJobs.map((job) => (

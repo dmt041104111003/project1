@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
-import { JobIPFSContent } from './JobIPFSContent';
+import { formatDeadline, formatSeconds } from '@/utils/timeUtils';
+import { LoadingState, ErrorState, StatusBadge } from '@/components/common';
 import { JobSidebar } from './JobSidebar';
 
 export const JobDetailContent: React.FC = () => {
@@ -47,44 +49,55 @@ export const JobDetailContent: React.FC = () => {
   const latestFreelancerAddress = getFreelancerFromOption(jobData?.freelancer) || getLatestFreelancerFromMetadata();
   const pendingFreelancerAddress = jobData?.pending_freelancer || null;
 
-  useEffect(() => {
-    const fetchJobDetails = async () => {
-      if (!jobId) return;
+  const fetchJobDetails = React.useCallback(async () => {
+    if (!jobId) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
       
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const { getParsedJobData } = await import('@/lib/aptosClient');
-        const jobData = await getParsedJobData(Number(jobId));
-        
-        if (!jobData) {
-          throw new Error('Job not found');
-        }
-        
-        setJobData(jobData);
-        
-        const res = await fetch(`/api/ipfs/job?jobId=${jobId}`);
-        const data = await res.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Không thể tải chi tiết công việc từ IPFS');
-        }
-        
-        if (data.data) {
-          setJobDetails(data.data);
-        }
-      } catch (err: unknown) {
-        const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';
-        setError(errorMsg);
-        toast.error(errorMsg);
-      } finally {
-        setLoading(false);
+      // Query trực tiếp từ Aptos
+      const { getParsedJobData } = await import('@/lib/aptosClient');
+      const [jobData, ipfsRes] = await Promise.all([
+        getParsedJobData(Number(jobId)),
+        fetch(`/api/ipfs/job?jobId=${jobId}`),
+      ]);
+      
+      if (!jobData) {
+        throw new Error('Job not found');
       }
+      setJobData(jobData);
+      
+      if (ipfsRes.ok) {
+        const ipfsData = await ipfsRes.json();
+        if (ipfsData.success && ipfsData.data) {
+          setJobDetails(ipfsData.data);
+        }
+      }
+    } catch (err: unknown) {
+      const errorMsg = (err as Error).message || 'Không thể tải chi tiết công việc';
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId]);
+
+  useEffect(() => {
+    fetchJobDetails();
+  }, [fetchJobDetails]);
+
+  useEffect(() => {
+    const handleJobsUpdated = () => {
+      setTimeout(() => fetchJobDetails(), 1000);
     };
 
-    fetchJobDetails();
-  }, [jobId]);
+    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    
+    return () => {
+      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+    };
+  }, [fetchJobDetails]);
 
   useEffect(() => {
     if (!account) {
@@ -156,19 +169,11 @@ export const JobDetailContent: React.FC = () => {
 
 
   if (loading) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-700 text-lg">Đang tải chi tiết công việc...</p>
-      </div>
-    );
+    return <LoadingState message="Đang tải chi tiết công việc..." />;
   }
 
   if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-500 text-lg">Lỗi: {error}</p>
-      </div>
-    );
+    return <ErrorState message={`Lỗi: ${error}`} onRetry={() => window.location.reload()} />;
   }
 
   return (
@@ -187,7 +192,42 @@ export const JobDetailContent: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <JobIPFSContent jobDetails={jobDetails} />
+          <Card variant="outlined" className="p-8">
+              {jobDetails ? (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-blue-800 mb-2">
+                      {String(jobDetails.title || 'Công việc chưa có tiêu đề')}
+                    </h2>
+                    <p className="text-gray-700 whitespace-pre-wrap">
+                      {String(jobDetails.description || 'Chưa có mô tả')}
+                    </p>
+                  </div>
+                  
+                  {(jobDetails as any).requirements && (
+                    <div>
+                      <h3 className="text-lg font-bold text-blue-800 mb-2">Yêu cầu</h3>
+                      <p className="text-gray-700 whitespace-pre-wrap">
+                        {Array.isArray((jobDetails as any).requirements)
+                          ? (jobDetails as any).requirements.join(', ')
+                          : String((jobDetails as any).requirements)}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {(jobDetails as any).budget && (
+                    <div>
+                      <h3 className="text-lg font-bold text-blue-800 mb-2">Ngân sách</h3>
+                      <p className="text-gray-700">{String((jobDetails as any).budget)}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Chi tiết công việc không có sẵn</p>
+                </div>
+              )}
+            </Card>
           {jobData?.milestones && Array.isArray(jobData.milestones) && jobData.milestones.length > 0 && (
             <div className="bg-white border-2 border-gray-400 rounded-lg p-6">
               <h2 className="text-xl font-bold text-blue-800 mb-4">Cột mốc dự án ({jobData.milestones.length})</h2>
@@ -199,37 +239,16 @@ export const JobDetailContent: React.FC = () => {
                   const deadline = Number(milestone.deadline || 0);
                   const reviewDeadline = Number(milestone.review_deadline || 0);
                   
-                  const formatSeconds = (seconds: number) => {
-                    if (!seconds) return 'N/A';
-                    const days = Math.floor(seconds / 86400);
-                    const hours = Math.floor((seconds % 86400) / 3600);
-                    if (days > 0) return `${days} ngày${hours > 0 ? ` ${hours} giờ` : ''}`;
-                    if (hours > 0) return `${hours} giờ`;
-                    const minutes = Math.floor((seconds % 3600) / 60);
-                    return minutes > 0 ? `${minutes} phút` : `${seconds} giây`;
-                  };
 
-                  const formatDeadline = (timestamp: number) => {
-                    if (!timestamp) return 'Chưa set';
-                    const date = new Date(timestamp * 1000);
-                    return date.toLocaleString('vi-VN', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    });
-                  };
-
-                  const getStatusColor = (status: any) => {
+                  const getStatusVariant = (status: any): 'success' | 'info' | 'error' | 'default' => {
                     const statusStr = typeof status === 'string' ? status : 
                       (status?.vec && Array.isArray(status.vec) && status.vec.length > 0 ? String(status.vec[0]) : 
                       (status?.__variant__ ? String(status.__variant__) : 'Pending'));
                     switch (statusStr) {
-                      case 'Accepted': return 'bg-green-100 text-green-800 border-green-300';
-                      case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-300';
-                      case 'Locked': return 'bg-red-100 text-red-800 border-red-300';
-                      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+                      case 'Accepted': return 'success';
+                      case 'Submitted': return 'info';
+                      case 'Locked': return 'error';
+                      default: return 'default';
                     }
                   };
 
@@ -261,9 +280,7 @@ export const JobDetailContent: React.FC = () => {
                           <h3 className="font-bold text-lg text-gray-900">
                             Cột mốc {index + 1}
                           </h3>
-                          <span className={`inline-block px-2 py-1 text-xs font-bold border-2 rounded ${getStatusColor(statusStr)}`}>
-                            {statusStr}
-                          </span>
+                          <StatusBadge text={statusStr} variant={getStatusVariant(milestone.status)} />
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-blue-800">

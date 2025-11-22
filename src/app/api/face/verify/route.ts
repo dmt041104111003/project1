@@ -33,14 +33,34 @@ export async function POST(request: NextRequest) {
       });
 
       if (!verifyResponse.ok) {
-        const errorData = await verifyResponse.json().catch(() => ({ error: 'Lỗi từ API Python (face matching)' }));
+        let errorData: any = { error: 'Lỗi từ API Python (face matching)' };
+        try {
+          const text = await verifyResponse.text();
+          if (text && text.trim()) {
+            errorData = JSON.parse(text);
+          }
+        } catch {
+        }
         return NextResponse.json(
           { error: errorData.error || 'Lỗi khi kiểm tra face matching' },
           { status: verifyResponse.status }
         );
       }
 
-      const verifyData = await verifyResponse.json();
+      let verifyData: any;
+      try {
+        const text = await verifyResponse.text();
+        if (!text || !text.trim()) {
+          throw new Error('Empty response from Python API');
+        }
+        verifyData = JSON.parse(text);
+      } catch (error) {
+        console.error('Failed to parse Python API response:', error);
+        return NextResponse.json(
+          { error: 'Lỗi khi xử lý response từ Python API' },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: verifyData.success,

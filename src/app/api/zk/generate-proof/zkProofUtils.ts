@@ -1,7 +1,5 @@
 import { fetchContractResource, queryTableItem } from '@/lib/aptosClient';
-import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
-// ==================== Interfaces ====================
 export interface CCCDData {
   id_number: string;
   name: string;
@@ -28,35 +26,33 @@ export interface SolidityCalldata {
   publicSignals: string[];
 }
 
-// ==================== Helper Functions ====================
 export function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
     hash = hash & hash;
   }
   return Math.abs(hash);
 }
 
 export function parseDateToYYYYMMDD(dateStr: string): number {
+  if (dateStr.length === 8 && /^\d+$/.test(dateStr)) {
+    return parseInt(dateStr);
+  }
+
   let date: Date;
   
   if (dateStr.includes('-')) {
     date = new Date(dateStr);
   } else if (dateStr.includes('/')) {
     const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-      } else {
-        date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      }
-    } else {
+    if (parts.length !== 3) {
       throw new Error(`Invalid date format: ${dateStr}`);
     }
-  } else if (dateStr.length === 8 && /^\d+$/.test(dateStr)) {
-    return parseInt(dateStr);
+    const isYearFirst = parts[0].length === 4;
+    date = isYearFirst 
+      ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}`)
+      : new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
   } else {
     date = new Date(dateStr);
   }
@@ -108,7 +104,7 @@ export function decodeVectorU8(vec: any): any {
         const hexString = vec.slice(2);
         const bytes: number[] = [];
         for (let i = 0; i < hexString.length; i += 2) {
-          bytes.push(parseInt(hexString.substr(i, 2), 16));
+          bytes.push(parseInt(hexString.substring(i, i + 2), 16));
         }
         const jsonString = String.fromCharCode(...bytes).replace(/\0/g, '');
         return JSON.parse(jsonString);
@@ -121,11 +117,9 @@ export function decodeVectorU8(vec: any): any {
 
 export function normalizePublicSignalsPayload(raw: any) {
   if (Array.isArray(raw)) {
-    return {
-      signals: raw,
-      meta: null
-    };
+    return { signals: raw, meta: null };
   }
+  
   if (raw && typeof raw === 'object' && Array.isArray(raw.signals)) {
     return {
       signals: raw.signals,
@@ -136,10 +130,10 @@ export function normalizePublicSignalsPayload(raw: any) {
       }
     };
   }
+  
   throw new Error('Public signals không đúng định dạng.');
 }
 
-// ==================== Prepare Input Data ====================
 export function prepareInputData(cccdData: CCCDData): InputData {
   const dob = parseDateToYYYYMMDD(cccdData.date_of_birth);
   const expiry = parseDateToYYYYMMDD(cccdData.date_of_expiry);
@@ -158,7 +152,6 @@ export function prepareInputData(cccdData: CCCDData): InputData {
   };
 }
 
-// ==================== Duplicate Check ====================
 export async function checkDuplicateProof(
   extendedPublicSignals: any,
   publicSignals: any,
@@ -167,63 +160,26 @@ export async function checkDuplicateProof(
 ): Promise<{ isDuplicate: boolean; matchedAddress: string | null }> {
   try {
     const roleStore = await fetchContractResource('role::RoleStore');
-    const proofHashesHandle = roleStore?.proof_hashes?.handle;
-    const proofsHandle = roleStore?.proofs?.handle;
+    const identityHashesHandle = roleStore?.identity_hashes?.handle;
     
-    if (!proofHashesHandle) {
-      console.log('[ZK Proof] Không có proof_hashes table handle, tiếp tục');
+    if (!identityHashesHandle) {
+      console.log('[ZK Proof] Không có identity_hashes table handle, tiếp tục');
       return { isDuplicate: false, matchedAddress: null };
     }
 
-    const keyCandidates = [
-      { hex: encodeJsonToHex(extendedPublicSignals), type: 'extended' },
-      { hex: encodeJsonToHex(publicSignals), type: 'legacy' },
-    ];
+    console.log(`[ZK Proof] Querying identity_hashes table với identity_hash: ${inputData.id_hash}...`);
+    const matchedAddress = await queryTableItem({
+      handle: identityHashesHandle,
+      keyType: 'u64',
+      valueType: 'address',
+      key: inputData.id_hash,
+    });
 
-    let matchedAddress: string | null = null;
-    let matchedType: string | null = null;
-
-    for (const candidate of keyCandidates) {
-      console.log(`[ZK Proof] Querying proof_hashes table with ${candidate.type} key...`);
-      const data = await queryTableItem({
-        handle: proofHashesHandle,
-        keyType: 'vector<u8>',
-        valueType: 'address',
-        key: `0x${candidate.hex}`,
-      });
-      if (data) {
-        matchedAddress = String(data).toLowerCase();
-        matchedType = candidate.type;
-        break;
-      }
-    }
-
-    if (matchedAddress && matchedAddress !== normalizedRequester && proofsHandle) {
-      if (matchedType !== 'legacy') {
-        try {
-          const existingProofStruct = await queryTableItem({
-            handle: proofsHandle,
-            keyType: 'address',
-            valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
-            key: matchedAddress
-          });
-          if (existingProofStruct?.public_signals) {
-            const existingRaw = decodeVectorU8(existingProofStruct.public_signals);
-            if (existingRaw) {
-              try {
-                const normalizedExisting = normalizePublicSignalsPayload(existingRaw);
-                const existingIdentity = normalizedExisting.meta?.identity_hash ?? null;
-                if (existingIdentity !== null && existingIdentity === inputData.id_hash) {
-                  return { isDuplicate: true, matchedAddress };
-                }
-              } catch {
-                console.log('[ZK Proof] Legacy proof của địa chỉ', matchedAddress, 'không có identity hash.');
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('[ZK Proof] Không thể kiểm tra thông tin proof hiện có:', err);
-        }
+    if (matchedAddress) {
+      const normalizedMatched = String(matchedAddress).toLowerCase();
+      if (normalizedMatched !== normalizedRequester) {
+        console.log(`[ZK Proof] Phát hiện duplicate: identity_hash ${inputData.id_hash} đã được dùng bởi ${normalizedMatched}`);
+        return { isDuplicate: true, matchedAddress: normalizedMatched };
       }
     }
 

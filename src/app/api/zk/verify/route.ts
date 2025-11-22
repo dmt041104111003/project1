@@ -62,13 +62,42 @@ const formatNestedField = (arr: string[][]): [[bigint, bigint], [bigint, bigint]
   ];
 };
 
+const decodeVectorU8 = (vec: any): any => {
+  if (!vec) return null;
+  
+  if (Array.isArray(vec)) {
+    try {
+      const jsonString = String.fromCharCode(...vec).replace(/\0/g, '');
+      return JSON.parse(jsonString);
+    } catch {
+      return null;
+    }
+  }
+  
+  if (typeof vec === 'string') {
+    try {
+      return JSON.parse(vec);
+    } catch {
+      if (vec.startsWith('0x')) {
+        const hexString = vec.slice(2);
+        const bytes: number[] = [];
+        for (let i = 0; i < hexString.length; i += 2) {
+          bytes.push(parseInt(hexString.substring(i, i + 2), 16));
+        }
+        const jsonString = String.fromCharCode(...bytes).replace(/\0/g, '');
+        return JSON.parse(jsonString);
+      }
+    }
+  }
+  
+  return null;
+};
+
 const normalizePublicSignalsPayload = (raw: any) => {
   if (Array.isArray(raw)) {
-    return {
-      signals: raw,
-      meta: null
-    };
+    return { signals: raw, meta: null };
   }
+  
   if (raw && typeof raw === 'object' && Array.isArray(raw.signals)) {
     return {
       signals: raw.signals,
@@ -79,6 +108,7 @@ const normalizePublicSignalsPayload = (raw: any) => {
       }
     };
   }
+  
   throw new Error('Public signals không đúng định dạng.');
 };
 
@@ -86,6 +116,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
+    const shouldVerify = searchParams.get('verify') !== 'false';
 
     if (!address) {
       return NextResponse.json(
@@ -122,38 +153,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log('Proof struct:', JSON.stringify(proofStruct, null, 2));
+    if (!shouldVerify) {
+      return NextResponse.json({
+        success: true,
+        hasProof: true,
+        verified: null,
+        message: 'Proof exists (not verified)'
+      }, { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } });
+    }
 
-    const decodeVectorU8 = (vec: any): any => {
-      if (!vec) return null;
-      
-      if (Array.isArray(vec)) {
-        try {
-          const jsonString = String.fromCharCode(...vec).replace(/\0/g, '');
-          return JSON.parse(jsonString);
-        } catch {
-          return null;
-        }
-      }
-      
-      if (typeof vec === 'string') {
-        try {
-          return JSON.parse(vec);
-        } catch {
-          if (vec.startsWith('0x')) {
-            const hexString = vec.slice(2);
-            const bytes: number[] = [];
-            for (let i = 0; i < hexString.length; i += 2) {
-              bytes.push(parseInt(hexString.substr(i, 2), 16));
-            }
-            const jsonString = String.fromCharCode(...bytes).replace(/\0/g, '');
-            return JSON.parse(jsonString);
-          }
-        }
-      }
-      
-      return null;
-    };
+    console.log('Proof struct:', JSON.stringify(proofStruct, null, 2));
 
     const proof = decodeVectorU8(proofStruct.proof);
     const publicSignalsRaw = decodeVectorU8(proofStruct.public_signals);
@@ -182,7 +191,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let solidityCallDataRaw: string | null = null;
+    let solidityCallDataRaw: string;
     try {
       solidityCallDataRaw = await groth16.exportSolidityCallData(proof, normalizedSignals.signals);
     } catch (solidityErr) {
@@ -193,7 +202,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { a, b, c, inputs } = parseSolidityCallData(solidityCallDataRaw || '');
+    const { a, b, c, inputs } = parseSolidityCallData(solidityCallDataRaw);
 
     if (inputs.length !== 3) {
       return NextResponse.json(
@@ -241,3 +250,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

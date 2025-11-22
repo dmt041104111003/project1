@@ -1,15 +1,56 @@
-/**
- * Client-side Aptos blockchain query utilities
- * Thay thế các API routes chỉ đọc dữ liệu từ blockchain
- */
-
 import { APTOS_NODE_URL, CONTRACT_ADDRESS, ROLE_KIND } from '@/constants/contracts';
+
+const APTOS_API_KEY =
+  process.env.NEXT_PUBLIC_APTOS_API_KEY ||
+  process.env.APTOS_API_KEY ||
+  '';
+
+const withAptosHeaders = (init?: RequestInit): RequestInit => {
+  const headers = new Headers(init?.headers);
+  if (APTOS_API_KEY) {
+    if (!headers.has('x-api-key')) {
+      headers.set('x-api-key', APTOS_API_KEY);
+    }
+    if (!headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${APTOS_API_KEY}`);
+    }
+  }
+  return {
+    ...init,
+    headers,
+  };
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const MAX_RETRY = 3;
+const CACHE_TTL = 30_000;
+
+type CacheEntry<T> = {
+  timestamp: number;
+  data: T | null;
+};
+
+const resourceCache = new Map<string, CacheEntry<any>>();
+const tableCache = new Map<string, CacheEntry<any>>();
+const eventsCache = new Map<string, CacheEntry<any>>();
+const inflightResourceRequests = new Map<string, Promise<any>>();
+const inflightTableRequests = new Map<string, Promise<any>>();
+const inflightEventsRequests = new Map<string, Promise<any>>();
+
+const aptosFetch = async (input: RequestInfo | URL, init?: RequestInit, attempt = 0): Promise<Response> => {
+  const response = await fetch(input, withAptosHeaders(init));
+  if (response.status === 429 && attempt < MAX_RETRY) {
+    const backoff = 300 * Math.pow(2, attempt);
+    await sleep(backoff);
+    return aptosFetch(input, init, attempt + 1);
+  }
+  return response;
+};
 
 const contractResource = (path: string) => `${CONTRACT_ADDRESS}::${path}`;
 
-/**
- * Normalize key theo type (giống tableClient.ts)
- */
+
 function normalizeKey(keyType: string, key: any) {
   if (!keyType) return key;
   if (keyType === 'address') return key;
@@ -23,78 +64,100 @@ function normalizeKey(keyType: string, key: any) {
   return key;
 }
 
-/**
- * Fetch contract resource data từ Aptos node
- */
 export async function fetchContractResource<T = any>(resourcePath: string): Promise<T | null> {
-  try {
-    const resourceType = contractResource(resourcePath);
-    const res = await fetch(
-      `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`
-    );
-    if (!res.ok) {
-      return null;
-    }
-    const responseText = await res.text();
-    if (!responseText || responseText.trim() === '') {
-      return null;
-    }
+  const resourceType = contractResource(resourcePath);
+  const cacheKey = resourceType;
+  const cached = resourceCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  if (inflightResourceRequests.has(cacheKey)) {
+    return inflightResourceRequests.get(cacheKey) as Promise<T | null>;
+  }
+
+  const promise = (async () => {
     try {
+      const res = await aptosFetch(
+        `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/resource/${resourceType}`
+      );
+      if (!res.ok) {
+        return null;
+      }
+      const responseText = await res.text();
+      if (!responseText || responseText.trim() === '') {
+        return null;
+      }
       const payload = JSON.parse(responseText);
-      return payload?.data ?? null;
+      const data = payload?.data ?? null;
+      resourceCache.set(cacheKey, { timestamp: Date.now(), data });
+      return data;
     } catch {
       return null;
+    } finally {
+      inflightResourceRequests.delete(cacheKey);
     }
-  } catch {
-    return null;
-  }
+  })();
+
+  inflightResourceRequests.set(cacheKey, promise);
+  return promise;
 }
 
-/**
- * Query table item từ Aptos
- */
+
 export async function queryTableItem<T = any>(params: {
   handle: string;
   keyType: string;
   valueType: string;
   key: any;
 }): Promise<T | null> {
-  try {
-    const normalizedKey = normalizeKey(params.keyType, params.key);
-    const requestBody = {
-      key_type: params.keyType,
-      value_type: params.valueType,
-      key: normalizedKey,
-    };
-    
-    const res = await fetch(`${APTOS_NODE_URL}/v1/tables/${params.handle}/item`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-    
-    if (!res.ok) {
-      if (res.status === 404) return null;
-      return null;
-    }
-    const responseText = await res.text();
-    if (!responseText || responseText.trim() === '') {
-      return null;
-    }
+  const normalizedKey = normalizeKey(params.keyType, params.key);
+  const cacheKey = `${params.handle}:${params.keyType}:${params.valueType}:${JSON.stringify(normalizedKey)}`;
+  const cached = tableCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  if (inflightTableRequests.has(cacheKey)) {
+    return inflightTableRequests.get(cacheKey) as Promise<T | null>;
+  }
+
+  const promise = (async () => {
     try {
-      const data = JSON.parse(responseText);
-      return data ?? null;
+      const requestBody = {
+        key_type: params.keyType,
+        value_type: params.valueType,
+        key: normalizedKey,
+      };
+      
+      const res = await aptosFetch(`${APTOS_NODE_URL}/v1/tables/${params.handle}/item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        return null;
+      }
+      const responseText = await res.text();
+      if (!responseText || responseText.trim() === '') {
+        return null;
+      }
+      const data = JSON.parse(responseText) ?? null;
+      tableCache.set(cacheKey, { timestamp: Date.now(), data });
+      return data;
     } catch {
       return null;
+    } finally {
+      inflightTableRequests.delete(cacheKey);
     }
-  } catch {
-    return null;
-  }
+  })();
+
+  inflightTableRequests.set(cacheKey, promise);
+  return promise;
 }
 
-/**
- * Extract handle từ resource data
- */
+
 export function extractHandle(data: any, path: string[]): string | null {
   if (!data) return null;
   return path.reduce<any>((current, key) => {
@@ -105,131 +168,78 @@ export function extractHandle(data: any, path: string[]): string | null {
   }, data) as string | null;
 }
 
-/**
- * Get user roles từ blockchain
- */
-export async function getUserRoles(address: string) {
-  const roleStore = await fetchContractResource('role::RoleStore');
-  const handle = roleStore?.users?.handle || null;
+
+export async function getUserRoles(address: string, limit: number = 200) {
+  const normalizedAddr = address.toLowerCase();
+  const events = await getRoleRegisteredEvents(limit);
   
-  if (!handle) return { roles: [] };
-
-  const userRoles = await queryTableItem({
-    handle,
-    keyType: 'address',
-    valueType: `${CONTRACT_ADDRESS}::role::UserRoles`,
-    key: address,
-  });
-
-  if (!userRoles?.roles?.handle) {
-    return { roles: [] };
-  }
-
-  const rolesHandle = userRoles.roles.handle;
-  const [hasFreelancer, hasPoster, hasReviewer] = await Promise.all([
-    queryTableItem({ handle: rolesHandle, keyType: 'u8', valueType: 'bool', key: ROLE_KIND.FREELANCER }),
-    queryTableItem({ handle: rolesHandle, keyType: 'u8', valueType: 'bool', key: ROLE_KIND.POSTER }),
-    queryTableItem({ handle: rolesHandle, keyType: 'u8', valueType: 'bool', key: ROLE_KIND.REVIEWER }),
-  ]);
-
   const roles: any[] = [];
-
-  if (hasFreelancer === true) {
-    let cid: string | null = null;
-    if (userRoles?.cids?.handle) {
-      const cidData = await queryTableItem({
-        handle: userRoles.cids.handle,
-        keyType: 'u8',
-        valueType: '0x1::string::String',
-        key: ROLE_KIND.FREELANCER,
+  const seenRoles = new Set<string>();
+  
+  const userEvents = events
+    .filter((e: any) => {
+      const eventAddr = String(e.data?.address || '').toLowerCase();
+      return eventAddr === normalizedAddr;
+    })
+    .sort((a: any, b: any) => {
+      const timeA = Number(a.data?.registered_at || 0);
+      const timeB = Number(b.data?.registered_at || 0);
+      return timeB - timeA; 
+    });
+  
+  for (const event of userEvents) {
+    const roleKind = Number(event.data?.role_kind || 0);
+    const roleKey = `${normalizedAddr}_${roleKind}`;
+    
+    if (seenRoles.has(roleKey)) continue;
+    seenRoles.add(roleKey);
+    
+    let roleName = '';
+    if (roleKind === ROLE_KIND.FREELANCER) roleName = 'freelancer';
+    else if (roleKind === ROLE_KIND.POSTER) roleName = 'poster';
+    else if (roleKind === ROLE_KIND.REVIEWER) roleName = 'reviewer';
+    
+    if (roleName) {
+      const cid = event.data?.cid || null;
+      roles.push({ 
+        name: roleName, 
+        cids: cid ? [cid] : [] 
       });
-      cid = cidData || null;
     }
-    roles.push({ name: 'freelancer', cids: cid ? [cid] : [] });
   }
-
-  if (hasPoster === true) {
-    let cid: string | null = null;
-    if (userRoles?.cids?.handle) {
-      const cidData = await queryTableItem({
-        handle: userRoles.cids.handle,
-        keyType: 'u8',
-        valueType: '0x1::string::String',
-        key: ROLE_KIND.POSTER,
-      });
-      cid = cidData || null;
-    }
-    roles.push({ name: 'poster', cids: cid ? [cid] : [] });
-  }
-
-  if (hasReviewer === true) {
-    roles.push({ name: 'reviewer', cids: [] });
-  }
-
+  
   return { roles };
 }
 
-/**
- * Get reputation points từ blockchain
- */
-export async function getReputationPoints(address: string): Promise<number> {
+export async function getReputationPoints(address: string, limit: number = 200): Promise<number> {
   try {
-    const repStore = await fetchContractResource('reputation::RepStore');
-    const handle = repStore?.table?.handle || null;
+    const normalizedAddr = address.toLowerCase();
+    const events = await getReputationChangedEvents(limit);
     
-    if (!handle) return 0;
-
-    const data = await queryTableItem({
-      handle,
-      keyType: 'address',
-      valueType: `${CONTRACT_ADDRESS}::reputation::Rep`,
-      key: address,
-    });
-
-    if (!data) return 0;
-    return Number(data?.ut || 0);
+    const userEvents = events
+      .filter((e: any) => {
+        const eventAddr = String(e.data?.address || '').toLowerCase();
+        return eventAddr === normalizedAddr;
+      })
+      .sort((a: any, b: any) => {
+        const timeA = Number(a.data?.timestamp || 0);
+        const timeB = Number(b.data?.timestamp || 0);
+        return timeB - timeA;
+      });
+    
+    let reputation = 0;
+    for (const event of userEvents) {
+      const change = Number(event.data?.change || 0);
+      reputation += change;
+    }
+    
+    return Math.max(0, reputation);
   } catch {
     return 0;
   }
 }
 
-/**
- * Get job data từ blockchain
- */
-export async function getJobData(jobId: number) {
-  const escrowStore = await fetchContractResource('escrow::EscrowStore');
-  if (!escrowStore?.table?.handle) {
-    return null;
-  }
 
-  return queryTableItem({
-    handle: escrowStore.table.handle,
-    keyType: 'u64',
-    valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
-    key: jobId,
-  });
-}
-
-/**
- * Get dispute data từ blockchain
- */
-export async function getDisputeData(disputeId: number) {
-  const disputeStore = await fetchContractResource('dispute::DisputeStore');
-  const handle = disputeStore?.table?.handle || null;
-  
-  if (!handle) return null;
-
-  return queryTableItem({
-    handle,
-    keyType: 'u64',
-    valueType: `${CONTRACT_ADDRESS}::dispute::Dispute`,
-    key: disputeId,
-  });
-}
-
-/**
- * Get proof data từ blockchain
- */
 export async function getProofData(address: string) {
   const roleStore = await fetchContractResource('role::RoleStore');
   const proofsHandle = roleStore?.proofs?.handle;
@@ -244,171 +254,406 @@ export async function getProofData(address: string) {
   });
 }
 
-/**
- * Get EscrowStore table handle và nextJobId
- */
-export async function getEscrowStore() {
-  const escrowStore = await fetchContractResource('escrow::EscrowStore');
-  if (!escrowStore?.table?.handle) {
-    return null;
+
+async function queryEvents(eventHandle: string, fieldName: string, limit: number = 200) {
+  const cacheKey = `${eventHandle}_${fieldName}_${limit}`;
+  const cached = eventsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
   }
-  return {
-    handle: escrowStore.table.handle,
-    nextJobId: Number(escrowStore?.next_job_id || 0),
-  };
+
+  if (inflightEventsRequests.has(cacheKey)) {
+    return inflightEventsRequests.get(cacheKey) as Promise<any[]>;
+  }
+
+  const promise = (async () => {
+    try {
+      const encodedEventHandle = encodeURIComponent(eventHandle);
+      const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodedEventHandle}/${fieldName}?limit=${limit}`;
+      const res = await aptosFetch(url);
+      if (!res.ok) {
+        if (res.status === 400) {
+          console.error(`Failed to query events for ${eventHandle}/${fieldName}:`, res.status, res.statusText);
+        }
+        return [];
+      }
+      const data = await res.json();
+      const events = Array.isArray(data) ? data : [];
+      eventsCache.set(cacheKey, { timestamp: Date.now(), data: events });
+      return events;
+    } catch (error) {
+      console.error(`Error querying events for ${eventHandle}/${fieldName}:`, error);
+      return [];
+    } finally {
+      inflightEventsRequests.delete(cacheKey);
+    }
+  })();
+
+  inflightEventsRequests.set(cacheKey, promise);
+  return promise;
 }
 
-/**
- * Get list of jobs (parsed)
- */
+export async function getJobCreatedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_created_events', limit);
+}
+
+export async function getJobAppliedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_applied_events', limit);
+}
+
+export async function getJobStateChangedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'job_state_changed_events', limit);
+}
+
+export async function getMilestoneCreatedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_created_events', limit);
+}
+
+export async function getMilestoneSubmittedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_submitted_events', limit);
+}
+
+export async function getMilestoneAcceptedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_accepted_events', limit);
+}
+
+export async function getMilestoneRejectedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'milestone_rejected_events', limit);
+}
+
+export async function getClaimTimeoutEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'claim_timeout_events', limit);
+}
+
+export async function getProofStoredEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  return queryEvents(eventHandle, 'proof_stored_events', limit);
+}
+
+export async function getRoleRegisteredEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  return queryEvents(eventHandle, 'role_registered_events', limit);
+}
+
+export function clearRoleEventsCache() {
+  const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+  const cacheKey = `${eventHandle}_role_registered_events_200`;
+  eventsCache.delete(cacheKey);
+}
+
+export async function getReputationChangedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::reputation::RepStore`;
+  return queryEvents(eventHandle, 'reputation_changed_events', limit);
+}
+
+export async function getDisputeOpenedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_opened_events', limit);
+}
+
+export async function getDisputeVotedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_voted_events', limit);
+}
+
+export async function getEvidenceAddedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'evidence_added_events', limit);
+}
+
+export async function getDisputeResolvedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'dispute_resolved_events', limit);
+}
+
 export async function getJobsList(maxJobs: number = 200) {
-  const store = await getEscrowStore();
-  if (!store) return { jobs: [] };
-
-  const jobs: any[] = [];
-  const maxScan = Math.min(store.nextJobId, maxJobs);
-
-  // Import parsers
-  const { parseState, parseOptionAddress } = await import('./aptosParsers');
-
-  for (let id = 1; id < maxScan; id++) {
-    const jobData = await getJobData(id);
-    if (jobData) {
-      const stateStr = parseState(jobData?.state);
-      const freelancer = parseOptionAddress(jobData?.freelancer);
-      const milestones = jobData?.milestones || [];
-      const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
-
-      jobs.push({
-        id,
-        cid: jobData?.cid || '',
-        total_amount: Number(jobData?.total_escrow || 0),
-        milestones_count: milestones.length,
-        has_freelancer: !!freelancer,
-        pending_freelancer: pendingFreelancer,
-        state: stateStr,
-        poster: jobData?.poster,
-        freelancer,
-        apply_deadline: jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined,
-      });
-    }
+  const [createdEvents, appliedEvents, stateEvents] = await Promise.all([
+    getJobCreatedEvents(maxJobs),
+    getJobAppliedEvents(maxJobs),
+    getJobStateChangedEvents(maxJobs),
+  ]);
+  
+  if (createdEvents.length === 0) {
+    return { jobs: [] };
   }
+
+  const appliedMap = new Map<number, string>();
+  appliedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const freelancer = String(evt?.data?.freelancer || '');
+    if (jobId > 0 && freelancer) {
+      appliedMap.set(jobId, freelancer);
+    }
+  });
+
+  const stateMap = new Map<number, string>();
+  stateEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const newState = String(evt?.data?.new_state || '');
+    if (jobId > 0 && newState) {
+      stateMap.set(jobId, newState);
+    }
+  });
+
+  const jobs = createdEvents
+    .map((evt: any) => {
+      const jobId = Number(evt?.data?.job_id || 0);
+      const freelancer = appliedMap.get(jobId) || null;
+      const state = stateMap.get(jobId) || 'Posted';
+      
+      return {
+        id: jobId,
+        created_at: Number(evt?.data?.created_at || 0),
+        poster: evt?.data?.poster || '',
+        cid: evt?.data?.cid || '',
+        total_amount: Number(evt?.data?.total_amount || 0),
+        milestones_count: Number(evt?.data?.milestones_count || 0),
+        apply_deadline: Number(evt?.data?.apply_deadline || 0),
+        has_freelancer: !!freelancer,
+        pending_freelancer: null,
+        state: state,
+        freelancer: freelancer,
+      };
+    })
+    .filter((e: any) => e.id > 0)
+    .sort((a: any, b: any) => b.created_at - a.created_at)
+    .slice(0, maxJobs);
 
   return { jobs };
 }
 
-/**
- * Get parsed job data
- */
+export async function getJobData(jobId: number) {
+  const escrowStore = await fetchContractResource('escrow::EscrowStore');
+  const tableHandle = escrowStore?.table?.handle;
+  
+  if (!tableHandle) return null;
+
+  return queryTableItem({
+    handle: tableHandle,
+    keyType: 'u64',
+    valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
+    key: jobId,
+  });
+}
+
 export async function getParsedJobData(jobId: number) {
-  const jobData = await getJobData(jobId);
-  if (!jobData) return null;
+  const [createdEvents, appliedEvents, stateEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents] = await Promise.all([
+    getJobCreatedEvents(200),
+    getJobAppliedEvents(200),
+    getJobStateChangedEvents(200),
+    getMilestoneCreatedEvents(200),
+    getMilestoneSubmittedEvents(200),
+    getMilestoneAcceptedEvents(200),
+    getMilestoneRejectedEvents(200),
+  ]);
+  
+  const jobEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
+  if (!jobEvent) return null;
 
-  const { parseState, parseOptionAddress, parseMilestoneStatus } = await import('./aptosParsers');
+  const appliedEvent = appliedEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
+  const freelancer = appliedEvent?.data?.freelancer || null;
 
-  const stateStr = parseState(jobData?.state);
-  const freelancer = parseOptionAddress(jobData?.freelancer);
-  const pendingFreelancer = parseOptionAddress(jobData?.pending_freelancer);
-  const pendingStake = jobData?.pending_stake ? Number(jobData.pending_stake) : 0;
-  const pendingFee = jobData?.pending_fee ? Number(jobData.pending_fee) : 0;
-  const applyDeadline = jobData?.apply_deadline ? Number(jobData.apply_deadline) : undefined;
-  const mutualCancelRequestedBy = parseOptionAddress(jobData?.mutual_cancel_requested_by);
-  const freelancerWithdrawRequestedBy = parseOptionAddress(jobData?.freelancer_withdraw_requested_by);
+  const stateEvent = stateEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .sort((a: any, b: any) => Number(b?.data?.changed_at || 0) - Number(a?.data?.changed_at || 0))[0];
+  const state = stateEvent?.data?.new_state || 'Posted';
 
-  const milestones = (jobData?.milestones || []).map((m: any) => {
-    const statusStr = parseMilestoneStatus(m?.status);
+  const baseMilestones = milestoneCreatedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .map((e: any) => ({
+      id: Number(e?.data?.milestone_id || 0),
+      amount: Number(e?.data?.amount || 0),
+      duration: Number(e?.data?.duration || 0),
+      deadline: Number(e?.data?.deadline || 0),
+      review_period: Number(e?.data?.review_period || 0),
+      review_deadline: Number(e?.data?.review_deadline || 0),
+      status: { __variant__: 'Pending' },
+      evidence_cid: null,
+    }))
+    .sort((a: any, b: any) => a.id - b.id);
+
+  const submittedMap = new Map<number, { evidence_cid: string; submitted_at: number }>();
+  milestoneSubmittedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      submittedMap.set(milestoneId, {
+        evidence_cid: String(e?.data?.evidence_cid || ''),
+        submitted_at: Number(e?.data?.submitted_at || 0),
+      });
+    });
+
+  const acceptedMap = new Map<number, number>();
+  milestoneAcceptedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      acceptedMap.set(milestoneId, Number(e?.data?.accepted_at || 0));
+    });
+
+  const rejectedMap = new Map<number, number>();
+  milestoneRejectedEvents
+    .filter((e: any) => Number(e?.data?.job_id || 0) === jobId)
+    .forEach((e: any) => {
+      const milestoneId = Number(e?.data?.milestone_id || 0);
+      rejectedMap.set(milestoneId, Number(e?.data?.rejected_at || 0));
+    });
+
+  const milestones = baseMilestones.map((m: any) => {
+    const submitted = submittedMap.get(m.id);
+    const accepted = acceptedMap.get(m.id);
+    const rejected = rejectedMap.get(m.id);
+    
+    let status = m.status;
+    if (accepted) {
+      status = { __variant__: 'Accepted' };
+    } else if (rejected) {
+      status = { __variant__: 'Locked' };
+    } else if (submitted) {
+      status = { __variant__: 'Submitted' };
+    }
+
     return {
-      id: String(m?.id || 0),
-      amount: String(m?.amount || 0),
-      deadline: String(m?.deadline || 0),
-      status: statusStr,
-      evidence_cid: m?.evidence_cid || null,
+      ...m,
+      status,
+      evidence_cid: submitted?.evidence_cid || null,
     };
   });
 
   return {
     id: jobId,
-    cid: jobData?.cid || '',
-    total_amount: Number(jobData?.job_funds?.value || jobData?.total_escrow || 0),
-    milestones_count: milestones.length,
+    cid: jobEvent?.data?.cid || '',
+    total_amount: Number(jobEvent?.data?.total_amount || 0),
+    milestones_count: Number(jobEvent?.data?.milestones_count || milestones.length || 0),
     milestones: milestones,
     has_freelancer: !!freelancer,
-    state: stateStr,
-    poster: jobData?.poster,
-    freelancer,
-    pending_freelancer: pendingFreelancer,
-    pending_stake: pendingStake,
-    pending_fee: pendingFee,
-    apply_deadline: applyDeadline,
-    mutual_cancel_requested_by: mutualCancelRequestedBy,
-    freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy,
+    state: state,
+    poster: jobEvent?.data?.poster || '',
+    freelancer: freelancer,
+    pending_freelancer: null,
+    pending_stake: 0,
+    pending_fee: 0,
+    apply_deadline: jobEvent?.data?.apply_deadline ? Number(jobEvent.data.apply_deadline) : undefined,
+    mutual_cancel_requested_by: null,
+    freelancer_withdraw_requested_by: null,
   };
 }
 
-/**
- * Get parsed dispute data với các actions
- */
 export async function getDisputeSummary(disputeId: number) {
-  const dispute = await getDisputeData(disputeId);
-  if (!dispute) return null;
+  const openedEvents = await getDisputeOpenedEvents(200);
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
+  if (!disputeEvent) return null;
 
-  const {
-    parseAddressVector,
-    parseOptionString,
-    parseVotedAddresses,
-    parseVoteCounts,
-    parseDisputeStatus,
-  } = await import('./aptosParsers');
+  const votedEvents = await getDisputeVotedEvents(200);
+  const disputeVotes = votedEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
+  const reviewers: string[] = [];
+  const voted: string[] = [];
+  let forFreelancer = 0;
+  let forPoster = 0;
+  
+  disputeVotes.forEach((e: any) => {
+    const reviewer = String(e?.data?.reviewer || '');
+    if (reviewer && !voted.includes(reviewer)) {
+      voted.push(reviewer);
+      const vote = Boolean(e?.data?.vote_choice || false);
+      if (vote) forFreelancer++;
+      else forPoster++;
+    }
+  });
 
-  const reviewers = parseAddressVector(dispute?.selected_reviewers);
-  const voted = parseVotedAddresses(dispute?.votes || []);
-  const counts = parseVoteCounts(dispute?.votes || []);
   let winner: null | boolean = null;
-  if (counts.total >= 3) {
-    if (counts.forFreelancer >= 2) winner = true;
-    else if (counts.forPoster >= 2) winner = false;
+  const total = forFreelancer + forPoster;
+  if (total >= 3) {
+    if (forFreelancer >= 2) winner = true;
+    else if (forPoster >= 2) winner = false;
   }
 
   return {
     reviewers,
     voted_reviewers: voted,
-    counts,
+    counts: {
+      total,
+      forFreelancer,
+      forPoster,
+    },
     winner,
   };
 }
 
 export async function getDisputeEvidence(disputeId: number) {
-  const dispute = await getDisputeData(disputeId);
-  if (!dispute) return null;
-
-  const { parseOptionString } = await import('./aptosParsers');
+  const [openedEvents, evidenceEvents] = await Promise.all([
+    getDisputeOpenedEvents(200),
+    getEvidenceAddedEvents(200),
+  ]);
+  
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  if (!disputeEvent) return null;
+  
+  const posterAddr = String(disputeEvent?.data?.poster || '').toLowerCase();
+  const freelancerAddr = String(disputeEvent?.data?.freelancer || '').toLowerCase();
+  
+  const disputeEvidences = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
+  let posterEvidenceCid = '';
+  let freelancerEvidenceCid = '';
+  
+  disputeEvidences.forEach((e: any) => {
+    const addedBy = String(e?.data?.added_by || '').toLowerCase();
+    const cid = String(e?.data?.evidence_cid || '');
+    if (addedBy === posterAddr) {
+      posterEvidenceCid = cid;
+    } else if (addedBy === freelancerAddr) {
+      freelancerEvidenceCid = cid;
+    }
+  });
 
   return {
-    poster_evidence_cid: parseOptionString(dispute?.poster_evidence_cid) || '',
-    freelancer_evidence_cid: parseOptionString(dispute?.freelancer_evidence_cid) || '',
+    poster_evidence_cid: posterEvidenceCid,
+    freelancer_evidence_cid: freelancerEvidenceCid,
   };
 }
 
-/**
- * Fetch reviewer assignment events
- */
 export async function getReviewerDisputeEvents(limit: number = 200) {
-  try {
-    const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${CONTRACT_ADDRESS}::dispute::DisputeStore/reviewer_events?limit=${limit}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      return [];
-    }
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  return queryEvents(eventHandle, 'reviewer_events', limit);
 }
 
-/**
- * Get dispute history for a reviewer (filtered client-side)
- */
+export async function getDisputeData(disputeId: number) {
+  const openedEvents = await getDisputeOpenedEvents(200);
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
+  if (!disputeEvent) return null;
+
+  const reviewerEvents = await getReviewerDisputeEvents(200);
+  const selectedReviewers = reviewerEvents
+    .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+    .map((e: any) => String(e?.data?.reviewer || ''))
+    .filter((addr: string) => addr.length > 0);
+
+  return {
+    dispute_id: disputeId,
+    job_id: Number(disputeEvent?.data?.job_id || 0),
+    milestone_id: Number(disputeEvent?.data?.milestone_id || 0),
+    poster: String(disputeEvent?.data?.poster || ''),
+    freelancer: String(disputeEvent?.data?.freelancer || ''),
+    opened_by: String(disputeEvent?.data?.opened_by || ''),
+    evidence_cid: disputeEvent?.data?.evidence_cid || null,
+    selected_reviewers: { vec: selectedReviewers },
+    selected_reviewers_count: Number(disputeEvent?.data?.selected_reviewers_count || 0),
+    created_at: Number(disputeEvent?.data?.created_at || 0),
+  };
+}
+
 export async function getReviewerDisputeHistory(address: string, limit: number = 200) {
   if (!address) return [];
   const normalize = (addr: string) => {

@@ -4,6 +4,8 @@ module job_work_board::role {
     use std::string::String;
     use std::vector;
     use aptos_std::table::{Self, Table};
+    use aptos_framework::event;
+    use aptos_framework::account;
 
     friend job_work_board::dispute;
 
@@ -22,11 +24,26 @@ module job_work_board::role {
         timestamp: u64,
     }
 
+    struct ProofStoredEvent has drop, store {
+        address: address,
+        identity_hash: u64,
+        timestamp: u64,
+    }
+
+    struct RoleRegisteredEvent has drop, store {
+        address: address,
+        role_kind: u8,
+        cid: Option<String>,
+        registered_at: u64,
+    }
+
     struct RoleStore has key {
         users: Table<address, UserRoles>,
         reviewers: vector<address>,
         proofs: Table<address, CCCDProof>,  // Map address -> proof
-        proof_hashes: Table<vector<u8>, address>,  // Map proof hash -> address (để check duplicate)
+        identity_hashes: Table<u64, address>,  // Map identity_hash -> address (để check duplicate CCCD)
+        proof_stored_events: event::EventHandle<ProofStoredEvent>,
+        role_registered_events: event::EventHandle<RoleRegisteredEvent>,
     }
 
     fun init_module(admin: &signer) {
@@ -34,7 +51,9 @@ module job_work_board::role {
             users: table::new(), 
             reviewers: vector::empty<address>(),
             proofs: table::new(),
-            proof_hashes: table::new(),
+            identity_hashes: table::new(),
+            proof_stored_events: account::new_event_handle<ProofStoredEvent>(admin),
+            role_registered_events: account::new_event_handle<RoleRegisteredEvent>(admin),
         });
     }
 
@@ -86,6 +105,18 @@ module job_work_board::role {
                 vector::push_back(&mut store.reviewers, addr);
             };
         };
+
+        // Emit event
+        let now = aptos_std::timestamp::now_seconds();
+        event::emit_event(
+            &mut store.role_registered_events,
+            RoleRegisteredEvent {
+                address: addr,
+                role_kind,
+                cid: cid_opt,
+                registered_at: now,
+            }
+        );
     }
 
     public fun has_role(addr: address, role_kind: u8): bool acquires RoleStore {
@@ -127,18 +158,31 @@ module job_work_board::role {
     public entry fun store_proof(
         s: &signer,
         proof: vector<u8>,
-        public_signals: vector<u8>
+        public_signals: vector<u8>,
+        identity_hash: u64
     ) acquires RoleStore {
         let addr = signer::address_of(s);
         let store = borrow_global_mut<RoleStore>(@job_work_board);
         assert!(!table::contains(&store.proofs, addr), 3);
-        assert!(!table::contains(&store.proof_hashes, public_signals), 4); 
+        assert!(!table::contains(&store.identity_hashes, identity_hash), 4);
+        
+        let now = aptos_std::timestamp::now_seconds();
         table::add(&mut store.proofs, addr, CCCDProof {
             proof,
             public_signals: public_signals,
-            timestamp: aptos_std::timestamp::now_seconds(),
+            timestamp: now,
         });
-        table::add(&mut store.proof_hashes, public_signals, addr);
+        table::add(&mut store.identity_hashes, identity_hash, addr);
+
+        // Emit event (metadata only - full proof data stored in table)
+        event::emit_event(
+            &mut store.proof_stored_events,
+            ProofStoredEvent {
+                address: addr,
+                identity_hash,
+                timestamp: now,
+            }
+        );
     }
     public fun has_proof(addr: address): bool acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return false;
@@ -151,10 +195,11 @@ module job_work_board::role {
         if (!table::contains(&store.proofs, addr)) return option::none();
         option::some(*table::borrow(&store.proofs, addr))
     }
-    public fun get_proof_owner(public_signals: vector<u8>): Option<address> acquires RoleStore {
+    
+    public fun get_identity_hash_owner(identity_hash: u64): Option<address> acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return option::none();
         let store = borrow_global<RoleStore>(@job_work_board);
-        if (!table::contains(&store.proof_hashes, public_signals)) return option::none();
-        option::some(*table::borrow(&store.proof_hashes, public_signals))
+        if (!table::contains(&store.identity_hashes, identity_hash)) return option::none();
+        option::some(*table::borrow(&store.identity_hashes, identity_hash))
     }
 }

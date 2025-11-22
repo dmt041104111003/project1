@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Google Fonts - Gluten with Vietnamese support */
-@import url('https://fonts.googleapis.com/css2?family=Gluten:wght@100..900&subset=vietnamese,latin&display=swap');
+/* Google Fonts - Google Sans Flex */
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap');
 
 /* Windows Classic Theme */
 :root {
@@ -18,11 +18,15 @@
 }
 
 body { 
-  font-family: "Gluten", cursive, system-ui, sans-serif !important;
+  font-family: "Google Sans Flex", system-ui, sans-serif !important;
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
-  font-variation-settings: "slnt" 0;
+  font-variation-settings:
+    "slnt" 0,
+    "wdth" 100,
+    "GRAD" 0,
+    "ROND" 0;
   background-color: var(--windows-bg);
   color: var(--windows-text);
   margin: 0;
@@ -34,7 +38,7 @@ body {
   background: linear-gradient(to bottom, #dfdfdf 0%, #c0c0c0 50%, #a0a0a0 100%);
   border: 2px outset #c0c0c0;
   padding: 2px 8px;
-  font-family: "Gluten", cursive, system-ui, sans-serif;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
   cursor: pointer;
   min-height: 20px;
 }
@@ -60,7 +64,7 @@ body {
   background-color: white;
   border: 2px inset #c0c0c0;
   padding: 2px 4px;
-  font-family: "Gluten", cursive, system-ui, sans-serif;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
 }
 
 /* Classic Windows Title Bar */
@@ -74,11 +78,16 @@ body {
 
 /* Apply font to html and all elements */
 html {
-  font-family: "Gluten", cursive, system-ui, sans-serif !important;
+  font-family: "Google Sans Flex", system-ui, sans-serif !important;
 }
 
 html, body, div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, label, li, ul, ol, td, th, table {
-  font-family: "Gluten", cursive, system-ui, sans-serif !important;
+  font-family: "Google Sans Flex", system-ui, sans-serif !important;
+  font-variation-settings:
+    "slnt" 0,
+    "wdth" 100,
+    "GRAD" 0,
+    "ROND" 0;
 }
 
 /* Remove all transitions and animations */

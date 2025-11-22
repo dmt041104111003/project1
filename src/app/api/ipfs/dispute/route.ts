@@ -1,19 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CONTRACT_ADDRESS } from '@/constants/contracts';
-import { fetchContractResource, queryTableItem, getDisputeData } from '@/lib/aptosClient';
-import { parseOptionString, parseAddressVector } from '@/lib/aptosParsers';
-
-const decryptCid = async (value: string): Promise<string> => {
-	if (!value?.startsWith('enc:')) return value;
-	try {
-		const [, ivB64, ctB64] = value.split(':');
-		const key = await crypto.subtle.importKey('raw', Buffer.from(process.env.CID_SECRET_B64!, 'base64'), { name: 'AES-GCM' }, false, ['decrypt']);
-		const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Buffer.from(ivB64, 'base64') }, key, Buffer.from(ctB64, 'base64'));
-		return new TextDecoder().decode(pt);
-	} catch {
-		return value;
-	}
-};
+import { getDisputeOpenedEvents, getReviewerDisputeEvents, getEvidenceAddedEvents } from '@/lib/aptosClient';
+import { decryptCid } from '@/lib/encryption';
 
 
 const normalizeAddress = (addr?: string | null): string => {
@@ -59,50 +46,72 @@ export async function GET(request: NextRequest) {
 		);
 	}
 
-	const dispute = await getDisputeData(disputeId);
-	if (!dispute) {
+	// Query dispute data from events
+	const [openedEvents, reviewerEvents, evidenceEvents] = await Promise.all([
+		getDisputeOpenedEvents(200),
+		getReviewerDisputeEvents(200),
+		getEvidenceAddedEvents(200),
+	]);
+
+	const disputeOpenedEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+	if (!disputeOpenedEvent) {
 		return NextResponse.json({ success: false, error: 'Không tìm thấy tranh chấp' }, { status: 404 });
 	}
 
-	const posterAddr = normalizeAddress(dispute?.poster);
-	const freelancerAddr = normalizeAddress(dispute?.freelancer);
+	const posterAddr = normalizeAddress(disputeOpenedEvent?.data?.poster);
+	const freelancerAddr = normalizeAddress(disputeOpenedEvent?.data?.freelancer);
 	const requester = normalizeAddress(requesterAddress);
 	if (!requester) {
 		return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
 	}
 
-		let storedCid: string | null = null;
+	// Get reviewers from ReviewerDisputeEvent
+	const disputeReviewerEvents = reviewerEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+	const reviewers = disputeReviewerEvents.map((e: any) => normalizeAddress(e?.data?.reviewer));
 
-		if (role === 'poster') {
-			if (requester !== posterAddr) {
-				return NextResponse.json(
-					{ success: false, error: 'Bạn không phải người thuê của tranh chấp này' },
-					{ status: 403 },
-				);
-			}
-			storedCid = parseOptionString(dispute?.poster_evidence_cid);
-		} else if (role === 'freelancer') {
-			if (requester !== freelancerAddr) {
-				return NextResponse.json(
-					{ success: false, error: 'Bạn không phải người làm tự do của tranh chấp này' },
-					{ status: 403 },
-				);
-			}
-			storedCid = parseOptionString(dispute?.freelancer_evidence_cid);
-		} else {
-			// reviewer
-			const reviewers = parseAddressVector(dispute?.selected_reviewers).map(normalizeAddress);
-			if (!reviewers.includes(requester)) {
-				return NextResponse.json(
-					{ success: false, error: 'Bạn không phải reviewer của tranh chấp này' },
-					{ status: 403 },
-				);
-			}
-			storedCid =
-				side === 'poster'
-					? parseOptionString(dispute?.poster_evidence_cid)
-					: parseOptionString(dispute?.freelancer_evidence_cid);
+	// Get evidence CIDs from EvidenceAddedEvent
+	const disputeEvidenceEvents = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+	let posterEvidenceCid: string | null = null;
+	let freelancerEvidenceCid: string | null = null;
+
+	disputeEvidenceEvents.forEach((e: any) => {
+		const addedBy = normalizeAddress(e?.data?.added_by);
+		const evidenceCid = String(e?.data?.evidence_cid || '');
+		if (addedBy === posterAddr) {
+			posterEvidenceCid = evidenceCid;
+		} else if (addedBy === freelancerAddr) {
+			freelancerEvidenceCid = evidenceCid;
 		}
+	});
+
+	let storedCid: string | null = null;
+
+	if (role === 'poster') {
+		if (requester !== posterAddr) {
+			return NextResponse.json(
+				{ success: false, error: 'Bạn không phải người thuê của tranh chấp này' },
+				{ status: 403 },
+			);
+		}
+		storedCid = posterEvidenceCid;
+	} else if (role === 'freelancer') {
+		if (requester !== freelancerAddr) {
+			return NextResponse.json(
+				{ success: false, error: 'Bạn không phải người làm tự do của tranh chấp này' },
+				{ status: 403 },
+			);
+		}
+		storedCid = freelancerEvidenceCid;
+	} else {
+		// reviewer
+		if (!reviewers.includes(requester)) {
+			return NextResponse.json(
+				{ success: false, error: 'Bạn không phải reviewer của tranh chấp này' },
+				{ status: 403 },
+			);
+		}
+		storedCid = side === 'poster' ? posterEvidenceCid : freelancerEvidenceCid;
+	}
 
 		if (!storedCid) {
 			return NextResponse.json({ success: false, error: 'Không có evidence cho role này' }, { status: 404 });
@@ -112,7 +121,7 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ success: false, error: 'CID không khớp với tranh chấp này' }, { status: 403 });
 		}
 
-		const decryptedCid = await decryptCid(storedCid);
+		const decryptedCid = await decryptCid(storedCid) || storedCid;
 
 		if (decodeOnly) {
 			const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';

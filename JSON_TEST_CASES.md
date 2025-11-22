@@ -53,7 +53,7 @@ aptos init --network testnet --profile zkp --assume-yes
 
  aptos move publish \
   --profile zkp \
-  --named-addresses job_work_board=0xfd86a7486dbd8383fa21982821409c0e25aa945345398e741930f50107e1c3b3 --assume-yes
+  --named-addresses job_work_board=0x55491d4abd9f4b3c0aa4d09b469ba7f2482523065e116846ef7701ea59bfb842 --assume-yes
 
 
 pip install -r requirements.txt; pip install face-recognition==1.3.0 --no-deps; pip install Click>=6.0 face-recognition-models>=0.3.0

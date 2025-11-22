@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('[ZK Proof] Raw request body keys:', Object.keys(body));
     
-    // Validate address
     const userAddress = body.address || new URL(request.url).searchParams.get('address');
     if (!userAddress || typeof userAddress !== 'string' || userAddress.trim() === '') {
       console.log('[ZK Proof] ERROR: Missing or invalid address');
@@ -29,23 +28,17 @@ export async function POST(request: NextRequest) {
     }
     
     const requester = userAddress.trim().toLowerCase();
+    const normalizedRequester = requester.startsWith('0x') ? requester : `0x${requester}`;
     if (!requester.startsWith('0x')) {
       console.log('[ZK Proof] WARNING: Address không có prefix 0x, thêm vào');
     }
-    const normalizedRequester = requester.startsWith('0x') ? requester : `0x${requester}`;
     
     console.log('[ZK Proof] Request initiated by', normalizedRequester);
     console.log('[ZK Proof] ========== Bắt đầu tạo ZK Proof ==========');
     
-    // Validate CCCD data
     const cccdBody: CCCDData = body;
-    const missingFields: string[] = [];
-    if (!cccdBody.id_number) missingFields.push('id_number');
-    if (!cccdBody.name) missingFields.push('name');
-    if (!cccdBody.date_of_birth) missingFields.push('date_of_birth');
-    if (!cccdBody.gender) missingFields.push('gender');
-    if (!cccdBody.nationality) missingFields.push('nationality');
-    if (!cccdBody.date_of_expiry) missingFields.push('date_of_expiry');
+    const requiredFields = ['id_number', 'name', 'date_of_birth', 'gender', 'nationality', 'date_of_expiry'] as const;
+    const missingFields = requiredFields.filter(field => !cccdBody[field]);
     
     console.log('[ZK Proof] Nhận được dữ liệu CCCD:', {
       id_number: cccdBody.id_number ? '***' : 'missing',
@@ -80,7 +73,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare input data
     console.log('[ZK Proof] Bước 1: Parse và chuẩn bị input data...');
     const inputData = prepareInputData(cccdBody);
     
@@ -93,18 +85,19 @@ export async function POST(request: NextRequest) {
       min_age: inputData.min_age
     });
 
-    // Setup file paths
     const zkpDir = path.join(process.cwd(), 'zkp');
     const wasmPath = path.join(zkpDir, 'circuit_js', 'circuit.wasm');
     const zkeyPath = path.join(zkpDir, 'circuit_final.zkey');
     
     const timestamp = Date.now();
-    const uniqueInputPath = path.join(zkpDir, `input_${timestamp}.json`);
-    const uniqueWitnessPath = path.join(zkpDir, `witness_${timestamp}.wtns`);
-    const uniqueProofPath = path.join(zkpDir, `proof_${timestamp}.json`);
-    const uniquePublicPath = path.join(zkpDir, `public_${timestamp}.json`);
+    const tempFiles = {
+      input: path.join(zkpDir, `input_${timestamp}.json`),
+      witness: path.join(zkpDir, `witness_${timestamp}.wtns`),
+      proof: path.join(zkpDir, `proof_${timestamp}.json`),
+      public: path.join(zkpDir, `public_${timestamp}.json`)
+    };
 
-    await fs.writeFile(uniqueInputPath, JSON.stringify(inputData, null, 2));
+    await fs.writeFile(tempFiles.input, JSON.stringify(inputData, null, 2));
 
     // Check if circuit files exist
     try {
@@ -117,55 +110,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate witness
     console.log('[ZK Proof] Bước 2: Generate witness...');
     try {
       const witnessScript = path.join(zkpDir, 'circuit_js', 'generate_witness.js');
-      const quotedWitnessScript = `"${witnessScript}"`;
-      const quotedWasmPath = `"${wasmPath}"`;
-      const quotedInputPath = `"${uniqueInputPath}"`;
-      const quotedWitnessPath = `"${uniqueWitnessPath}"`;
-      await execAsync(`node ${quotedWitnessScript} ${quotedWasmPath} ${quotedInputPath} ${quotedWitnessPath}`, {
-        cwd: zkpDir
-      });
+      const cmd = `node "${witnessScript}" "${wasmPath}" "${tempFiles.input}" "${tempFiles.witness}"`;
+      await execAsync(cmd, { cwd: zkpDir });
       console.log('[ZK Proof] Witness đã được generate');
     } catch (error: any) {
       console.error('[ZK Proof] Lỗi generate witness:', error);
-      try {
-        await fs.unlink(uniqueInputPath);
-      } catch {}
+      await fs.unlink(tempFiles.input).catch(() => {});
       return NextResponse.json(
         { error: `Lỗi generate witness: ${error.message}` },
         { status: 500 }
       );
     }
 
-    // Generate proof
     console.log('[ZK Proof] Bước 3: Generate proof bằng snarkjs...');
     try {
-      const quotedZkeyPath = `"${zkeyPath}"`;
-      const quotedWitnessPath2 = `"${uniqueWitnessPath}"`;
-      const quotedProofPath = `"${uniqueProofPath}"`;
-      const quotedPublicPath = `"${uniquePublicPath}"`;
-      await execAsync(`snarkjs groth16 prove ${quotedZkeyPath} ${quotedWitnessPath2} ${quotedProofPath} ${quotedPublicPath}`, {
-        cwd: zkpDir
-      });
+      const cmd = `snarkjs groth16 prove "${zkeyPath}" "${tempFiles.witness}" "${tempFiles.proof}" "${tempFiles.public}"`;
+      await execAsync(cmd, { cwd: zkpDir });
       console.log('[ZK Proof] Proof đã được generate');
     } catch (error: any) {
       console.error('[ZK Proof] Lỗi generate proof:', error);
-      try {
-        await fs.unlink(uniqueInputPath);
-        await fs.unlink(uniqueWitnessPath);
-      } catch {}
+      await Promise.all([
+        fs.unlink(tempFiles.input).catch(() => {}),
+        fs.unlink(tempFiles.witness).catch(() => {})
+      ]);
       return NextResponse.json(
         { error: `Lỗi generate proof: ${error.message}` },
         { status: 500 }
       );
     }
 
-    // Read proof and public signals
-    const proofContent = await fs.readFile(uniqueProofPath, 'utf-8');
-    const publicContent = await fs.readFile(uniquePublicPath, 'utf-8');
+    const proofContent = await fs.readFile(tempFiles.proof, 'utf-8');
+    const publicContent = await fs.readFile(tempFiles.public, 'utf-8');
 
     const proof = JSON.parse(proofContent);
     const publicSignals = JSON.parse(publicContent);
@@ -180,7 +158,6 @@ export async function POST(request: NextRequest) {
       owner: normalizedRequester
     };
 
-    // Generate Solidity calldata
     let solidityCalldata: SolidityCalldata | null = null;
     try {
       const solidityCalldataRaw = await groth16.exportSolidityCallData(proof, publicSignals);
@@ -199,7 +176,6 @@ export async function POST(request: NextRequest) {
     console.log('[ZK Proof] Proof đã được tạo thành công');
     console.log('[ZK Proof] Public signals:', JSON.stringify(publicSignals));
 
-    // Check for duplicate proof
     console.log('[ZK Proof] Bắt đầu kiểm tra duplicate proof...');
     const { isDuplicate, matchedAddress } = await checkDuplicateProof(
       extendedPublicSignals,
@@ -210,13 +186,12 @@ export async function POST(request: NextRequest) {
 
     if (isDuplicate && matchedAddress) {
               console.log('[ZK Proof] Proof đã tồn tại với địa chỉ:', matchedAddress);
-              
-              try {
-                await fs.unlink(uniqueInputPath);
-                await fs.unlink(uniqueWitnessPath);
-                await fs.unlink(uniqueProofPath);
-                await fs.unlink(uniquePublicPath);
-              } catch {}
+      await Promise.all([
+        fs.unlink(tempFiles.input).catch(() => {}),
+        fs.unlink(tempFiles.witness).catch(() => {}),
+        fs.unlink(tempFiles.proof).catch(() => {}),
+        fs.unlink(tempFiles.public).catch(() => {})
+      ]);
               
               return NextResponse.json(
                 { 
@@ -230,25 +205,25 @@ export async function POST(request: NextRequest) {
 
     console.log('[ZK Proof] Kiểm tra duplicate hoàn tất, proof hợp lệ và có thể lưu vào blockchain');
 
-    // Cleanup temp files
-    try {
-      await fs.unlink(uniqueInputPath);
-      await fs.unlink(uniqueWitnessPath);
-      await fs.unlink(uniqueProofPath);
-      await fs.unlink(uniquePublicPath);
+    await Promise.all([
+      fs.unlink(tempFiles.input).catch(() => {}),
+      fs.unlink(tempFiles.witness).catch(() => {}),
+      fs.unlink(tempFiles.proof).catch(() => {}),
+      fs.unlink(tempFiles.public).catch(() => {})
+    ]).then(() => {
       console.log('[ZK Proof] Đã cleanup temp files');
-    } catch (error) {
+    }).catch((error) => {
       console.error('[ZK Proof] Lỗi khi cleanup temp files:', error);
-    }
+    });
 
-    // Return success response
     console.log('[ZK Proof] Trả về proof để client lưu vào blockchain');
     return NextResponse.json({
       success: true,
       proof,
       public_signals: extendedPublicSignals,
       raw_public_signals: publicSignals,
-      solidity_calldata: solidityCalldata
+      solidity_calldata: solidityCalldata,
+      identity_hash: inputData.id_hash
     });
   } catch (error: unknown) {
     console.error('ZK Proof Generation Error:', error);

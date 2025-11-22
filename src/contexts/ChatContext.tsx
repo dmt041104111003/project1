@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useWallet } from '@/contexts/WalletContext';
 
 export interface Message {
   id: string;
@@ -45,10 +46,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentRoomId, setCurrentRoomId] = useState(roomId);
+  const { account } = useWallet();
 
   const fetchMessages = useCallback(async () => {
+    if (!currentRoomId || !account) {
+      setMessages([]);
+      setIsLoading(false);
+      return;
+    }
     try {
-      const response = await fetch(`/api/chat/messages?roomId=${currentRoomId}`);
+      const response = await fetch(
+        `/api/chat/messages?roomId=${encodeURIComponent(currentRoomId)}&address=${encodeURIComponent(
+          account
+        )}`
+      );
       const data = await response.json();
       setMessages(data.messages || []);
     } catch {
@@ -56,7 +67,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
     } finally {
       setIsLoading(false);
     }
-  }, [currentRoomId]);
+  }, [currentRoomId, account]);
 
   useEffect(() => {
     if (!currentRoomId) return;
@@ -68,7 +79,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
   }, [currentRoomId, fetchMessages]);
 
   const sendMessage = async (text: string, sender: string, senderId: string, replyTo?: { id: string; text: string; sender: string; senderId: string; timestamp: number } | null) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !account) return;
 
     try {
       const response = await fetch('/api/chat/messages/post', {
@@ -81,6 +92,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomId = '
           text: text.trim(),
           sender,
           senderId,
+          address: account,
           replyTo,
         }),
       });
