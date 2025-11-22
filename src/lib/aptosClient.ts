@@ -430,6 +430,20 @@ export async function getJobsList(maxJobs: number = 200) {
   return { jobs };
 }
 
+export async function getJobData(jobId: number) {
+  const escrowStore = await fetchContractResource('escrow::EscrowStore');
+  const tableHandle = escrowStore?.table?.handle;
+  
+  if (!tableHandle) return null;
+
+  return queryTableItem({
+    handle: tableHandle,
+    keyType: 'u64',
+    valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
+    key: jobId,
+  });
+}
+
 export async function getParsedJobData(jobId: number) {
   const [createdEvents, appliedEvents, stateEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents] = await Promise.all([
     getJobCreatedEvents(200),
