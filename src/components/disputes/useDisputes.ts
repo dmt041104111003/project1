@@ -186,8 +186,8 @@ export function useDisputes(account?: string | null) {
           milestoneId: Number(item?.milestoneId || 0),
           timestamp: Number(item?.timestamp || 0),
         }))
-        .filter((item) => item.disputeId > 0)
-        .sort((a, b) => b.timestamp - a.timestamp);
+        .filter((item: DisputeHistoryItem) => item.disputeId > 0)
+        .sort((a: DisputeHistoryItem, b: DisputeHistoryItem) => b.timestamp - a.timestamp);
       setHistory(mapped);
     } catch (e: any) {
       console.error('Error loading dispute history', e);
