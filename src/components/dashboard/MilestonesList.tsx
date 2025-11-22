@@ -22,6 +22,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   jobState,
   mutualCancelRequestedBy,
   freelancerWithdrawRequestedBy,
+  pendingFreelancer,
   onUpdate
 }) => {
   const { account } = useWallet();
@@ -258,7 +259,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           </div>
         )}
 
-        {!shouldHideCancelActions && (
+        {!shouldHideCancelActions && jobState !== 'PendingApproval' && !pendingFreelancer && (
           <JobCancelActions
             jobId={jobId}
             account={account}

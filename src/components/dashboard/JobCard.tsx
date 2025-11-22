@@ -154,24 +154,25 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       </div>
 
       {canShowWithdraw && (
-        <div className="mt-3 mb-3 p-3 border-2 border-orange-300 bg-orange-50 rounded">
-          <p className="text-xs text-orange-800 mb-2">
+        <div className="mt-3 mb-3 p-3 border-2 border-blue-800 bg-gray-50 rounded">
+          <p className="text-xs text-blue-800 mb-2 font-bold">
             ⚠ Công việc chưa có người làm tự do ứng tuyển. Bạn có thể rút lại cọc và ký quỹ về ví.
           </p>
           <Button
             size="sm"
+            variant="primary"
             onClick={handleWithdraw}
             disabled={withdrawing || reviewingCandidate || withdrawingApplication}
-            className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {withdrawing ? 'Đang rút...' : 'Rút lại công việc (Nhận cọc + ký quỹ)'}
           </Button>
         </div>
       )}
 
-      {job.state === 'PendingApproval' && pendingCandidate && (
-        <div className="mt-3 mb-3 p-3 border-2 border-yellow-300 bg-yellow-50 rounded">
-          <p className="text-xs text-yellow-800 mb-2">
+      {pendingCandidate && (job.state === 'PendingApproval' || job.state === 'Posted') && (
+        <div className="mt-3 mb-3 p-3 border-2 border-blue-800 bg-gray-50 rounded">
+          <p className="text-xs text-blue-800 mb-2 font-bold">
             {isPoster
               ? 'Có ứng viên đang chờ bạn phê duyệt. Nếu từ chối, ứng viên sẽ được hoàn stake và phí.'
               : isPendingCandidate
@@ -191,7 +192,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                className="bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="primary"
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleReviewCandidate(true)}
                 disabled={reviewingCandidate || withdrawing || withdrawingApplication}
               >
@@ -217,7 +219,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
                 onClick={handleWithdrawApplicationPending}
                 disabled={withdrawingApplication || reviewingCandidate || withdrawing}
               >
-                {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển'}
+                {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất stake và phí)'}
               </Button>
             </div>
           )}
@@ -233,6 +235,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
           jobState={job.state || 'Posted'}
           mutualCancelRequestedBy={job.mutual_cancel_requested_by || null}
           freelancerWithdrawRequestedBy={job.freelancer_withdraw_requested_by || null}
+          pendingFreelancer={job.pending_freelancer || null}
           onUpdate={onUpdate}
         />
       )}

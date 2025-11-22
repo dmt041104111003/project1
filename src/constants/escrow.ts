@@ -106,6 +106,8 @@ export interface JobSidebarProps {
   pendingFreelancerAddress?: string | null;
   withdrawingApplication?: boolean;
   onWithdrawApplication?: () => void;
+  reviewingCandidate?: boolean;
+  onReviewCandidate?: (approve: boolean) => void;
 }
 
 
@@ -184,6 +186,7 @@ export interface MilestonesListProps {
   jobState: string;
   mutualCancelRequestedBy?: string | null;
   freelancerWithdrawRequestedBy?: string | null;
+  pendingFreelancer?: string | null;
   onUpdate?: () => void;
 }
 
