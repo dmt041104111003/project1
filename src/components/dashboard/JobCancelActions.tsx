@@ -12,6 +12,8 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   canInteract,
   isCancelled,
   jobState,
+  hasDisputeId,
+  disputeWinner,
   mutualCancelRequestedBy,
   freelancerWithdrawRequestedBy,
   onMutualCancel,
@@ -29,6 +31,28 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
 }) => {
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
+  const hasActiveDispute = jobState === 'Disputed';
+
+  console.log('[JobCancelActions] Debug:', {
+    account,
+    poster,
+    freelancer,
+    isPoster,
+    isFreelancer,
+    jobState,
+    hasActiveDispute,
+    mutualCancelRequestedBy,
+    freelancerWithdrawRequestedBy,
+    canInteract,
+    isCancelled,
+  });
+
+  console.log('[JobCancelActions] Button conditions:', {
+    'isPoster && !mutualCancelRequestedBy': isPoster && !mutualCancelRequestedBy,
+    'isPoster && freelancerWithdrawRequestedBy && match': isPoster && freelancerWithdrawRequestedBy && freelancer && freelancerWithdrawRequestedBy.toLowerCase() === freelancer.toLowerCase(),
+    'isFreelancer && mutualCancelRequestedBy && match': isFreelancer && mutualCancelRequestedBy && poster && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase(),
+    'isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy': isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy,
+  });
 
   return (
     <div className="mt-4 p-3 border-2 border-blue-800 bg-gray-50 rounded">
@@ -66,20 +90,20 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         {isPoster && !mutualCancelRequestedBy && (
           <button
             onClick={onMutualCancel}
-            disabled={cancelling || !!freelancerWithdrawRequestedBy}
+            disabled={cancelling || !!freelancerWithdrawRequestedBy || hasActiveDispute}
             className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
-              cancelling || !!freelancerWithdrawRequestedBy
+              cancelling || !!freelancerWithdrawRequestedBy || hasActiveDispute
                 ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
                 : 'bg-white text-black hover:bg-gray-100 border-black'
             }`}
-            title={freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : ''}
+            title={hasActiveDispute ? 'Không thể yêu cầu hủy khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.' : (freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : '')}
           >
-            {(cancelling || !!freelancerWithdrawRequestedBy) && <LockIcon className="w-4 h-4" />}
+            {(cancelling || !!freelancerWithdrawRequestedBy || hasActiveDispute) && <LockIcon className="w-4 h-4" />}
             {cancelling ? 'Đang xử lý...' : 'Yêu cầu hủy (Mutual Cancel)'}
           </button>
         )}
 
-        {isPoster && freelancerWithdrawRequestedBy && freelancerWithdrawRequestedBy.toLowerCase() === freelancer?.toLowerCase() && (
+        {isPoster && freelancerWithdrawRequestedBy && freelancer && freelancerWithdrawRequestedBy.toLowerCase() === freelancer.toLowerCase() && (
           <>
             <button
               onClick={onAcceptFreelancerWithdraw}
@@ -108,7 +132,7 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
           </>
         )}
 
-        {isFreelancer && mutualCancelRequestedBy && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
+        {isFreelancer && mutualCancelRequestedBy && poster && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
           <>
             <button
               onClick={onAcceptMutualCancel}
@@ -140,14 +164,15 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         {isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy && (
           <button
             onClick={onFreelancerWithdraw}
-            disabled={withdrawing}
+            disabled={withdrawing || hasActiveDispute}
             className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
-              withdrawing
+              withdrawing || hasActiveDispute
                 ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
                 : 'bg-white text-blue-800 hover:bg-blue-50 border-blue-800'
             }`}
+            title={hasActiveDispute ? 'Không thể yêu cầu rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.' : ''}
           >
-            {withdrawing && <LockIcon className="w-4 h-4" />}
+            {(withdrawing || hasActiveDispute) && <LockIcon className="w-4 h-4" />}
             {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất stake nếu được chấp nhận)'}
           </button>
         )}

@@ -32,6 +32,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [postedCount, setPostedCount] = useState(0);
   const [appliedCount, setAppliedCount] = useState(0);
+  const [resolvedDisputesMap, setResolvedDisputesMap] = useState<Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>>(new Map());
 
   useEffect(() => {
     if (!hasPosterRole && activeTab === 'posted') {
@@ -87,24 +88,29 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       });
       
       const disputesData = await getJobsWithDisputes(account, 200);
-      const resolvedDisputesMap = new Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>();
+      const newResolvedDisputesMap = new Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>();
       disputesData.forEach((d) => {
         if (d.disputeStatus === 'resolved') {
-          resolvedDisputesMap.set(d.jobId, { disputeStatus: d.disputeStatus, disputeWinner: d.disputeWinner, milestoneId: d.milestoneId });
+          newResolvedDisputesMap.set(d.jobId, { disputeStatus: d.disputeStatus, disputeWinner: d.disputeWinner, milestoneId: d.milestoneId });
         }
       });
+      setResolvedDisputesMap(newResolvedDisputesMap);
       
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
-        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !resolvedDisputesMap.has(job.id);
+        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
         
         if (hasActiveDispute) {
           return false;
         }
         
-        const resolvedDispute = resolvedDisputesMap.get(job.id);
+        const resolvedDispute = newResolvedDisputesMap.get(job.id);
         if (resolvedDispute) {
+          if (resolvedDispute.disputeWinner !== null && resolvedDispute.disputeWinner !== undefined) {
+            return false;
+          }
+          
           const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
           if (disputeMilestone) {
             const status = parseStatus(disputeMilestone.status);
@@ -128,14 +134,18 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       const appliedJobs = allJobs.filter((job: Job) => {
         const freelancerMatch = job.freelancer && job.freelancer.toLowerCase() === account.toLowerCase();
         const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
-        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !resolvedDisputesMap.has(job.id);
+        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
         
         if (hasActiveDispute) {
           return false;
         }
         
-        const resolvedDispute = resolvedDisputesMap.get(job.id);
+        const resolvedDispute = newResolvedDisputesMap.get(job.id);
         if (resolvedDispute) {
+          if (resolvedDispute.disputeWinner !== null && resolvedDispute.disputeWinner !== undefined) {
+            return false; 
+          }
+          
           const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
           if (disputeMilestone) {
             const status = parseStatus(disputeMilestone.status);
@@ -206,11 +216,13 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
     
     const handleJobsUpdated = async () => {
       if (account) {
-        const { clearJobEventsCache } = await import('@/lib/aptosClient');
+        const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
         const { clearJobTableCache } = await import('@/lib/aptosClientCore');
         clearJobEventsCache();
+        clearDisputeEventsCache();
         clearJobTableCache();
-        setTimeout(() => fetchJobs(), 2000);
+        // Giảm delay để refresh nhanh hơn sau khi claim
+        setTimeout(() => fetchJobs(), 1000);
       }
     };
 
@@ -324,15 +336,24 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             />
           ) : (
             <>
-              {displayedJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  account={account}
-                  activeTab={activeTab === 'history' || activeTab === 'poster_history' || activeTab === 'disputes' ? 'applied' : activeTab}
-                  onUpdate={fetchJobs}
-                />
-              ))}
+              {displayedJobs.map((job) => {
+                const resolvedDispute = resolvedDisputesMap.get(job.id);
+                const jobWithOverride = resolvedDispute && 
+                  resolvedDispute.disputeWinner !== null && 
+                  resolvedDispute.disputeWinner !== undefined
+                  ? { ...job, state: 'Disputed' as const }
+                  : job;
+                
+                return (
+                  <JobCard
+                    key={job.id}
+                    job={jobWithOverride}
+                    account={account}
+                    activeTab={activeTab === 'history' || activeTab === 'poster_history' || activeTab === 'disputes' ? 'applied' : activeTab}
+                    onUpdate={fetchJobs}
+                  />
+                );
+              })}
 
               {jobs.length > JOBS_PER_PAGE && (
                 <div className="flex flex-col items-center gap-2 pt-4 border-t border-gray-300">

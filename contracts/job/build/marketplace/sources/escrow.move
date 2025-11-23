@@ -102,7 +102,9 @@ module job_work_board::escrow {
         milestone_submitted_events: aptos_framework::event::EventHandle<MilestoneSubmittedEvent>,
         milestone_accepted_events: aptos_framework::event::EventHandle<MilestoneAcceptedEvent>,
         milestone_rejected_events: aptos_framework::event::EventHandle<MilestoneRejectedEvent>,
-        milestone_created_events: aptos_framework::event::EventHandle<MilestoneCreatedEvent>
+        milestone_created_events: aptos_framework::event::EventHandle<MilestoneCreatedEvent>,
+        mutual_cancel_requested_events: aptos_framework::event::EventHandle<MutualCancelRequestedEvent>,
+        freelancer_withdraw_requested_events: aptos_framework::event::EventHandle<FreelancerWithdrawRequestedEvent>
     }
 
     struct ClaimTimeoutEvent has drop, store {
@@ -170,6 +172,18 @@ module job_work_board::escrow {
         created_at: u64
     }
 
+    struct MutualCancelRequestedEvent has drop, store {
+        job_id: u64,
+        requested_by: address,
+        requested_at: u64
+    }
+
+    struct FreelancerWithdrawRequestedEvent has drop, store {
+        job_id: u64,
+        requested_by: address,
+        requested_at: u64
+    }
+
     fun init_module(admin: &signer) {
         move_to(admin, EscrowStore {
             table: table::new(),
@@ -181,7 +195,9 @@ module job_work_board::escrow {
             milestone_submitted_events: account::new_event_handle<MilestoneSubmittedEvent>(admin),
             milestone_accepted_events: account::new_event_handle<MilestoneAcceptedEvent>(admin),
             milestone_rejected_events: account::new_event_handle<MilestoneRejectedEvent>(admin),
-            milestone_created_events: account::new_event_handle<MilestoneCreatedEvent>(admin)
+            milestone_created_events: account::new_event_handle<MilestoneCreatedEvent>(admin),
+            mutual_cancel_requested_events: account::new_event_handle<MutualCancelRequestedEvent>(admin),
+            freelancer_withdraw_requested_events: account::new_event_handle<FreelancerWithdrawRequestedEvent>(admin)
         });
     }
 
@@ -725,6 +741,16 @@ module job_work_board::escrow {
         };
         
         job.mutual_cancel_requested_by = option::some(caller);
+        
+        let now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.mutual_cancel_requested_events,
+            MutualCancelRequestedEvent {
+                job_id,
+                requested_by: caller,
+                requested_at: now
+            }
+        );
     }
 
     public entry fun accept_mutual_cancel(freelancer: &signer, job_id: u64) acquires EscrowStore {
@@ -762,6 +788,24 @@ module job_work_board::escrow {
         job.mutual_cancel_requested_by = option::none();
         job.freelancer_withdraw_requested_by = option::none();
 
+        let clear_now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.mutual_cancel_requested_events,
+            MutualCancelRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: clear_now
+            }
+        );
+        aptos_framework::event::emit_event(
+            &mut store.freelancer_withdraw_requested_events,
+            FreelancerWithdrawRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: clear_now
+            }
+        );
+
         let now = timestamp::now_seconds();
         aptos_framework::event::emit_event(
             &mut store.job_state_changed_events,
@@ -786,6 +830,16 @@ module job_work_board::escrow {
         assert!(requester == job.poster, 1);  
         
         job.mutual_cancel_requested_by = option::none();
+        
+        let now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.mutual_cancel_requested_events,
+            MutualCancelRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: now
+            }
+        );
     }
 
     public entry fun poster_withdraw_unfilled_job(poster: &signer, job_id: u64) acquires EscrowStore {
@@ -870,7 +924,25 @@ module job_work_board::escrow {
         job.state = JobState::Posted;
         job.started_at = option::none();
         job.mutual_cancel_requested_by = option::none();  
-        job.freelancer_withdraw_requested_by = option::none(); 
+        job.freelancer_withdraw_requested_by = option::none();
+        
+        let clear_now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.mutual_cancel_requested_events,
+            MutualCancelRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: clear_now
+            }
+        );
+        aptos_framework::event::emit_event(
+            &mut store.freelancer_withdraw_requested_events,
+            FreelancerWithdrawRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: clear_now
+            }
+        ); 
 
         let len = vector::length(&job.milestones);
         let i = 0;
@@ -898,6 +970,16 @@ module job_work_board::escrow {
         assert!(option::is_some(&job.freelancer) && *option::borrow(&job.freelancer) == requester, 1);
         
         job.freelancer_withdraw_requested_by = option::none();
+        
+        let now = timestamp::now_seconds();
+        aptos_framework::event::emit_event(
+            &mut store.freelancer_withdraw_requested_events,
+            FreelancerWithdrawRequestedEvent {
+                job_id,
+                requested_by: @0x0,
+                requested_at: now
+            }
+        );
     }
 
     public(friend) fun lock_for_dispute(job_id: u64, _milestone_id: u64, dispute_id: u64) acquires EscrowStore {

@@ -197,6 +197,8 @@ export interface MilestonesListProps {
 }
 
 export interface JobCancelActionsProps {
+  hasDisputeId?: boolean;
+  disputeWinner?: boolean | null;
   jobId: number;
   account: string | null;
   poster: string;

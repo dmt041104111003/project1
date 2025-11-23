@@ -100,6 +100,16 @@ export function clearRoleEventsCache() {
   cacheKeys.forEach(key => eventsCache.delete(key));
 }
 
+export async function getMutualCancelRequestedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'mutual_cancel_requested_events', limit);
+}
+
+export async function getFreelancerWithdrawRequestedEvents(limit: number = 200) {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  return queryEvents(eventHandle, 'freelancer_withdraw_requested_events', limit);
+}
+
 export function clearJobEventsCache() {
   const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
   const jobEventTypes = [
@@ -110,6 +120,8 @@ export function clearJobEventsCache() {
     'milestone_submitted_events',
     'milestone_accepted_events',
     'milestone_rejected_events',
+    'mutual_cancel_requested_events',
+    'freelancer_withdraw_requested_events',
   ];
   jobEventTypes.forEach((eventType) => {
     const cacheKey = `${eventHandle}_${eventType}_200`;
