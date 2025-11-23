@@ -124,9 +124,13 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       }
     };
     
-    const handleJobsUpdated = () => {
+    const handleJobsUpdated = async () => {
       if (account) {
-        setTimeout(() => fetchJobs(), 1000);
+        const { clearJobEventsCache } = await import('@/lib/aptosClient');
+        const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+        clearJobEventsCache();
+        clearJobTableCache();
+        setTimeout(() => fetchJobs(), 2000);
       }
     };
 

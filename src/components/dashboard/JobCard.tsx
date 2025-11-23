@@ -59,8 +59,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       if (!wallet) throw new Error('Không tìm thấy ví');
       const tx = await wallet.signAndSubmitTransaction(payload);
       toast.success(`${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công! TX: ${tx?.hash || 'N/A'}`);
+      
+      const { clearJobEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearJobTableCache();
+      
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate(), 1000);
+      setTimeout(() => {
+        onUpdate();
+      }, 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể xử lý ứng viên: ${errorMessage}`);
@@ -77,8 +85,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       if (!wallet) throw new Error('Không tìm thấy ví');
       const tx = await wallet.signAndSubmitTransaction(payload);
       toast.success(`Đã rút ứng tuyển! TX: ${tx?.hash || 'N/A'}`);
+      
+      const { clearJobEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearJobTableCache();
+      
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate(), 1000);
+      setTimeout(() => {
+        onUpdate();
+      }, 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể rút ứng tuyển: ${errorMessage}`);

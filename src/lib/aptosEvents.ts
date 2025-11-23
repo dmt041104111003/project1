@@ -95,6 +95,23 @@ export function clearRoleEventsCache() {
   eventsCache.delete(cacheKey);
 }
 
+export function clearJobEventsCache() {
+  const eventHandle = `${CONTRACT_ADDRESS}::escrow::EscrowStore`;
+  const jobEventTypes = [
+    'job_created_events',
+    'job_applied_events',
+    'job_state_changed_events',
+    'milestone_created_events',
+    'milestone_submitted_events',
+    'milestone_accepted_events',
+    'milestone_rejected_events',
+  ];
+  jobEventTypes.forEach((eventType) => {
+    const cacheKey = `${eventHandle}_${eventType}_200`;
+    eventsCache.delete(cacheKey);
+  });
+}
+
 export async function getReputationChangedEvents(limit: number = 200) {
   const eventHandle = `${CONTRACT_ADDRESS}::reputation::RepStore`;
   return queryEvents(eventHandle, 'reputation_changed_events', limit);
