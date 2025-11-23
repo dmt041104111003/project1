@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
 import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
+import { LockIcon } from '@/components/ui/LockIcon';
 import { MilestoneItemProps } from '@/constants/escrow';
 
 export const MilestoneItem: React.FC<MilestoneItemProps> = ({
@@ -85,22 +86,22 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   };
 
   const getCardClasses = () => {
-    if (isAccepted) return 'bg-green-50 border-green-300';
-    if (isLocked) return 'bg-red-50 border-red-300';
+    if (isAccepted) return 'bg-blue-50 border-blue-300';
+    if (isLocked) return 'bg-blue-100 border-blue-400';
     if (isWithdrawn) return 'bg-gray-100 border-gray-400 opacity-60';
     if (isSubmitted) return 'bg-blue-50 border-blue-300';
-    if (isOverdue) return 'bg-yellow-50 border-yellow-300';
+    if (isOverdue) return 'bg-blue-50 border-blue-300';
     return 'bg-gray-50 border-gray-300';
   };
 
   const getStatusBadgeClasses = () => {
     const base = 'px-2 py-1 text-xs font-bold border-2 rounded';
-    if (isAccepted) return `${base} bg-green-100 text-green-800 border-green-300`;
-    if (isLocked) return `${base} bg-red-100 text-red-800 border-red-300`;
+    if (isAccepted) return `${base} bg-blue-100 text-blue-800 border-blue-300`;
+    if (isLocked) return `${base} bg-blue-200 text-blue-900 border-blue-400`;
     if (isWithdrawn) return `${base} bg-gray-200 text-gray-600 border-gray-400`;
     if (isSubmitted) return `${base} bg-blue-100 text-blue-800 border-blue-300`;
     if (isPending) return `${base} bg-gray-100 text-gray-800 border-gray-300`;
-    return `${base} bg-yellow-100 text-yellow-800 border-yellow-300`;
+    return `${base} bg-blue-100 text-blue-800 border-blue-300`;
   };
 
   useEffect(() => {
@@ -184,13 +185,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
             </p>
           )}
           {deadlineDate && (
-            <p className={`text-xs ${isOverdue && !isAccepted ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
+            <p className={`text-xs ${isOverdue && !isAccepted ? 'text-blue-700 font-bold' : 'text-gray-600'}`}>
               Hạn chót: {deadlineDate.toLocaleString('vi-VN')}
               {timersStopped ? ' (Đã dừng - đang tranh chấp)' : (isOverdue && !isAccepted ? ' (Quá hạn)' : '')}
             </p>
           )}
           {reviewDeadlineDate && isSubmitted && (
-            <p className={`text-xs ${reviewTimeout ? 'text-orange-600 font-bold' : 'text-gray-600'}`}>
+            <p className={`text-xs ${reviewTimeout ? 'text-blue-700 font-bold' : 'text-gray-600'}`}>
               Hạn đánh giá: {reviewDeadlineDate.toLocaleString('vi-VN')}
               {reviewTimeout && ' (Có thể yêu cầu hết hạn)'}
             </p>
@@ -217,7 +218,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
               Mở file bằng chứng
             </a>
           ) : (
-            <p className="text-xs text-red-500">Không thể giải mã CID</p>
+            <p className="text-xs text-blue-700">Không thể giải mã CID</p>
           )}
         </div>
       )}
@@ -229,7 +230,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       )}
 
       {isFreelancer && hasClaimTimeoutInfo && isPending && (
-        <div className="text-xs text-red-700 font-bold italic mb-2">
+        <div className="text-xs text-blue-800 font-bold italic mb-2">
           CÔNG VIỆC ĐÃ BỊ HỦY - Bạn đã không hoàn thành cột mốc đúng hạn. Người thuê đã đòi tiền cọc và công việc đã được mở lại cho người khác ứng tuyển.
         </div>
       )}
@@ -254,8 +255,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           <button
             onClick={() => onClaimTimeout(Number(milestone.id))}
             disabled={claiming || interactionLocked}
-            className="bg-orange-100 text-black hover:bg-orange-200 text-xs px-3 py-2 rounded border-2 border-orange-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+              claiming || interactionLocked
+                ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+            }`}
           >
+            {(claiming || interactionLocked) && <LockIcon className="w-4 h-4" />}
             {claiming ? 'Đang yêu cầu...' : 'Yêu cầu Hết hạn (Người thuê không phản hồi)'}
           </button>
         )}
@@ -283,17 +289,22 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 
         {isAccepted && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-green-700 font-bold">Đã hoàn thành</span>
+            <span className="text-xs text-blue-800 font-bold">Đã hoàn thành</span>
             {votesCompleted && typeof disputeWinner === 'boolean' && (
               (disputeWinner && isFreelancer) || (!disputeWinner && isPoster) ? (
-                isClaimed || disputeWinner === null ? (
-                  <span className="text-xs text-green-600 font-bold">Đã đòi</span>
+                isClaimed ? (
+                  <span className="text-xs text-blue-700 font-bold">Đã đòi</span>
                 ) : (
                 <button
                   onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
                   disabled={interactionLocked}
-                  className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                    interactionLocked
+                      ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                      : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+                  }`}
                 >
+                  {interactionLocked && <LockIcon className="w-4 h-4" />}
                   Đòi tranh chấp {disputeWinner ? 'thanh toán' : 'hoàn tiền'}
                 </button>
                 )
@@ -305,9 +316,9 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           </div>
         )}
 
-        {isLocked && (
+        {isLocked && typeof disputeWinner !== 'boolean' && (
           <div className="flex flex-col gap-2 w-full">
-            <span className="text-xs text-red-700 font-bold">Đã bị khóa (tranh chấp)</span>
+            <span className="text-xs text-blue-800 font-bold">Đã bị khóa (tranh chấp)</span>
             {(isPoster || isFreelancer) && canInteract && (
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="flex-1 min-w-[180px]">
@@ -324,17 +335,22 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                   <span className="text-xs text-blue-600">Đang upload...</span>
                 )}
                 {disputeSelectedFile && (
-                  <span className="text-xs text-green-600">{disputeSelectedFile.name}</span>
+                  <span className="text-xs text-blue-700">{disputeSelectedFile.name}</span>
                 )}
                 {disputeEvidenceCid && (
-                  <span className="text-xs text-green-700 font-bold">CID OK</span>
+                  <span className="text-xs text-blue-800 font-bold">CID OK</span>
                 )}
                 {!hasDisputeId && (
                   <button
                     onClick={() => onOpenDispute && onOpenDispute(Number(milestone.id))}
                     disabled={openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked}
-                    className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-2 rounded border-2 border-red-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                      openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked
+                        ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                        : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+                    }`}
                   >
+                    {(openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked) && <LockIcon className="w-4 h-4" />}
                     {openingDispute ? 'Đang mở tranh chấp...' : 'Mở tranh chấp'}
                   </button>
                 )}
@@ -342,8 +358,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                 <button
                   onClick={() => onSubmitEvidence && onSubmitEvidence(Number(milestone.id))}
                   disabled={submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked}
-                  className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-2 rounded border-2 border-blue-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                    submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked
+                      ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                      : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+                  }`}
                 >
+                  {(submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked) && <LockIcon className="w-4 h-4" />}
                   {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}
                 </button>
                 )}

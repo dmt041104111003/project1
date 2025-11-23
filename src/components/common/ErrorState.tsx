@@ -15,7 +15,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
 }) => {
   return (
     <div className={`text-center py-12 ${className}`}>
-      <p className="text-red-500 text-lg mb-4">{message}</p>
+      <p className="text-blue-800 text-lg mb-4">{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}

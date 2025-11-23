@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
 import { LoadingState, EmptyState, StatusBadge } from '@/components/common';
@@ -28,45 +28,45 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
     }
   }, [history.length, currentPage]);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!posterAddress) {
-        setHistory([]);
-        return;
-      }
+  const fetchHistory = useCallback(async () => {
+    if (!posterAddress) {
+      setHistory([]);
+      return;
+    }
 
-      setLoading(true);
-      try {
-        const data = await getPosterJobHistory(posterAddress, 200);
-        setHistory(data);
+    setLoading(true);
+    try {
+      const data = await getPosterJobHistory(posterAddress, 200);
+      setHistory(data);
 
-        const cidMap = new Map<number, { cid: string; url: string }>();
-        await Promise.all(
-          data.map(async (item) => {
-            try {
-              const cidRes = await fetch(`/api/ipfs/job?jobId=${item.jobId}&decodeOnly=true`);
-              if (cidRes.ok) {
-                const cidData = await cidRes.json();
-                if (cidData?.success) {
-                  cidMap.set(item.jobId, {
-                    cid: cidData.cid,
-                    url: cidData.url,
-                  });
-                }
+      const cidMap = new Map<number, { cid: string; url: string }>();
+      await Promise.all(
+        data.map(async (item) => {
+          try {
+            const cidRes = await fetch(`/api/ipfs/job?jobId=${item.jobId}&decodeOnly=true`);
+            if (cidRes.ok) {
+              const cidData = await cidRes.json();
+              if (cidData?.success) {
+                cidMap.set(item.jobId, {
+                  cid: cidData.cid,
+                  url: cidData.url,
+                });
               }
-            } catch {
             }
-          })
-        );
-        setDecodedCids(cidMap);
-      } catch (error) {
-        console.error('Error fetching poster history:', error);
-        setHistory([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+          } catch {
+          }
+        })
+      );
+      setDecodedCids(cidMap);
+    } catch (error) {
+      console.error('Error fetching poster history:', error);
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [posterAddress]);
 
+  useEffect(() => {
     fetchHistory();
 
     const handleJobsUpdated = () => {
@@ -77,7 +77,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
     return () => {
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [posterAddress]);
+  }, [fetchHistory]);
 
   const getStatusDisplay = (status: PosterJobHistory['status']) => {
     switch (status) {
@@ -103,17 +103,17 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
   const getStatusColor = (status: PosterJobHistory['status']) => {
     switch (status) {
       case 'completed':
-        return 'text-green-700 bg-green-50 border-green-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       case 'claimed_timeout':
         return 'text-blue-700 bg-blue-50 border-blue-300';
       case 'cancelled':
-        return 'text-orange-700 bg-orange-50 border-orange-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       case 'in_progress':
         return 'text-blue-700 bg-blue-50 border-blue-300';
       case 'pending_approval':
-        return 'text-yellow-700 bg-yellow-50 border-yellow-300';
+        return 'text-blue-700 bg-blue-50 border-blue-300';
       case 'expired':
-        return 'text-orange-700 bg-orange-50 border-orange-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       default:
         return 'text-gray-700 bg-gray-50 border-gray-300';
     }
@@ -137,6 +137,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
       />
     );
   }
+
 
   return (
     <div className="space-y-4">
@@ -195,7 +196,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
                     </div>
                   )}
                   {item.pendingFreelancer && (
-                    <div className="text-yellow-700">
+                    <div className="text-blue-700">
                       <span className="font-semibold">Ứng viên đang chờ:</span>{' '}
                       <span
                         className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
@@ -206,7 +207,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
                     </div>
                   )}
                   {item.completedAt && (
-                    <div className="text-green-700">
+                    <div className="text-blue-800">
                       <span className="font-semibold">Hoàn thành lúc:</span>{' '}
                       {new Date(item.completedAt * 1000).toLocaleString('vi-VN')}
                     </div>
@@ -218,7 +219,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
                     </div>
                   )}
                   {item.cancelledAt && (
-                    <div className="text-orange-700">
+                    <div className="text-blue-800">
                       <span className="font-semibold">Hủy lúc:</span>{' '}
                       {new Date(item.cancelledAt * 1000).toLocaleString('vi-VN')}
                     </div>
@@ -230,11 +231,11 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
             {item.reason && (
               <div className={`mt-3 p-3 rounded border-2 ${
                 item.status === 'completed' 
-                  ? 'bg-green-100 border-green-300 text-green-800'
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : item.status === 'claimed_timeout'
                   ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : item.status === 'cancelled'
-                  ? 'bg-orange-100 border-orange-300 text-orange-800'
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : 'bg-gray-100 border-gray-300 text-gray-700'
               }`}>
                 <div className="text-sm font-semibold mb-1">Trạng thái:</div>

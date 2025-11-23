@@ -15,7 +15,7 @@ export const MessageDisplay: React.FC<MessageDisplayProps> = ({ message, classNa
   
   return (
     <div className={`text-xs ${
-      isSuccess ? 'text-green-700' : isError ? 'text-red-700' : 'text-gray-700'
+      isSuccess ? 'text-blue-800' : isError ? 'text-blue-800' : 'text-gray-700'
     } ${className}`}>
       {message}
     </div>

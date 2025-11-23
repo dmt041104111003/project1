@@ -33,8 +33,8 @@ export function useMilestoneState(
   }, [milestones, nowMs]);
 
   const shouldHideCancelActions = useMemo(() => {
-    return hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed' || hasExpiredMilestone;
-  }, [hasPendingConfirmMilestone, hasDisputeId, jobState, hasExpiredMilestone]);
+    return hasPendingConfirmMilestone || hasDisputeId || jobState === 'Disputed';
+  }, [hasPendingConfirmMilestone, hasDisputeId, jobState]);
 
   return {
     hasWithdrawableMilestones,

@@ -5,12 +5,13 @@ import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { MilestoneItem } from './MilestoneItem';
-import { JobCancelActions } from './JobCancelActions';
+ import { JobCancelActions } from './JobCancelActions';
 import { MilestonesListProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { useMilestoneHandlers } from '@/hooks/useMilestoneHandlers';
 import { useDisputeData } from '@/hooks/useDisputeData';
 import { useMilestoneState } from '@/hooks/useMilestoneState';
+import { LockIcon } from '@/components/ui/LockIcon';
 
 const MILESTONES_PER_PAGE = 4;
 
@@ -36,7 +37,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
   const isCancelled = jobState === 'Cancelled';
 
   const { hasDisputeId, disputeWinner, disputeVotesDone } = useDisputeData(jobId);
-  const { hasWithdrawableMilestones, shouldHideCancelActions } = useMilestoneState(milestones, jobState, hasDisputeId);
+  const { hasWithdrawableMilestones } = useMilestoneState(milestones, jobState, hasDisputeId);
   
   const {
     submittingId,
@@ -239,16 +240,21 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
 
         
         {isPoster && jobState === 'Disputed' && (
-          <div className="mt-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded">
-            <p className="text-sm text-yellow-800 mb-2 font-bold">
+          <div className="mt-4 p-3 bg-blue-50 border-2 border-blue-300 rounded">
+            <p className="text-sm text-blue-800 mb-2 font-bold">
               ⚠ Công việc đang có tranh chấp - Bạn có thể rút ký quỹ của các cột mốc không tranh chấp (chưa được thực hiện)
             </p>
             {hasWithdrawableMilestones ? (
               <button
                 onClick={handleUnlockNonDisputedMilestones}
                 disabled={unlockingNonDisputed}
-                className="bg-yellow-100 text-black hover:bg-yellow-200 text-sm px-4 py-2 rounded border-2 border-yellow-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`text-sm px-4 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                  unlockingNonDisputed
+                    ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                    : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+                }`}
               >
+                {unlockingNonDisputed && <LockIcon className="w-4 h-4" />}
                 {unlockingNonDisputed ? 'Đang rút...' : 'Rút Ký quỹ Các Cột mốc Không Tranh Chấp'}
               </button>
             ) : (
@@ -259,7 +265,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           </div>
         )}
 
-        {!shouldHideCancelActions && jobState !== 'PendingApproval' && !pendingFreelancer && (
+        {freelancer && (
           <JobCancelActions
             jobId={jobId}
             account={account}

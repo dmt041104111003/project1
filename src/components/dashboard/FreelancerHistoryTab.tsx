@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
@@ -23,7 +23,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [decodedCids, setDecodedCids] = useState<Map<number, { cid: string; url: string }>>(new Map());
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!freelancerAddress) {
       setHistory([]);
       setDecodedCids(new Map());
@@ -61,11 +61,11 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [freelancerAddress]);
 
   useEffect(() => {
     fetchHistory();
-  }, [freelancerAddress]);
+  }, [fetchHistory]);
 
   useEffect(() => {
     const handleJobsUpdated = () => {
@@ -76,7 +76,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
     return () => {
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [freelancerAddress]);
+  }, [fetchHistory]);
 
   useEffect(() => {
     const maxPageIndex = Math.max(0, Math.ceil(history.length / JOBS_PER_PAGE) - 1);
@@ -109,17 +109,17 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
   const getStatusColor = (status: FreelancerJobHistory['status']) => {
     switch (status) {
       case 'completed':
-        return 'text-green-700 bg-green-50 border-green-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       case 'claimed_timeout':
-        return 'text-red-700 bg-red-50 border-red-500';
+        return 'text-blue-800 bg-blue-50 border-blue-400';
       case 'rejected':
-        return 'text-red-700 bg-red-50 border-red-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       case 'cancelled':
-        return 'text-orange-700 bg-orange-50 border-orange-300';
+        return 'text-blue-800 bg-blue-50 border-blue-300';
       case 'in_progress':
         return 'text-blue-700 bg-blue-50 border-blue-300';
       case 'pending_approval':
-        return 'text-yellow-700 bg-yellow-50 border-yellow-300';
+        return 'text-blue-700 bg-blue-50 border-blue-300';
       default:
         return 'text-gray-700 bg-gray-50 border-gray-300';
     }
@@ -203,13 +203,13 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                     {new Date(item.appliedAt * 1000).toLocaleString('vi-VN')}
                   </div>
                   {item.completedAt && (
-                    <div className="text-green-700">
+                    <div className="text-blue-800">
                       <span className="font-semibold">Hoàn thành lúc:</span>{' '}
                       {new Date(item.completedAt * 1000).toLocaleString('vi-VN')}
                     </div>
                   )}
                   {item.claimedAt && (
-                    <div className="text-red-700">
+                    <div className="text-blue-800">
                       <span className="font-semibold">Bị đòi lúc:</span>{' '}
                       {new Date(item.claimedAt * 1000).toLocaleString('vi-VN')}
                     </div>
@@ -221,11 +221,11 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
             {item.reason && (
               <div className={`mt-3 p-3 rounded border-2 ${
                 item.status === 'completed' 
-                  ? 'bg-green-100 border-green-300 text-green-800'
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : item.status === 'claimed_timeout' || item.status === 'rejected'
-                  ? 'bg-red-100 border-red-300 text-red-800'
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : item.status === 'cancelled'
-                  ? 'bg-orange-100 border-orange-300 text-orange-800'
+                  ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : 'bg-gray-100 border-gray-300 text-gray-700'
               }`}>
                 <div className="text-sm font-semibold mb-1">Lý do:</div>

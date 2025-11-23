@@ -76,7 +76,7 @@ export const ProjectMilestones: React.FC<ProjectMilestonesProps> = ({ roleState,
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="!bg-red-100 !text-red-800 !border-2 !border-red-300"
+                    className="!bg-blue-100 !text-blue-800 !border-2 !border-blue-300"
                     disabled={disputingMilestone === `${jobId}:${index}` || !!st.disputed}
                     onClick={() => onDispute(jobId, index)}
                   >

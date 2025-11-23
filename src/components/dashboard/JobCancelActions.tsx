@@ -3,6 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { JobCancelActionsProps } from '@/constants/escrow';
+import { LockIcon } from '@/components/ui/LockIcon';
 
 export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
   account,
@@ -28,8 +29,6 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
 }) => {
   const isPoster = account?.toLowerCase() === poster?.toLowerCase();
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
-
-  if (!canInteract || isCancelled || !freelancer || jobState === 'Disputed' || jobState === 'PendingApproval') return null;
 
   return (
     <div className="mt-4 p-3 border-2 border-blue-800 bg-gray-50 rounded">
@@ -65,74 +64,92 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
 
       <div className="flex gap-2 flex-wrap">
         {isPoster && !mutualCancelRequestedBy && (
-          <Button
-            size="sm"
-            variant="primary"
+          <button
             onClick={onMutualCancel}
             disabled={cancelling || !!freelancerWithdrawRequestedBy}
-            className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+              cancelling || !!freelancerWithdrawRequestedBy
+                ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                : 'bg-white text-black hover:bg-gray-100 border-black'
+            }`}
             title={freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : ''}
           >
+            {(cancelling || !!freelancerWithdrawRequestedBy) && <LockIcon className="w-4 h-4" />}
             {cancelling ? 'Đang xử lý...' : 'Yêu cầu hủy (Mutual Cancel)'}
-          </Button>
+          </button>
         )}
 
         {isPoster && freelancerWithdrawRequestedBy && freelancerWithdrawRequestedBy.toLowerCase() === freelancer?.toLowerCase() && (
           <>
-            <Button
-              size="sm"
-              variant="primary"
+            <button
               onClick={onAcceptFreelancerWithdraw}
               disabled={acceptingWithdraw || rejectingWithdraw}
-              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+                acceptingWithdraw || rejectingWithdraw
+                  ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                  : 'bg-white text-black hover:bg-gray-100 border-black'
+              }`}
             >
+              {(acceptingWithdraw || rejectingWithdraw) && <LockIcon className="w-4 h-4" />}
               {acceptingWithdraw ? 'Đang xử lý...' : 'Chấp nhận rút'}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+            </button>
+            <button
               onClick={onRejectFreelancerWithdraw}
               disabled={acceptingWithdraw || rejectingWithdraw}
-              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+                acceptingWithdraw || rejectingWithdraw
+                  ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                  : 'bg-white text-blue-800 hover:bg-blue-50 border-blue-800'
+              }`}
             >
+              {(acceptingWithdraw || rejectingWithdraw) && <LockIcon className="w-4 h-4" />}
               {rejectingWithdraw ? 'Đang xử lý...' : 'Từ chối rút'}
-            </Button>
+            </button>
           </>
         )}
 
         {isFreelancer && mutualCancelRequestedBy && mutualCancelRequestedBy.toLowerCase() === poster.toLowerCase() && (
           <>
-            <Button
-              size="sm"
-              variant="primary"
+            <button
               onClick={onAcceptMutualCancel}
               disabled={acceptingCancel || rejectingCancel}
-              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+                acceptingCancel || rejectingCancel
+                  ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                  : 'bg-white text-black hover:bg-gray-100 border-black'
+              }`}
             >
+              {(acceptingCancel || rejectingCancel) && <LockIcon className="w-4 h-4" />}
               {acceptingCancel ? 'Đang xử lý...' : 'Chấp nhận hủy'}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+            </button>
+            <button
               onClick={onRejectMutualCancel}
               disabled={acceptingCancel || rejectingCancel}
-              className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+                acceptingCancel || rejectingCancel
+                  ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                  : 'bg-white text-blue-800 hover:bg-blue-50 border-blue-800'
+              }`}
             >
+              {(acceptingCancel || rejectingCancel) && <LockIcon className="w-4 h-4" />}
               {rejectingCancel ? 'Đang xử lý...' : 'Từ chối hủy'}
-            </Button>
+            </button>
           </>
         )}
 
         {isFreelancer && !freelancerWithdrawRequestedBy && !mutualCancelRequestedBy && (
-          <Button
-            size="sm"
-            variant="outline"
+          <button
             onClick={onFreelancerWithdraw}
             disabled={withdrawing}
-            className="text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+              withdrawing
+                ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                : 'bg-white text-blue-800 hover:bg-blue-50 border-blue-800'
+            }`}
           >
+            {withdrawing && <LockIcon className="w-4 h-4" />}
             {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất stake nếu được chấp nhận)'}
-          </Button>
+          </button>
         )}
       </div>
     </div>

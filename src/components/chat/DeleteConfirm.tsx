@@ -18,7 +18,7 @@ export const DeleteConfirm: React.FC<Props> = ({ openId, onCancel, onConfirm }) 
 				<p className="text-gray-600 mb-6">Bạn có chắc chắn muốn xóa tin nhắn này? Hành động này không thể hoàn tác.</p>
 				<div className="flex gap-3">
 					<Button variant="outline" size="sm" onClick={onCancel} className="flex-1">HỦY</Button>
-					<Button variant="primary" size="sm" onClick={() => onConfirm(openId)} className="flex-1 bg-red-600 hover:bg-red-700 text-black hover:text-white">XÓA</Button>
+					<Button variant="primary" size="sm" onClick={() => onConfirm(openId)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-black hover:text-white">XÓA</Button>
 				</div>
 			</div>
 		</div>

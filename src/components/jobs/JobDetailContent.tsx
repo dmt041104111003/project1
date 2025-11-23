@@ -190,20 +190,21 @@ export const JobDetailContent: React.FC = () => {
   }
 
   if (error) {
-    return <ErrorState message={`Lỗi: ${error}`} onRetry={() => window.location.reload()} />;
+    return <ErrorState message={`Lỗi: ${error}`} onRetry={fetchJobDetails} />;
   }
 
   return (
     <>
       <div className="mb-8">
-        <Button 
-          onClick={() => window.history.back()}
-          variant="outline"
-          size="sm"
-          className="mb-4"
-        >
+        <div className="mb-4">
+          <Button 
+            onClick={() => window.history.back()}
+            variant="outline"
+            size="sm"
+          >
           ← Quay lại danh sách công việc
         </Button>
+        </div>
         <h1 className="text-3xl font-bold text-blue-800 mb-2">Công việc #{String(jobId)}</h1>
       </div>
 
@@ -322,7 +323,7 @@ export const JobDetailContent: React.FC = () => {
                         {deadline > 0 && (
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Deadline hoàn thành</div>
-                            <div className={`font-medium ${deadline * 1000 < Date.now() && statusStr !== 'Accepted' ? 'text-red-600' : 'text-gray-900'}`}>
+                            <div className={`font-medium ${deadline * 1000 < Date.now() && statusStr !== 'Accepted' ? 'text-blue-700' : 'text-gray-900'}`}>
                               {formatDeadline(deadline)}
                               {deadline * 1000 < Date.now() && statusStr !== 'Accepted' && ' (Quá hạn)'}
                             </div>
@@ -331,7 +332,7 @@ export const JobDetailContent: React.FC = () => {
                         {reviewDeadline > 0 && (
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Hạn đánh giá</div>
-                            <div className={`font-medium ${reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' ? 'text-orange-600' : 'text-gray-900'}`}>
+                            <div className={`font-medium ${reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' ? 'text-blue-700' : 'text-gray-900'}`}>
                               {formatDeadline(reviewDeadline)}
                               {reviewDeadline * 1000 < Date.now() && statusStr === 'Submitted' && ' (Có thể yêu cầu hết hạn)'}
                             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { LockIcon } from './LockIcon';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline';
@@ -13,18 +14,23 @@ export function Button({
   size = 'md', 
   className = '', 
   children, 
+  disabled,
   ...props 
 }: ButtonProps) {
   const getVariantStyles = () => {
+    if (disabled) {
+      return 'bg-gray-400 text-gray-600 border-2 border-gray-500 cursor-not-allowed';
+    }
+    
     switch (variant) {
       case 'primary':
-        return 'bg-white text-black border-2 border-black';
+        return 'bg-white text-black border-2 border-black hover:bg-gray-100 active:bg-gray-200';
       case 'secondary':
-        return 'bg-gray-100 text-blue-800 border border-blue-800';
+        return 'bg-gray-100 text-blue-800 border border-blue-800 hover:bg-gray-200 active:bg-gray-300';
       case 'outline':
-        return 'bg-white text-blue-800 border border-blue-800';
+        return 'bg-white text-blue-800 border border-blue-800 hover:bg-blue-50 active:bg-blue-100';
       default:
-        return 'bg-white text-black border-2 border-black';
+        return 'bg-white text-black border-2 border-black hover:bg-gray-100 active:bg-gray-200';
     }
   };
 
@@ -43,9 +49,11 @@ export function Button({
 
   return (
     <button
-      className={`font-bold ${getVariantStyles()} ${getSizeStyles()} ${className}`}
+      className={`font-bold flex items-center justify-center gap-2 ${getVariantStyles()} ${getSizeStyles()} ${className}`}
+      disabled={disabled}
       {...props}
     >
+      {disabled && <LockIcon className="w-4 h-4" />}
       {children}
     </button>
   );

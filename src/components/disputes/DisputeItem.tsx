@@ -122,7 +122,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       </div>
       <div className="text-sm text-gray-700 mb-2">
         Trạng thái: {dispute.status === 'resolved' ? (
-          <span className="text-green-700 font-bold">
+          <span className="text-blue-800 font-bold">
             Đã giải quyết
             {dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
               <span className="ml-2 text-xs">
@@ -152,7 +152,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
                 Xem bằng chứng
               </a>
             ) : (
-              <span className="text-red-500">Không thể giải mã CID: {dispute.posterEvidenceCid}</span>
+              <span className="text-blue-700">Không thể giải mã CID: {dispute.posterEvidenceCid}</span>
             )}
           </div>
         ) : (
@@ -173,7 +173,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
                 Xem bằng chứng
               </a>
             ) : (
-              <span className="text-red-500">Không thể giải mã CID: {dispute.freelancerEvidenceCid}</span>
+              <span className="text-blue-700">Không thể giải mã CID: {dispute.freelancerEvidenceCid}</span>
             )}
           </div>
         ) : (
@@ -181,13 +181,13 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
         )}
       </div>
       {dispute.status === 'resolved' ? (
-        <div className="text-sm text-green-700 font-bold">
+        <div className="text-sm text-blue-800 font-bold">
           ✓ Tranh chấp đã được giải quyết. Bên thắng có thể yêu cầu thanh toán/hoàn tiền.
         </div>
       ) : (
       <div className="space-y-2">
         {!canVote && timeRemaining !== null && timeRemaining > 0 && (
-          <div className="text-sm text-orange-600 font-semibold bg-orange-50 border border-orange-200 rounded p-2">
+          <div className="text-sm text-blue-800 font-semibold bg-blue-50 border border-blue-200 rounded p-2">
             Vui lòng đợi {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')} để bên còn lại có thời gian gửi minh chứng trước khi bỏ phiếu
           </div>
         )}

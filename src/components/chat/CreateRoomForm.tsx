@@ -52,7 +52,7 @@ export const CreateRoomForm: React.FC<Props> = ({
 			/>
 
 			{createRoomError && (
-				<div className="text-red-600 text-xs bg-red-50 p-2 border border-red-200">
+				<div className="text-blue-800 text-xs bg-blue-50 p-2 border border-blue-200">
 					{createRoomError}
 				</div>
 			)}

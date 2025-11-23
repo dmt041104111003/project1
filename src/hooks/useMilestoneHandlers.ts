@@ -216,6 +216,13 @@ export function useMilestoneHandlers(
         : escrowHelpers.claimDisputeRefund(jobId, milestoneId);
       const txHash = await executeTransaction(payload);
       toast.success(`Đã yêu cầu tranh chấp ${isWinnerFreelancer ? 'thanh toán' : 'hoàn tiền'}! TX: ${txHash}`);
+      
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
       setTimeout(() => {
         onUpdate?.();
@@ -224,7 +231,7 @@ export function useMilestoneHandlers(
           newSet.delete(milestoneId);
           return newSet;
         });
-      }, 1500);
+      }, 3000);
     } catch (err) {
       setClaimedMilestones(prev => {
         const newSet = new Set(prev);

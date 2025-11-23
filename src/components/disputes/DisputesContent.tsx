@@ -73,7 +73,7 @@ export const DisputesContent: React.FC = () => {
         onChange={(value) => setActiveTab(value as 'current' | 'history')}
       />
 
-      {errorMsg && <div className="p-2 bg-red-100 text-red-800 text-sm border border-red-300">{errorMsg}</div>}
+      {errorMsg && <div className="p-2 bg-blue-100 text-blue-800 text-sm border border-blue-300">{errorMsg}</div>}
 
       {activeTab === 'current' ? (
         <div className="space-y-3">

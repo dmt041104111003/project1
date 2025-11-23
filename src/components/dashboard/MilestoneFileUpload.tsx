@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { LockIcon } from '@/components/ui/LockIcon';
 import { toast } from 'sonner';
 import { useWallet } from '@/contexts/WalletContext';
 import { MilestoneFileUploadProps } from '@/constants/escrow';
@@ -71,12 +71,12 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
   return (
     <>
       {isOverdue && (
-        <p className="text-xs text-red-600 font-bold">
+        <p className="text-xs text-blue-700 font-bold">
           Cột mốc đã quá hạn, không thể nộp
         </p>
       )}
       {!canSubmit && !isOverdue && (
-        <p className="text-xs text-orange-600 font-bold">
+        <p className="text-xs text-blue-700 font-bold">
           ⚠ Cột mốc trước phải được chấp nhận trước khi nộp cột mốc này
         </p>
       )}
@@ -99,21 +99,25 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             <span className="text-xs text-blue-600">Đang upload...</span>
           )}
           {selectedFile && (
-            <span className="text-xs text-green-600">
+            <span className="text-xs text-blue-700">
               ✓ {selectedFile.name}
             </span>
           )}
           {evidenceCid && (
-            <span className="text-xs text-green-600">✓ CID sẵn sàng</span>
+            <span className="text-xs text-blue-700">✓ CID sẵn sàng</span>
           )}
-          <Button
-            size="sm"
+          <button
             onClick={() => onSubmit(milestoneId)}
             disabled={submitting || uploading || !evidenceCid?.trim() || isOverdue || interactionLocked}
-            className="bg-blue-100 text-black hover:bg-blue-200 text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`text-xs px-3 py-1 rounded border-2 font-bold flex items-center gap-2 ${
+              submitting || uploading || !evidenceCid?.trim() || isOverdue || interactionLocked
+                ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+            }`}
           >
+            {(submitting || uploading || !evidenceCid?.trim() || isOverdue || interactionLocked) && <LockIcon className="w-4 h-4" />}
             {submitting ? 'Đang nộp...' : 'Nộp'}
-          </Button>
+          </button>
         </>
       )}
     </>

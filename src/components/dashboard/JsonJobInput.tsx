@@ -32,13 +32,13 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
           rows={15}
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 font-mono text-sm resize-none ${
-            jsonError ? 'border-red-500 bg-red-50' : 'border-gray-400'
+            jsonError ? 'border-blue-500 bg-blue-50' : 'border-gray-400'
           } ${
             !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
           }`}
         />
         {jsonError && (
-          <p className="text-red-500 text-sm mt-1">{jsonError}</p>
+          <p className="text-blue-700 text-sm mt-1">{jsonError}</p>
         )}
       </div>
       <div className="flex gap-2">

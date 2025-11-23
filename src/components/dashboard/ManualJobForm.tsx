@@ -45,14 +45,14 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 ${
             validationErrors.jobTitle 
-              ? 'border-red-500 bg-red-50' 
+              ? 'border-blue-500 bg-blue-50' 
               : 'border-gray-400'
           } ${
             !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
           }`}
         />
         {validationErrors.jobTitle && (
-          <p className="text-red-500 text-sm mt-1">{validationErrors.jobTitle}</p>
+          <p className="text-blue-700 text-sm mt-1">{validationErrors.jobTitle}</p>
         )}
       </div>
 
@@ -69,14 +69,14 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 resize-none ${
             validationErrors.jobDescription 
-              ? 'border-red-500 bg-red-50' 
+              ? 'border-blue-500 bg-blue-50' 
               : 'border-gray-400'
           } ${
             !canPostJobs || isSubmitting ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900'
           }`}
         />
         {validationErrors.jobDescription && (
-          <p className="text-red-500 text-sm mt-1">{validationErrors.jobDescription}</p>
+          <p className="text-blue-700 text-sm mt-1">{validationErrors.jobDescription}</p>
         )}
       </div>
 
@@ -112,7 +112,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
                   type="button"
                   onClick={() => removeSkill(index)}
                   disabled={isSubmitting}
-                  className={`text-white hover:text-red-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`text-white hover:text-blue-300 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   ×
                 </button>
@@ -166,7 +166,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
           </span>
         </div>
         {validationErrors.milestones && (
-          <p className="text-red-500 text-sm">{validationErrors.milestones}</p>
+          <p className="text-blue-700 text-sm">{validationErrors.milestones}</p>
         )}
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -254,7 +254,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
                     type="button"
                     onClick={() => removeMilestone(index)}
                     disabled={isSubmitting}
-                    className={`text-red-600 hover:text-red-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`text-blue-700 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     ×
                   </button>

@@ -128,7 +128,7 @@ export const RoomList: React.FC<Props> = ({
                             e.stopPropagation();
                             saveEditName(room.id);
                           }}
-                          className="text-green-600 hover:text-green-800 text-xs"
+                          className="text-blue-700 hover:text-blue-800 text-xs"
                         >
                           ✓
                         </button>
@@ -137,7 +137,7 @@ export const RoomList: React.FC<Props> = ({
                             e.stopPropagation();
                             cancelEdit();
                           }}
-                          className="text-red-600 hover:text-red-800 text-xs"
+                          className="text-blue-700 hover:text-blue-800 text-xs"
                         >
                           ✕
                         </button>
@@ -168,7 +168,7 @@ export const RoomList: React.FC<Props> = ({
                           })()}
                         </p>
                         {!room.chatAccepted && (
-                          <p className="text-xs text-orange-600">Chờ accept</p>
+                          <p className="text-xs text-blue-700">Chờ accept</p>
                         )}
                       </>
                     )}

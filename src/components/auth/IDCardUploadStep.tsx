@@ -61,9 +61,9 @@ export function IDCardUploadStep({
           </div>
 
           {ocrError && (
-            <div className="mt-4 p-3 bg-red-50 border-2 border-red-300 rounded">
-              <p className="text-sm font-bold text-red-800">⚠ Lỗi xác minh</p>
-              <p className="text-xs text-red-700 mt-1">{ocrError}</p>
+            <div className="mt-4 p-3 bg-blue-50 border-2 border-blue-300 rounded">
+              <p className="text-sm font-bold text-blue-800">⚠ Lỗi xác minh</p>
+              <p className="text-xs text-blue-700 mt-1">{ocrError}</p>
             </div>
           )}
 

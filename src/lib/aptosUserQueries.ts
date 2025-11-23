@@ -62,18 +62,19 @@ export async function getReputationPoints(address: string, limit: number = 200):
         return eventAddr === normalizedAddr;
       })
       .sort((a: any, b: any) => {
-        const timeA = Number(a.data?.timestamp || 0);
-        const timeB = Number(b.data?.timestamp || 0);
+        const timeA = Number(a.data?.changed_at || a.data?.timestamp || 0);
+        const timeB = Number(b.data?.changed_at || b.data?.timestamp || 0);
         return timeB - timeA;
       });
     
-    let reputation = 0;
-    for (const event of userEvents) {
-      const change = Number(event.data?.change || 0);
-      reputation += change;
+    if (userEvents.length === 0) {
+      return 0;
     }
     
-    return Math.max(0, reputation);
+    const latestEvent = userEvents[0];
+    const newValue = Number(latestEvent.data?.new_value || 0);
+    
+    return Math.max(0, newValue);
   } catch {
     return 0;
   }
