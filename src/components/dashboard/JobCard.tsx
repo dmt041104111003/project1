@@ -31,10 +31,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             const tx = await wallet.signAndSubmitTransaction(payload);
 
             toast.success(`Rút công việc thành công! TX: ${tx?.hash || 'N/A'}`);
+            
+            const { clearJobEventsCache } = await import('@/lib/aptosClient');
+            const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+            clearJobEventsCache();
+            clearJobTableCache();
+            
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
             setTimeout(() => {
               onUpdate();
-            }, 1000);
+            }, 3000);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);

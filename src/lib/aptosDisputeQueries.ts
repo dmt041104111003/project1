@@ -4,7 +4,7 @@ import {
   getDisputeOpenedEvents,
   getDisputeResolvedEvents,
 } from './aptosEvents';
-import { getParsedJobData } from './aptosJobQueries';
+import { getParsedJobData } from './aptosJobDetailQueries';
 import { getDisputeData, getDisputeSummary } from './aptosUserQueries';
 
 export interface JobWithDispute {
