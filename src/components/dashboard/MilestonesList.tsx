@@ -265,7 +265,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           </div>
         )}
 
-        {freelancer && (
+        {freelancer && freelancer.trim() !== '' && (
           <JobCancelActions
             jobId={jobId}
             account={account}
