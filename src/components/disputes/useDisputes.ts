@@ -89,8 +89,8 @@ export function useDisputes(account?: string | null) {
           .filter((addr: string) => addr.length > 0);
 
         const isAssigned = selectedReviewers
-          .map((a) => normalizeAddress(a))
-          .some((a) => a === myAddr);
+          .map((a: string) => normalizeAddress(a))
+          .some((a: string) => a === myAddr);
         if (!isAssigned) continue;
 
         const dispute = await getDisputeData(disputeId);
@@ -107,7 +107,7 @@ export function useDisputes(account?: string | null) {
         const summary = await getDisputeSummary(disputeId);
         if (summary) {
           const voted: string[] = summary.voted_reviewers || [];
-          hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
+          hasVoted = voted.map((a: string) => normalizeAddress(a)).some((a: string) => a === myAddr);
           const totalVotes = Number(summary.counts?.total || 0);
           votesCompleted = totalVotes >= 3;
           disputeWinner = summary.winner;
