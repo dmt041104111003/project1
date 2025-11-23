@@ -340,31 +340,6 @@ export async function getParsedJobData(jobId: number) {
     } else {
       console.log('[getParsedJobData] Latest event has zero address, setting to null');
     }
-  } else {
-    try {
-      const { CONTRACT_ADDRESS } = await import('@/constants/contracts');
-      const { aptosFetch, APTOS_NODE_URL } = await import('./aptosClientCore');
-      
-      const mutualCancelResponse = await aptosFetch(`${APTOS_NODE_URL}/v1/view`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          function: `${CONTRACT_ADDRESS}::escrow::get_mutual_cancel_requested_by`,
-          type_arguments: [],
-          arguments: [String(jobId)],
-        }),
-      });
-      
-      if (mutualCancelResponse.ok) {
-        const mutualCancelData = await mutualCancelResponse.json();
-        if (mutualCancelData && mutualCancelData[0] && mutualCancelData[0].vec && mutualCancelData[0].vec[0]) {
-          mutualCancelRequestedBy = mutualCancelData[0].vec[0];
-          console.log('[getParsedJobData] Got mutual_cancel_requested_by from view function:', mutualCancelRequestedBy);
-        }
-      }
-    } catch (e) {
-      console.error('[getParsedJobData] Error fetching mutual_cancel_requested_by from view:', e);
-    }
   }
 
   console.log('[getParsedJobData] Total freelancerWithdrawRequestedEvents fetched:', freelancerWithdrawRequestedEvents.length);
@@ -424,31 +399,6 @@ export async function getParsedJobData(jobId: number) {
       console.log('[getParsedJobData] Set freelancerWithdrawRequestedBy to:', freelancerWithdrawRequestedBy);
     } else {
       console.log('[getParsedJobData] Latest event has zero address, setting to null');
-    }
-  } else {
-    try {
-      const { CONTRACT_ADDRESS } = await import('@/constants/contracts');
-      const { fetchContractResource, queryTableItem } = await import('./aptosClientCore');
-      
-      const escrowStore = await fetchContractResource<{ table: { handle: string } }>('escrow::EscrowStore');
-      
-      if (escrowStore && escrowStore.table && escrowStore.table.handle) {
-        const jobData = await queryTableItem({
-          handle: escrowStore.table.handle,
-          key: String(jobId),
-          keyType: 'u64',
-          valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
-        });
-        
-        if (jobData && jobData.freelancer_withdraw_requested_by) {
-          if (jobData.freelancer_withdraw_requested_by.vec && jobData.freelancer_withdraw_requested_by.vec[0]) {
-            freelancerWithdrawRequestedBy = jobData.freelancer_withdraw_requested_by.vec[0];
-            console.log('[getParsedJobData] Got freelancer_withdraw_requested_by from table:', freelancerWithdrawRequestedBy);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[getParsedJobData] Error fetching freelancer_withdraw_requested_by from table:', e);
     }
   }
 

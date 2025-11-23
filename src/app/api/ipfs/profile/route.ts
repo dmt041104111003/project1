@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { ROLE_KIND } from "@/constants/contracts";
-import { getRoleRegisteredEvents } from "@/lib/aptosClient";
+import { ROLE_KIND, CONTRACT_ADDRESS } from "@/constants/contracts";
 import { decryptCid } from '@/lib/encryption';
+import { aptosFetch, APTOS_NODE_URL } from '@/lib/aptosClientCore';
 
 const normalizeAddress = (addr?: string | null): string => {
 	if (!addr) return '';
@@ -11,7 +11,19 @@ const normalizeAddress = (addr?: string | null): string => {
 
 const resolveProfileCid = async (address: string, roleKind: number): Promise<string | null> => {
 	const normalizedAddr = normalizeAddress(address);
-	const events = await getRoleRegisteredEvents(200);
+	
+	// Fetch directly from Aptos API with retry logic (via aptosFetch)
+	try {
+		const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+		const encodedEventHandle = encodeURIComponent(eventHandle);
+		const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodedEventHandle}/role_registered_events?limit=200`;
+		
+		const res = await aptosFetch(url);
+		if (!res.ok) {
+			console.error('Failed to fetch role registered events:', res.status, res.statusText);
+			return null;
+		}
+		const events = await res.json();
 	
 	// Find the latest event for this address and role_kind
 	const userEvents = events

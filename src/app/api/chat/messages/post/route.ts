@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, push, serverTimestamp, update, get, set } from 'firebase/database';
 import { getFirebaseDatabase } from '@/lib/firebaseServer';
-import { getProofStoredEvents } from '@/lib/aptosClient';
+import { aptosFetch, APTOS_NODE_URL } from '@/lib/aptosClientCore';
+import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
 const database = getFirebaseDatabase();
 
@@ -41,7 +42,16 @@ const hasProof = async (address: string): Promise<boolean> => {
   }
   
   try {
-    const events = await getProofStoredEvents(200);
+    const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+    const encodedEventHandle = encodeURIComponent(eventHandle);
+    const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodedEventHandle}/proof_stored_events?limit=200`;
+    
+    const res = await aptosFetch(url);
+    if (!res.ok) {
+      console.error('Failed to fetch proof stored events:', res.status, res.statusText);
+      return false;
+    }
+    const events = await res.json();
     
     const hasProofResult = events.some((event: any) => {
       const eventAddr = String(event.data?.address || '').toLowerCase();
