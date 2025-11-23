@@ -69,12 +69,12 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
         if (!dispute.lastReselectionTime || dispute.lastReselectionTime === 0) {
           deadline = dispute.initialVoteDeadline || dispute.openedAt + REVIEWER_VOTE_DELAY + INITIAL_VOTE_TIMEOUT;
         } else {
-          const lastReselectionBy = dispute.lastReselectionTime;
+
+          const lastReselectionTime = dispute.lastReselectionTime;
           const lastVoteTime = dispute.lastVoteTime || dispute.openedAt;
-          deadline = lastReselectionBy + RESELECT_COOLDOWN;
-          if (lastVoteTime > lastReselectionBy) {
-            deadline = lastVoteTime + RESELECT_COOLDOWN;
-          }
+          const deadlineFromReselection = lastReselectionTime + RESELECT_COOLDOWN;
+          const deadlineFromVote = lastVoteTime + RESELECT_COOLDOWN;
+          deadline = Math.max(deadlineFromReselection, deadlineFromVote);
         }
 
         const remaining = deadline - now;
@@ -116,20 +116,23 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
         let shouldSkip = false;
         
         if (dispute.disputeStatus === 'resolved') {
-          try {
-            const jobData = await getParsedJobData(dispute.jobId);
-            if (jobData?.milestones) {
-              const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
-              if (milestone) {
-                const status = parseStatus(milestone.status);
-                if (status === 'Accepted') {
-                  shouldSkip = true;
+          if (dispute.disputeWinner === null || dispute.disputeWinner === undefined) {
+            try {
+              const jobData = await getParsedJobData(dispute.jobId);
+              if (jobData?.milestones) {
+                const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
+                if (milestone) {
+                  const status = parseStatus(milestone.status);
+                  if (status === 'Accepted') {
+                    shouldSkip = true;
+                  }
                 }
               }
+            } catch (e) {
+              console.error('Error checking milestone status:', e);
             }
-          } catch (e) {
-            console.error('Error checking milestone status:', e);
           }
+          // Nếu dispute_winner !== null, không skip - hiển thị để user có thể claim
         }
         
         if (shouldSkip) {
@@ -289,35 +292,19 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
             const tx = await wallet.signAndSubmitTransaction(payload as any);
             toast.success(`Đã yêu cầu ${dispute.disputeWinner ? 'thanh toán' : 'hoàn tiền'} tranh chấp! TX: ${tx?.hash || 'N/A'}`);
             
+            const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+            const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+            clearJobEventsCache();
+            clearDisputeEventsCache();
+            clearJobTableCache();
+            
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
             
             setTimeout(async () => {
-              const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
-              const { clearJobTableCache } = await import('@/lib/aptosClientCore');
-              clearJobEventsCache();
-              clearDisputeEventsCache();
-              clearJobTableCache();
-              
-              const { getParsedJobData } = await import('@/lib/aptosClient');
-              const { parseStatus } = await import('@/components/dashboard/MilestoneUtils');
-              const jobData = await getParsedJobData(dispute.jobId);
-              
-              if (jobData?.milestones) {
-                const hasRemainingMilestones = jobData.milestones.some((m: any) => {
-                  const status = parseStatus(m.status);
-                  return status !== 'Accepted' && status !== 'Withdrawn';
-                });
-                
-                if (!hasRemainingMilestones) {
-                  toast.info('Đã claim tranh chấp. Job không còn milestone nào, sẽ chuyển vào lịch sử.');
-                } else {
-                  toast.info('Đã claim tranh chấp. Job vẫn còn milestone, sẽ hiển thị trong tab "Đã đăng" hoặc "Đã tham gia".');
-                }
-              }
-              
               await fetchDisputes();
+              window.dispatchEvent(new CustomEvent('jobsUpdated'));
               setClaimingDispute(null);
-            }, 5000);
+            }, 3000);
           } catch (e: any) {
             const { toast } = await import('sonner');
             toast.error(`Lỗi: ${e?.message || 'Không thể claim tranh chấp'}`);
@@ -375,7 +362,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                   <div className="mt-2 pt-2 border-t border-blue-200">
                     {!canReselectNow && timeRemainingNow > 0 && (
                       <div className="text-xs text-blue-700 mb-2">
-                        Có thể chọn lại reviewers sau: {Math.floor(timeRemainingNow / 60)}:{(timeRemainingNow % 60).toString().padStart(2, '0')}
+                        Có thể chọn lại đánh giá viên sau: {Math.floor(timeRemainingNow / 60)}:{(timeRemainingNow % 60).toString().padStart(2, '0')}
                       </div>
                     )}
                     <button
@@ -388,7 +375,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                       onClick={handleReselect}
                     >
                       {(!canReselectNow || isReselecting) && <LockIcon className="w-4 h-4" />}
-                      {isReselecting ? 'Đang chọn lại reviewers...' : 'Chọn lại Reviewers'}
+                      {isReselecting ? 'Đang chọn lại đánh giá viên...' : 'Chọn lại Đánh giá viên'}
                     </button>
                   </div>
                 )}

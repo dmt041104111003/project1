@@ -8,10 +8,12 @@ import {
   getMilestoneRejectedEvents,
   getClaimTimeoutEvents,
   getDisputeResolvedEvents,
+  getMutualCancelRequestedEvents,
+  getFreelancerWithdrawRequestedEvents,
 } from './aptosEvents';
 
 export async function getParsedJobData(jobId: number) {
-  const [createdEvents, appliedEvents, stateEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents, claimTimeoutEvents, disputeResolvedEvents] = await Promise.all([
+  const [createdEvents, appliedEvents, stateEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents, claimTimeoutEvents, disputeResolvedEvents, mutualCancelRequestedEvents, freelancerWithdrawRequestedEvents] = await Promise.all([
     getJobCreatedEvents(200),
     getJobAppliedEvents(200),
     getJobStateChangedEvents(200),
@@ -21,6 +23,8 @@ export async function getParsedJobData(jobId: number) {
     getMilestoneRejectedEvents(200),
     getClaimTimeoutEvents(200),
     getDisputeResolvedEvents(200),
+    getMutualCancelRequestedEvents(200),
+    getFreelancerWithdrawRequestedEvents(200),
   ]);
   
   const jobEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
@@ -275,6 +279,27 @@ export async function getParsedJobData(jobId: number) {
     return m;
   });
 
+  let mutualCancelRequestedBy: string | null = null;
+  let freelancerWithdrawRequestedBy: string | null = null;
+
+  const mutualCancelEvents = mutualCancelRequestedEvents.filter((evt: any) => Number(evt?.data?.job_id || 0) === jobId);
+  if (mutualCancelEvents.length > 0) {
+    const latestEvent = mutualCancelEvents[mutualCancelEvents.length - 1];
+    const requestedBy = String(latestEvent?.data?.requested_by || '');
+    if (requestedBy && requestedBy !== '0x0' && requestedBy !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      mutualCancelRequestedBy = requestedBy;
+    }
+  }
+
+  const freelancerWithdrawEvents = freelancerWithdrawRequestedEvents.filter((evt: any) => Number(evt?.data?.job_id || 0) === jobId);
+  if (freelancerWithdrawEvents.length > 0) {
+    const latestEvent = freelancerWithdrawEvents[freelancerWithdrawEvents.length - 1];
+    const requestedBy = String(latestEvent?.data?.requested_by || '');
+    if (requestedBy && requestedBy !== '0x0' && requestedBy !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      freelancerWithdrawRequestedBy = requestedBy;
+    }
+  }
+
   return {
     id: jobId,
     cid: jobEvent?.data?.cid || '',
@@ -289,8 +314,8 @@ export async function getParsedJobData(jobId: number) {
     pending_stake: 0,
     pending_fee: 0,
     apply_deadline: jobEvent?.data?.apply_deadline ? Number(jobEvent.data.apply_deadline) : undefined,
-    mutual_cancel_requested_by: null,
-    freelancer_withdraw_requested_by: null,
+    mutual_cancel_requested_by: mutualCancelRequestedBy,
+    freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy,
   };
 }
 

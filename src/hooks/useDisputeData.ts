@@ -40,12 +40,20 @@ export function useDisputeData(jobId: number) {
             } else {
               const totalVotes = Number(summary.counts?.total || 0);
               setDisputeVotesDone(totalVotes >= 3);
+              setDisputeWinner(null);
             }
+          } else {
+            setDisputeWinner(null);
+            setDisputeVotesDone(false);
           }
+        } else {
+          setDisputeWinner(null);
+          setDisputeVotesDone(false);
         }
       } else {
         setHasDisputeId(false);
         setDisputeWinner(null);
+        setDisputeVotesDone(false);
       }
     } catch {}
   };
@@ -53,8 +61,13 @@ export function useDisputeData(jobId: number) {
   useEffect(() => {
     load();
     
-    const handleJobsUpdated = () => {
-      setTimeout(() => load(), 2000);
+    const handleJobsUpdated = async () => {
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      setTimeout(() => load(), 1000);
     };
     
     window.addEventListener('jobsUpdated', handleJobsUpdated);

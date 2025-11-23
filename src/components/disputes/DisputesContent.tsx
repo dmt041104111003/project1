@@ -62,7 +62,7 @@ export const DisputesContent: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-blue-800 mb-2">Tranh chấp</h1>
-          <p className="text-lg text-gray-700">Chỉ reviewer được chỉ định mới có thể xem và bỏ phiếu.</p>
+          <p className="text-lg text-gray-700">Chỉ đánh giá viên được chỉ định mới có thể xem và bỏ phiếu.</p>
         </div>
       </div>
 

@@ -17,7 +17,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     id: 2,
     title: "Đăng ký vai trò",
-    description: "Chọn vai trò Người làm tự do, Người thuê hoặc Người đánh giá và upload hồ sơ lên IPFS",
+    description: "Chọn vai trò Người làm tự do, Người thuê hoặc Đánh giá viên và upload hồ sơ lên IPFS",
     icon: "user-circle"
   },
   {
@@ -47,7 +47,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     id: 7,
     title: "Giải quyết tranh chấp",
-    description: "Nếu có tranh chấp, phân cấp 3 người đánh giá uy tín đã xác minh sẽ bỏ phiếu để quyết định",
+    description: "Nếu có tranh chấp, phân cấp 3 đánh giá viên uy tín đã xác minh sẽ bỏ phiếu để quyết định",
     icon: "scale"
   }
 ];
@@ -60,7 +60,7 @@ export const PERSONAS = {
       "Bảo vệ thanh toán 100% qua ký quỹ với cột mốc",
       "Chỉ làm việc với người làm tự do đã xác minh danh tính (xác minh không kiến thức)",
       "Kiểm soát từng cột mốc, duyệt hoặc từ chối trước khi thanh toán",
-      "Giải quyết tranh chấp công bằng với 3 người đánh giá đã xác minh",
+      "Giải quyết tranh chấp công bằng với 3 đánh giá viên đã xác minh",
       "Xây dựng uy tín qua hệ thống điểm danh tiếng"
     ],
     cta: "Đăng công việc",
@@ -73,7 +73,7 @@ export const PERSONAS = {
       "Xác minh danh tính một lần với xác minh không kiến thức, dùng cho mọi vai trò",
       "Nhận thanh toán từng cột mốc, không cần chờ công việc hoàn thành",
       "Xây dựng uy tín qua điểm danh tiếng (mỗi cột mốc +1 điểm)",
-      "Tham gia giải quyết tranh chấp với vai trò Người đánh giá để kiếm thêm điểm"
+      "Tham gia giải quyết tranh chấp với vai trò Đánh giá viên để kiếm thêm điểm"
     ],
     cta: "Tạo hồ sơ",
     icon: "user"
@@ -116,7 +116,7 @@ export const FAQS = [
   },
   {
     question: "Tranh chấp được giải quyết như thế nào?",
-    answer: "Khi Người thuê reject milestone, hệ thống tự động chọn 3 người đánh giá đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi người đánh giá bỏ phiếu. Nếu 2/3 người đánh giá đồng ý, quyết định được thực thi tự động. Người đánh giá vote đúng +2 điểm, vote sai -1 điểm."
+    answer: "Khi Người thuê reject milestone, hệ thống tự động chọn 3 đánh giá viên đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi đánh giá viên bỏ phiếu. Nếu 2/3 đánh giá viên đồng ý, quyết định được thực thi tự động. Đánh giá viên vote đúng +2 điểm, vote sai -1 điểm."
   },
   {
     question: "Khi nào tôi có thể nhận thanh toán?",
@@ -124,11 +124,11 @@ export const FAQS = [
   },
   {
     question: "Hệ thống điểm uy tín hoạt động như thế nào?",
-    answer: "Mỗi cột mốc được chấp nhận = +1 điểm cho cả Người làm tự do và Người thuê. Công việc hoàn thành = không có điểm thêm (vì đã cộng điểm từng cột mốc). Thắng tranh chấp = +2 điểm, thua = -1 điểm. Người đánh giá bỏ phiếu đúng = +2 điểm, bỏ phiếu sai = -1 điểm. Điểm uy tín giúp bạn được ưu tiên trong tranh chấp và tăng độ tin cậy."
+    answer: "Mỗi cột mốc được chấp nhận = +1 điểm cho cả Người làm tự do và Người thuê. Công việc hoàn thành = không có điểm thêm (vì đã cộng điểm từng cột mốc). Thắng tranh chấp = +2 điểm, thua = -1 điểm. Đánh giá viên bỏ phiếu đúng = +2 điểm, bỏ phiếu sai = -1 điểm. Điểm uy tín giúp bạn được ưu tiên trong tranh chấp và tăng độ tin cậy."
   },
   {
     question: "Tôi có thể đăng ký nhiều vai trò không?",
-    answer: "Có, bạn có thể đăng ký cả 3 vai trò: Người làm tự do, Người thuê và Người đánh giá. Mỗi vai trò chỉ đăng ký 1 lần. Bạn chỉ cần xác minh danh tính 1 lần với xác minh không kiến thức, sau đó có thể đăng ký nhiều vai trò."
+    answer: "Có, bạn có thể đăng ký cả 3 vai trò: Người làm tự do, Người thuê và Đánh giá viên. Mỗi vai trò chỉ đăng ký 1 lần. Bạn chỉ cần xác minh danh tính 1 lần với xác minh không kiến thức, sau đó có thể đăng ký nhiều vai trò."
   }
 ];
 

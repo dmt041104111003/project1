@@ -299,10 +299,6 @@ export function useMilestoneHandlers(
 
   const handleMutualCancel = async (jobState: string, hasDisputeId: boolean, disputeWinner: boolean | null) => {
     if (!account || !isPoster) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể yêu cầu hủy công việc khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
     toast.warning('Bạn có chắc muốn yêu cầu hủy công việc? Người làm tự do sẽ được thông báo để xác nhận.', {
       action: {
         label: 'Xác nhận',
@@ -314,11 +310,13 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu hủy công việc! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            setTimeout(() => {
+              onUpdate?.();
+              setCancelling(false);
+            }, 2000);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
             setCancelling(false);
           }
         }
@@ -330,10 +328,6 @@ export function useMilestoneHandlers(
 
   const handleAcceptMutualCancel = async (jobState: string, hasDisputeId: boolean, disputeWinner: boolean | null) => {
     if (!account || !isFreelancer) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể chấp nhận hủy công việc khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
     toast.warning('Bạn có chắc muốn chấp nhận hủy công việc? Người thuê sẽ nhận ký quỹ, cả 2 cọc sẽ về bạn.', {
       action: {
         label: 'Xác nhận',
@@ -388,10 +382,6 @@ export function useMilestoneHandlers(
 
   const handleFreelancerWithdraw = async (jobState: string, hasDisputeId: boolean, disputeWinner: boolean | null) => {
     if (!account || !isFreelancer) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể yêu cầu rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
     toast.warning('Bạn có chắc muốn yêu cầu rút? Người thuê sẽ được thông báo để xác nhận. Nếu được chấp nhận, bạn sẽ mất cọc (1 APT) và công việc sẽ mở lại.', {
       action: {
         label: 'Xác nhận',
@@ -403,11 +393,13 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu rút! Đang chờ người thuê xác nhận. TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            setTimeout(() => {
+              onUpdate?.();
+              setWithdrawing(false);
+            }, 2000);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
-          } finally {
             setWithdrawing(false);
           }
         }
@@ -419,10 +411,6 @@ export function useMilestoneHandlers(
 
   const handleAcceptFreelancerWithdraw = async (jobState: string, hasDisputeId: boolean, disputeWinner: boolean | null) => {
     if (!account || !isPoster) return;
-    if (jobState === 'Disputed' || hasDisputeId || disputeWinner !== null) {
-      toast.error('Không thể chấp nhận người làm tự do rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.');
-      return;
-    }
     toast.warning('Bạn có chắc muốn chấp nhận người làm tự do rút? Người làm tự do sẽ mất cọc (1 APT) về bạn và công việc sẽ mở lại.', {
       action: {
         label: 'Xác nhận',
