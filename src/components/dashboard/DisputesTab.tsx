@@ -37,6 +37,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
   const [jobsData, setJobsData] = useState<Job[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [reselecting, setReselecting] = useState<number | null>(null);
+  const [claimingDispute, setClaimingDispute] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<Map<number, number>>(new Map());
   const [canReselect, setCanReselect] = useState<Map<number, boolean>>(new Map());
 
@@ -247,6 +248,57 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
           }
         };
 
+        const handleClaimDispute = async () => {
+          if (claimingDispute === dispute.disputeId) return;
+          try {
+            setClaimingDispute(dispute.disputeId);
+            const { wallet } = await getWallet();
+            const { escrowHelpers } = await import('@/utils/contractHelpers');
+            const { toast } = await import('sonner');
+            
+            const payload = dispute.disputeWinner
+              ? escrowHelpers.claimDisputePayment(dispute.jobId, dispute.milestoneId)
+              : escrowHelpers.claimDisputeRefund(dispute.jobId, dispute.milestoneId);
+            
+            const tx = await wallet.signAndSubmitTransaction(payload as any);
+            toast.success(`Đã yêu cầu ${dispute.disputeWinner ? 'thanh toán' : 'hoàn tiền'} tranh chấp! TX: ${tx?.hash || 'N/A'}`);
+            
+            const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+            const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+            clearJobEventsCache();
+            clearDisputeEventsCache();
+            clearJobTableCache();
+            
+            window.dispatchEvent(new CustomEvent('jobsUpdated'));
+            
+            setTimeout(async () => {
+              const { getParsedJobData } = await import('@/lib/aptosClient');
+              const { parseStatus } = await import('@/components/dashboard/MilestoneUtils');
+              const jobData = await getParsedJobData(dispute.jobId);
+              
+              if (jobData?.milestones) {
+                const hasRemainingMilestones = jobData.milestones.some((m: any) => {
+                  const status = parseStatus(m.status);
+                  return status !== 'Accepted' && status !== 'Withdrawn';
+                });
+                
+                if (!hasRemainingMilestones) {
+                  toast.info('Đã claim tranh chấp. Job không còn milestone nào, sẽ chuyển vào lịch sử.');
+                } else {
+                  toast.info('Đã claim tranh chấp. Job vẫn còn milestone, sẽ hiển thị trong tab "Đã đăng" hoặc "Đã tham gia".');
+                }
+              }
+              
+              fetchDisputes();
+              setClaimingDispute(null);
+            }, 3000);
+          } catch (e: any) {
+            const { toast } = await import('sonner');
+            toast.error(`Lỗi: ${e?.message || 'Không thể claim tranh chấp'}`);
+            setClaimingDispute(null);
+          }
+        };
+
         const fetchDisputes = async () => {
           if (!account) return;
           setLoading(true);
@@ -329,6 +381,22 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                   <span className="font-semibold">Thời gian mở:</span>{' '}
                   {new Date(dispute.openedAt * 1000).toLocaleString('vi-VN')}
                 </div>
+                {dispute.disputeStatus === 'resolved' && dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
+                  <div className="mt-2 pt-2 border-t border-orange-200">
+                    {((dispute.disputeWinner && account?.toLowerCase() === dispute.freelancer?.toLowerCase()) ||
+                      (!dispute.disputeWinner && account?.toLowerCase() === dispute.poster.toLowerCase())) && (
+                      <Button
+                        variant="outline"
+                        className="!bg-green-600 !text-white !border-2 !border-green-700 hover:!bg-green-700"
+                        size="sm"
+                        disabled={claimingDispute === dispute.disputeId}
+                        onClick={handleClaimDispute}
+                      >
+                        {claimingDispute === dispute.disputeId ? 'Đang xử lý...' : dispute.disputeWinner ? 'Yêu cầu Thanh toán' : 'Yêu cầu Hoàn tiền'}
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {showReselectButton && (
                   <div className="mt-2 pt-2 border-t border-orange-200">
                     {!canReselectNow && timeRemainingNow > 0 && (
