@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { ROLE_KIND } from "@/constants/contracts";
-import { getRoleRegisteredEvents } from "@/lib/aptosClient";
+import { ROLE_KIND, CONTRACT_ADDRESS } from "@/constants/contracts";
 import { decryptCid } from '@/lib/encryption';
+import { aptosFetch, APTOS_NODE_URL } from '@/lib/aptosClientCore';
 
 const normalizeAddress = (addr?: string | null): string => {
 	if (!addr) return '';
@@ -11,35 +11,50 @@ const normalizeAddress = (addr?: string | null): string => {
 
 const resolveProfileCid = async (address: string, roleKind: number): Promise<string | null> => {
 	const normalizedAddr = normalizeAddress(address);
-	const events = await getRoleRegisteredEvents(200);
 	
-	// Find the latest event for this address and role_kind
-	const userEvents = events
-		.filter((e: any) => {
-			const eventAddr = normalizeAddress(e?.data?.address);
-			const eventRoleKind = Number(e?.data?.role_kind || 0);
-			return eventAddr === normalizedAddr && eventRoleKind === roleKind;
-		})
-		.sort((a: any, b: any) => {
-			const timeA = Number(a?.data?.registered_at || 0);
-			const timeB = Number(b?.data?.registered_at || 0);
-			return timeB - timeA; // Latest first
-		});
-	
-	if (userEvents.length === 0) return null;
-	
-	// Get CID from the latest event
-	const latestEvent = userEvents[0];
-	const cid = latestEvent?.data?.cid;
-	
-	// Handle Option<String> format (could be null, string, or { vec: [...] })
-	if (!cid) return null;
-	if (typeof cid === 'string') return cid;
-	if (cid?.vec && Array.isArray(cid.vec) && cid.vec.length > 0) {
-		return String(cid.vec[0]);
+	// Fetch directly from Aptos API with retry logic (via aptosFetch)
+	try {
+		const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
+		const encodedEventHandle = encodeURIComponent(eventHandle);
+		const url = `${APTOS_NODE_URL}/v1/accounts/${CONTRACT_ADDRESS}/events/${encodedEventHandle}/role_registered_events?limit=200`;
+		
+		const res = await aptosFetch(url);
+		if (!res.ok) {
+			console.error('Failed to fetch role registered events:', res.status, res.statusText);
+			return null;
+		}
+		const events = await res.json();
+		
+		const userEvents = events
+			.filter((e: any) => {
+				const eventAddr = normalizeAddress(e?.data?.address);
+				const eventRoleKind = Number(e?.data?.role_kind || 0);
+				return eventAddr === normalizedAddr && eventRoleKind === roleKind;
+			})
+			.sort((a: any, b: any) => {
+				const timeA = Number(a?.data?.registered_at || 0);
+				const timeB = Number(b?.data?.registered_at || 0);
+				return timeB - timeA; // Latest first
+			});
+		
+		if (userEvents.length === 0) return null;
+		
+		// Get CID from the latest event
+		const latestEvent = userEvents[0];
+		const cid = latestEvent?.data?.cid;
+		
+		// Handle Option<String> format (could be null, string, or { vec: [...] })
+		if (!cid) return null;
+		if (typeof cid === 'string') return cid;
+		if (cid?.vec && Array.isArray(cid.vec) && cid.vec.length > 0) {
+			return String(cid.vec[0]);
+		}
+		
+		return null;
+	} catch (error) {
+		console.error('Error resolving profile CID:', error);
+		return null;
 	}
-	
-	return null;
 };
 
 const fetchProfileMetadata = async (address: string, roleParam: 'poster' | 'freelancer') => {
