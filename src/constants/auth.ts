@@ -9,7 +9,7 @@ export type RoleType = typeof ROLES[keyof typeof ROLES];
 export const ROLE_LABELS: Record<RoleType, string> = {
   [ROLES.FREELANCER]: 'Người làm tự do',
   [ROLES.POSTER]: 'Người thuê',
-  [ROLES.REVIEWER]: 'Người đánh giá',
+  [ROLES.REVIEWER]: 'Đánh giá viên',
 };
 
 export const ROLE_OPTIONS = [

@@ -203,7 +203,7 @@ export async function getDisputeData(disputeId: number) {
   if (!disputeEvent) return null;
 
   const created_at = Number(disputeEvent?.data?.created_at || 0);
-  const initial_vote_deadline = created_at + 60;
+  const initial_vote_deadline = created_at + 180 + 60;
 
   const selectedReviewers = reviewerEvents
     .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)

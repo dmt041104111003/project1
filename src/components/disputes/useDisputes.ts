@@ -366,7 +366,7 @@ export function useDisputes(account?: string | null) {
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
       setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
     } catch (e: any) {
-      setErrorMsg(e?.message || 'Không thể chọn lại reviewers');
+      setErrorMsg(e?.message || 'Không thể chọn lại đánh giá viên');
     } finally {
       setResolving(null);
     }

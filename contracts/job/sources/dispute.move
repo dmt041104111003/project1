@@ -211,13 +211,19 @@ module job_work_board::dispute {
             vector::push_back(&mut selected, mid_reviewer);
             vector::push_back(&mut selected, low_reviewer);
         } else {
+
+            vector::push_back(&mut selected, highest_reviewer);
+            let count = 1;
             j = 0;
-            while (j < n_eligible) {
+            while (j < n_eligible && count < MIN_REVIEWERS) {
                 let r = *vector::borrow(&eligible, j);
-                assert!(r != poster_addr && r != freelancer_addr, 8);
-                let busy_check = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
-                assert!(busy_check == 0, 9);
-                vector::push_back(&mut selected, r);
+                if (r != highest_reviewer && r != poster_addr && r != freelancer_addr) {
+                    let busy_check = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
+                    if (busy_check == 0) {
+                        vector::push_back(&mut selected, r);
+                        count = count + 1;
+                    };
+                };
                 j = j + 1;
             };
         };
