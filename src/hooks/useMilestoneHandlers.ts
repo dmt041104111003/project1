@@ -309,6 +309,10 @@ export function useMilestoneHandlers(
             const payload = escrowHelpers.mutualCancel(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu hủy công việc! TX: ${txHash}`);
+            
+            const { clearJobEventsCache } = await import('@/lib/aptosClient');
+            clearJobEventsCache();
+            
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
             setTimeout(() => {
               onUpdate?.();
@@ -392,6 +396,10 @@ export function useMilestoneHandlers(
             const payload = escrowHelpers.freelancerWithdraw(jobId);
             const txHash = await executeTransaction(payload);
             toast.success(`Đã gửi yêu cầu rút! Đang chờ người thuê xác nhận. TX: ${txHash}`);
+            
+            const { clearJobEventsCache } = await import('@/lib/aptosClient');
+            clearJobEventsCache();
+            
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
             setTimeout(() => {
               onUpdate?.();

@@ -8,10 +8,12 @@ import {
   getMilestoneRejectedEvents,
   getClaimTimeoutEvents,
   getDisputeResolvedEvents,
+  getMutualCancelRequestedEvents,
+  getFreelancerWithdrawRequestedEvents,
 } from './aptosEvents';
 
 export async function getJobsList(maxJobs: number = 200) {
-  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents, disputeResolvedEvents] = await Promise.all([
+  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents, disputeResolvedEvents, mutualCancelRequestedEvents, freelancerWithdrawRequestedEvents] = await Promise.all([
     getJobCreatedEvents(maxJobs),
     getJobAppliedEvents(maxJobs),
     getJobStateChangedEvents(maxJobs),
@@ -21,6 +23,8 @@ export async function getJobsList(maxJobs: number = 200) {
     getMilestoneAcceptedEvents(maxJobs),
     getMilestoneRejectedEvents(maxJobs),
     getDisputeResolvedEvents(maxJobs),
+    getMutualCancelRequestedEvents(maxJobs),
+    getFreelancerWithdrawRequestedEvents(maxJobs),
   ]);
   
   if (createdEvents.length === 0) {
@@ -146,6 +150,42 @@ export async function getJobsList(maxJobs: number = 200) {
       freelancer_stake_claimed: Number(evt?.data?.freelancer_stake_claimed || 0),
     });
   });
+
+  const mutualCancelMap = new Map<number, string | null>();
+  mutualCancelRequestedEvents
+    .filter((evt: any) => Number(evt?.data?.job_id || 0) > 0)
+    .sort((a: any, b: any) => {
+      const aTime = Number(a?.data?.requested_at || a?.sequence_number || 0);
+      const bTime = Number(b?.data?.requested_at || b?.sequence_number || 0);
+      return bTime - aTime; // Latest first
+    })
+    .forEach((evt: any) => {
+      const jobId = Number(evt?.data?.job_id || 0);
+      if (!mutualCancelMap.has(jobId)) {
+        const requestedBy = String(evt?.data?.requested_by || '');
+        const zeroAddress = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        const isZero = requestedBy === '0x0' || requestedBy === zeroAddress || requestedBy.toLowerCase() === zeroAddress.toLowerCase();
+        mutualCancelMap.set(jobId, isZero ? null : requestedBy);
+      }
+    });
+
+  const freelancerWithdrawMap = new Map<number, string | null>();
+  freelancerWithdrawRequestedEvents
+    .filter((evt: any) => Number(evt?.data?.job_id || 0) > 0)
+    .sort((a: any, b: any) => {
+      const aTime = Number(a?.data?.requested_at || a?.sequence_number || 0);
+      const bTime = Number(b?.data?.requested_at || b?.sequence_number || 0);
+      return bTime - aTime; // Latest first
+    })
+    .forEach((evt: any) => {
+      const jobId = Number(evt?.data?.job_id || 0);
+      if (!freelancerWithdrawMap.has(jobId)) {
+        const requestedBy = String(evt?.data?.requested_by || '');
+        const zeroAddress = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        const isZero = requestedBy === '0x0' || requestedBy === zeroAddress || requestedBy.toLowerCase() === zeroAddress.toLowerCase();
+        freelancerWithdrawMap.set(jobId, isZero ? null : requestedBy);
+      }
+    });
 
   const jobs = createdEvents
     .map((evt: any) => {
@@ -334,6 +374,8 @@ export async function getJobsList(maxJobs: number = 200) {
         pending_freelancer: pendingFreelancer,
         state: state,
         freelancer: freelancer,
+        mutual_cancel_requested_by: mutualCancelMap.get(jobId) || null,
+        freelancer_withdraw_requested_by: freelancerWithdrawMap.get(jobId) || null,
       };
       
       return jobResult;
