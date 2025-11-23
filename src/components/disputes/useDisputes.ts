@@ -204,6 +204,7 @@ export function useDisputes(account?: string | null) {
           milestoneIndex: lockedIndex, 
           disputeId: disputeId, 
           status: disputeStatus, 
+          createdAt: dispute.created_at,
           posterEvidenceCid, 
           freelancerEvidenceCid, 
           hasVoted, 

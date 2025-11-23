@@ -76,6 +76,7 @@ export interface DisputeData {
   disputeId: number;
   status: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
   openedAt?: string;
+  createdAt?: number;
   reason?: string;
   posterEvidenceCid?: string;
   freelancerEvidenceCid?: string;
