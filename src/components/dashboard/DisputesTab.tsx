@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
-import { useWallet } from '@/contexts/WalletContext';
 import { LoadingState, EmptyState, StatusBadge } from '@/components/common';
 import { getJobsWithDisputes, JobWithDispute } from '@/lib/aptosClient';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
@@ -197,7 +195,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
         <p className="text-sm text-gray-600 mt-1">Các công việc đang có tranh chấp</p>
       </div>
 
-      {displayedJobs.map((job, index) => {
+      {displayedJobs.map((job) => {
         const dispute = disputeJobs.find(d => d.jobId === job.id);
         if (!dispute) return null;
 

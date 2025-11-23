@@ -12,6 +12,7 @@ import { DisputesTab } from './DisputesTab';
 import { Job } from '@/constants/escrow';
 import { SegmentedTabs } from '@/components/ui';
 import { LoadingState, EmptyState } from '@/components/common';
+import { parseStatus } from './MilestoneUtils';
 
 const JOBS_PER_PAGE = 1;
 
@@ -82,7 +83,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         const hasDispute = disputeJobIds.has(job.id);
         
         if (hasDispute) {
-          const { parseStatus } = require('@/components/dashboard/MilestoneUtils');
           const hasRemainingMilestones = job.milestones?.some((m: any) => {
             const status = parseStatus(m.status);
             return status !== 'Accepted' && status !== 'Withdrawn';
@@ -99,7 +99,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         const hasDispute = disputeJobIds.has(job.id);
         
         if (hasDispute) {
-          const { parseStatus } = require('@/components/dashboard/MilestoneUtils');
           const hasRemainingMilestones = job.milestones?.some((m: any) => {
             const status = parseStatus(m.status);
             return status !== 'Accepted' && status !== 'Withdrawn';
