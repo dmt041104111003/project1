@@ -1,5 +1,4 @@
 import { CONTRACT_ADDRESS, ROLE_KIND } from '@/constants/contracts';
-import { fetchContractResource, queryTableItem } from './aptosClientCore';
 import {
   getReputationChangedEvents,
   getDisputeOpenedEvents,
@@ -7,6 +6,7 @@ import {
   getEvidenceAddedEvents,
   getReviewerDisputeEvents,
   getRoleRegisteredEvents,
+  getProofStoredEvents,
 } from './aptosEvents';
 
 export async function getUserRoles(address: string, limit: number = 200) {
@@ -80,17 +80,28 @@ export async function getReputationPoints(address: string, limit: number = 200):
 }
 
 export async function getProofData(address: string) {
-  const roleStore = await fetchContractResource('role::RoleStore');
-  const proofsHandle = roleStore?.proofs?.handle;
+  const normalizedAddr = address.toLowerCase();
+  const events = await getProofStoredEvents(200);
   
-  if (!proofsHandle) return null;
+  const userEvents = events
+    .filter((e: any) => {
+      const eventAddr = String(e.data?.address || '').toLowerCase();
+      return eventAddr === normalizedAddr;
+    })
+    .sort((a: any, b: any) => {
+      const timeA = Number(a.data?.timestamp || 0);
+      const timeB = Number(b.data?.timestamp || 0);
+      return timeB - timeA;
+    });
 
-  return queryTableItem({
-    handle: proofsHandle,
-    keyType: 'address',
-    valueType: `${CONTRACT_ADDRESS}::role::CCCDProof`,
-    key: address,
-  });
+  if (userEvents.length === 0) return null;
+
+  const latestEvent = userEvents[0];
+  return {
+    address: latestEvent.data?.address || address,
+    timestamp: latestEvent.data?.timestamp || null,
+    proof_hash: latestEvent.data?.proof_hash || null,
+  };
 }
 
 export async function getDisputeSummary(disputeId: number) {

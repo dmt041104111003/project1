@@ -103,8 +103,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     }
   };
 
-  const stateDisplay = getJobStateDisplay(job.state, job.apply_deadline, job.has_freelancer);
+  let displayState = job.state || 'Posted';
   const pendingCandidate = job.pending_freelancer || null;
+  if (pendingCandidate && displayState !== 'Completed' && displayState !== 'Cancelled' && displayState !== 'CancelledByPoster') {
+    if (displayState === 'InProgress') {
+      displayState = 'PendingApproval';
+    }
+  }
+  const stateDisplay = getJobStateDisplay(displayState, job.apply_deadline, job.has_freelancer);
   const isPoster = account?.toLowerCase() === job.poster?.toLowerCase();
   const isPendingCandidate = pendingCandidate && account?.toLowerCase() === pendingCandidate.toLowerCase();
   const canShowWithdraw = activeTab === 'posted' && 
@@ -172,7 +178,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       {canShowWithdraw && (
         <div className="mt-3 mb-3 p-3 border-2 border-blue-800 bg-gray-50 rounded">
           <p className="text-xs text-blue-800 mb-2 font-bold">
-            ⚠ Công việc chưa có người làm tự do ứng tuyển. Bạn có thể rút lại cọc và ký quỹ về ví.
+            Công việc chưa có người làm tự do ứng tuyển. Bạn có thể rút lại cọc và ký quỹ về ví.
           </p>
           <Button
             size="sm"
@@ -186,7 +192,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
         </div>
       )}
 
-      {pendingCandidate && (job.state === 'PendingApproval' || job.state === 'Posted') && (
+      {pendingCandidate && displayState !== 'Cancelled' && displayState !== 'CancelledByPoster' && (
         <div className="mt-3 mb-3 p-3 border-2 border-blue-800 bg-gray-50 rounded">
           <p className="text-xs text-blue-800 mb-2 font-bold">
             {isPoster

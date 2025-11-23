@@ -34,6 +34,7 @@ export interface JobListItem {
   apply_deadline?: number;
   poster?: string;
   freelancer?: string | null;
+  pending_freelancer?: string | null;
 }
 
 export interface JobData {
@@ -58,6 +59,7 @@ export interface Milestone {
   review_deadline?: string;
   status: string;
   evidence_cid?: { vec?: string[] } | string | null;
+  claim_timeout?: { claimed_by: string; claimed_at: number; freelancer_stake_claimed: number } | null;
 }
 
 export interface MilestoneForm {
