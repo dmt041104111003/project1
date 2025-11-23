@@ -109,6 +109,16 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     
     const applyDeadlineExpiredForApply = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
     
+    const isInProgress = stateStr === 'InProgress' || displayState === 'InProgress';
+    
+    if (isInProgress) {
+      return (
+        <div className="text-center py-4">
+          <p className="text-sm text-gray-900 font-medium">Công việc đang được thực hiện</p>
+        </div>
+      );
+    }
+    
     if (pendingCandidate && stateStr !== 'Cancelled' && stateStr !== 'CancelledByPoster') {
       const isPendingCandidate = pendingCandidate && account && pendingCandidate.toLowerCase() === account.toLowerCase();
       const isPoster = account && jobData?.poster && account.toLowerCase() === String(jobData.poster).toLowerCase();
@@ -164,25 +174,25 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       );
     }
 
-    const canApply = (isPosted && !hasFreelancer && !applyDeadlineExpiredForApply) || 
-                     (isReopenedAfterTimeout && !hasFreelancer && !applyDeadlineExpiredForApply);
+    const canApply = isPosted && !hasFreelancer && !applyDeadlineExpiredForApply;
 
-    if (!canApply && !isPosted && !isReopenedAfterTimeout) {
-      return (
-        <div className="text-center py-4">
-          <p className="text-sm text-gray-900 font-medium">
-            Job không còn ở trạng thái Open (state: {stateStr})
-          </p>
-        </div>
-      );
-    }
-
-    if (hasFreelancer && !hasTimedOutMilestone && !(isCancelled && freelancerStake === 0)) {
-      return (
-        <div className="text-center py-4">
-          <p className="text-sm text-gray-900 font-medium">Công việc đã có người làm tự do</p>
-        </div>
-      );
+    if (!canApply) {
+      if (!isPosted) {
+        return (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-900 font-medium">
+              Job không còn ở trạng thái Open (state: {stateStr})
+            </p>
+          </div>
+        );
+      }
+      if (hasFreelancer) {
+        return (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-900 font-medium">Công việc đã có người làm tự do</p>
+          </div>
+        );
+      }
     }
 
     if (applyDeadlineExpiredForApply) {

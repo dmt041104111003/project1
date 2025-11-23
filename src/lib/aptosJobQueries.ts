@@ -10,11 +10,15 @@ import {
 } from './aptosEvents';
 
 export async function getJobsList(maxJobs: number = 200) {
-  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents] = await Promise.all([
+  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents] = await Promise.all([
     getJobCreatedEvents(maxJobs),
     getJobAppliedEvents(maxJobs),
     getJobStateChangedEvents(maxJobs),
     getClaimTimeoutEvents(maxJobs),
+    getMilestoneCreatedEvents(maxJobs),
+    getMilestoneSubmittedEvents(maxJobs),
+    getMilestoneAcceptedEvents(maxJobs),
+    getMilestoneRejectedEvents(maxJobs),
   ]);
   
   if (createdEvents.length === 0) {
@@ -57,6 +61,76 @@ export async function getJobsList(maxJobs: number = 200) {
         claimTimeoutMap.set(jobId, { timestamp });
       }
     }
+  });
+
+  const milestoneCreatedMap = new Map<number, Array<{ id: number; amount: number; duration: number; review_period: number; deadline: number; review_deadline: number }>>();
+  milestoneCreatedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    if (jobId > 0) {
+      if (!milestoneCreatedMap.has(jobId)) {
+        milestoneCreatedMap.set(jobId, []);
+      }
+      const milestones = milestoneCreatedMap.get(jobId)!;
+      milestones.push({
+        id: Number(evt?.data?.milestone_id || 0),
+        amount: Number(evt?.data?.amount || 0),
+        duration: Number(evt?.data?.duration || 0),
+        review_period: Number(evt?.data?.review_period || 0),
+        deadline: Number(evt?.data?.deadline || 0),
+        review_deadline: Number(evt?.data?.review_deadline || 0),
+      });
+    }
+  });
+
+  const milestoneSubmittedMap = new Map<string, { evidence_cid: string; submitted_at: number }>();
+  milestoneSubmittedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const milestoneId = Number(evt?.data?.milestone_id || 0);
+    const key = `${jobId}:${milestoneId}`;
+    const submittedAt = Number(evt?.data?.submitted_at || 0);
+    const existing = milestoneSubmittedMap.get(key);
+    if (!existing || submittedAt > existing.submitted_at) {
+      milestoneSubmittedMap.set(key, {
+        evidence_cid: String(evt?.data?.evidence_cid || ''),
+        submitted_at: submittedAt,
+      });
+    }
+  });
+
+  const milestoneAcceptedMap = new Map<string, number>();
+  milestoneAcceptedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const milestoneId = Number(evt?.data?.milestone_id || 0);
+    const key = `${jobId}:${milestoneId}`;
+    const acceptedAt = Number(evt?.data?.accepted_at || 0);
+    const existing = milestoneAcceptedMap.get(key);
+    if (!existing || acceptedAt > existing) {
+      milestoneAcceptedMap.set(key, acceptedAt);
+    }
+  });
+
+  const milestoneRejectedMap = new Map<string, number>();
+  milestoneRejectedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const milestoneId = Number(evt?.data?.milestone_id || 0);
+    const key = `${jobId}:${milestoneId}`;
+    const rejectedAt = Number(evt?.data?.rejected_at || 0);
+    const existing = milestoneRejectedMap.get(key);
+    if (!existing || rejectedAt > existing) {
+      milestoneRejectedMap.set(key, rejectedAt);
+    }
+  });
+
+  const claimTimeoutMilestoneMap = new Map<string, { claimed_by: string; claimed_at: number; freelancer_stake_claimed: number }>();
+  claimTimeoutEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const milestoneId = Number(evt?.data?.milestone_id || 0);
+    const key = `${jobId}:${milestoneId}`;
+    claimTimeoutMilestoneMap.set(key, {
+      claimed_by: String(evt?.data?.claimed_by || ''),
+      claimed_at: Number(evt?.data?.claimed_at || 0),
+      freelancer_stake_claimed: Number(evt?.data?.freelancer_stake_claimed || 0),
+    });
   });
 
   const jobs = createdEvents
@@ -117,6 +191,67 @@ export async function getJobsList(maxJobs: number = 200) {
           }
         }
       }
+
+      const inProgressEvent = stateEvents.find((e: any) => 
+        Number(e?.data?.job_id || 0) === jobId && e?.data?.new_state === 'InProgress'
+      );
+      const startedAt = inProgressEvent ? Number(inProgressEvent?.data?.changed_at || 0) : null;
+
+      const baseMilestones = (milestoneCreatedMap.get(jobId) || [])
+        .sort((a, b) => a.id - b.id)
+        .map((m) => {
+          const key = `${jobId}:${m.id}`;
+          const submitted = milestoneSubmittedMap.get(key);
+          const accepted = milestoneAcceptedMap.get(key);
+          const rejected = milestoneRejectedMap.get(key);
+          const claimTimeout = claimTimeoutMilestoneMap.get(key);
+
+          let status: any = { __variant__: 'Pending' };
+          let deadline = m.deadline;
+          let review_deadline = m.review_deadline;
+          let evidence_cid: string | null = null;
+
+          if (claimTimeoutInfo && claimTimeoutAt > appliedAt) {
+            if (accepted) {
+              status = { __variant__: 'Accepted' };
+            } else {
+              status = { __variant__: 'Pending' };
+              deadline = 0;
+              review_deadline = 0;
+              evidence_cid = null;
+            }
+          } else {
+            if (accepted) {
+              status = { __variant__: 'Accepted' };
+            } else if (rejected) {
+              status = { __variant__: 'Locked' };
+            } else if (submitted) {
+              status = { __variant__: 'Submitted' };
+              evidence_cid = submitted.evidence_cid;
+              if (!review_deadline && submitted.submitted_at) {
+                review_deadline = submitted.submitted_at + m.review_period;
+              }
+            } else {
+              status = { __variant__: 'Pending' };
+            }
+          }
+
+          if (deadline === 0 && state === 'InProgress' && startedAt && m.id === 0) {
+            deadline = startedAt + m.duration;
+          }
+
+          return {
+            id: m.id,
+            amount: m.amount,
+            duration: m.duration,
+            deadline,
+            review_period: m.review_period,
+            review_deadline,
+            status,
+            evidence_cid,
+            claim_timeout: claimTimeout || null,
+          };
+        });
       
       const jobResult = {
         id: jobId,
@@ -125,6 +260,7 @@ export async function getJobsList(maxJobs: number = 200) {
         cid: evt?.data?.cid || '',
         total_amount: Number(evt?.data?.total_amount || 0),
         milestones_count: Number(evt?.data?.milestones_count || 0),
+        milestones: baseMilestones,
         apply_deadline: Number(evt?.data?.apply_deadline || 0),
         has_freelancer: !!freelancer && !(claimTimeoutInfo && claimTimeoutAt > appliedAt),
         pending_freelancer: pendingFreelancer,
