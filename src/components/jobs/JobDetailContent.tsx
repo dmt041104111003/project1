@@ -22,7 +22,6 @@ export const JobDetailContent: React.FC = () => {
   const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [applying, setApplying] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
-  const [reviewingCandidate, setReviewingCandidate] = useState(false);
 
   const getFreelancerFromOption = (value: any): string | null => {
     if (!value) return null;
@@ -57,6 +56,7 @@ export const JobDetailContent: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      // Query trực tiếp từ Aptos
       const { getParsedJobData } = await import('@/lib/aptosClient');
       const [jobData, ipfsRes] = await Promise.all([
         getParsedJobData(Number(jobId)),
@@ -164,36 +164,6 @@ export const JobDetailContent: React.FC = () => {
       toast.error(`Lỗi khi rút ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {
       setWithdrawingApplication(false);
-    }
-  };
-
-  const handleReviewCandidate = async (approve: boolean) => {
-    if (!jobId || !account || !jobData) {
-      toast.error('Thông tin không đầy đủ.');
-      return;
-    }
-    const posterAddr = String(jobData.poster || '').toLowerCase();
-    if (account.toLowerCase() !== posterAddr) {
-      toast.error('Chỉ người thuê mới có thể phê duyệt ứng viên.');
-      return;
-    }
-    if (!pendingFreelancerAddress) {
-      toast.error('Không có ứng viên đang chờ duyệt.');
-      return;
-    }
-    try {
-      setReviewingCandidate(true);
-      const { escrowHelpers } = await import('@/utils/contractHelpers');
-      const payload = escrowHelpers.reviewCandidate(Number(jobId), approve);
-      const wallet = (window as any).aptos;
-      if (!wallet) throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
-      const tx = await wallet.signAndSubmitTransaction(payload);
-      toast.success(tx?.hash ? `${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công! TX: ${tx.hash}` : `${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công!`);
-      setTimeout(() => window.location.reload(), 2000);
-    } catch (err: unknown) {
-      toast.error(`Lỗi khi ${approve ? 'phê duyệt' : 'từ chối'} ứng viên: ${(err as Error)?.message || 'Lỗi không xác định'}`);
-    } finally {
-      setReviewingCandidate(false);
     }
   };
 
@@ -368,8 +338,6 @@ export const JobDetailContent: React.FC = () => {
           pendingFreelancerAddress={pendingFreelancerAddress}
           withdrawingApplication={withdrawingApplication}
           onWithdrawApplication={handleWithdrawPendingApplication}
-          reviewingCandidate={reviewingCandidate}
-          onReviewCandidate={handleReviewCandidate}
         />
       </div>
     </>

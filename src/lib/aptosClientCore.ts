@@ -1,6 +1,6 @@
-import { APTOS_NODE_URL, CONTRACT_ADDRESS } from '@/constants/contracts';
+import { CONTRACT_ADDRESS } from '@/constants/contracts';
 
-export { APTOS_NODE_URL };
+export const APTOS_NODE_URL = process.env.NEXT_PUBLIC_APTOS_NODE_URL || 'https://api.testnet.aptoslabs.com';
 
 const APTOS_API_KEY =
   process.env.NEXT_PUBLIC_APTOS_API_KEY ||
@@ -165,5 +165,15 @@ export function extractHandle(data: any, path: string[]): string | null {
     }
     return null;
   }, data) as string | null;
+}
+
+export function clearJobTableCache() {
+  const escrowStoreKey = contractResource('escrow::EscrowStore');
+  resourceCache.delete(escrowStoreKey);
+  tableCache.forEach((_, key) => {
+    if (key.includes('escrow::Job')) {
+      tableCache.delete(key);
+    }
+  });
 }
 
