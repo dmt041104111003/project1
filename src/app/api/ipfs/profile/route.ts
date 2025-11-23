@@ -24,34 +24,37 @@ const resolveProfileCid = async (address: string, roleKind: number): Promise<str
 			return null;
 		}
 		const events = await res.json();
-	
-	// Find the latest event for this address and role_kind
-	const userEvents = events
-		.filter((e: any) => {
-			const eventAddr = normalizeAddress(e?.data?.address);
-			const eventRoleKind = Number(e?.data?.role_kind || 0);
-			return eventAddr === normalizedAddr && eventRoleKind === roleKind;
-		})
-		.sort((a: any, b: any) => {
-			const timeA = Number(a?.data?.registered_at || 0);
-			const timeB = Number(b?.data?.registered_at || 0);
-			return timeB - timeA; // Latest first
-		});
-	
-	if (userEvents.length === 0) return null;
-	
-	// Get CID from the latest event
-	const latestEvent = userEvents[0];
-	const cid = latestEvent?.data?.cid;
-	
-	// Handle Option<String> format (could be null, string, or { vec: [...] })
-	if (!cid) return null;
-	if (typeof cid === 'string') return cid;
-	if (cid?.vec && Array.isArray(cid.vec) && cid.vec.length > 0) {
-		return String(cid.vec[0]);
+		
+		const userEvents = events
+			.filter((e: any) => {
+				const eventAddr = normalizeAddress(e?.data?.address);
+				const eventRoleKind = Number(e?.data?.role_kind || 0);
+				return eventAddr === normalizedAddr && eventRoleKind === roleKind;
+			})
+			.sort((a: any, b: any) => {
+				const timeA = Number(a?.data?.registered_at || 0);
+				const timeB = Number(b?.data?.registered_at || 0);
+				return timeB - timeA; // Latest first
+			});
+		
+		if (userEvents.length === 0) return null;
+		
+		// Get CID from the latest event
+		const latestEvent = userEvents[0];
+		const cid = latestEvent?.data?.cid;
+		
+		// Handle Option<String> format (could be null, string, or { vec: [...] })
+		if (!cid) return null;
+		if (typeof cid === 'string') return cid;
+		if (cid?.vec && Array.isArray(cid.vec) && cid.vec.length > 0) {
+			return String(cid.vec[0]);
+		}
+		
+		return null;
+	} catch (error) {
+		console.error('Error resolving profile CID:', error);
+		return null;
 	}
-	
-	return null;
 };
 
 const fetchProfileMetadata = async (address: string, roleParam: 'poster' | 'freelancer') => {
