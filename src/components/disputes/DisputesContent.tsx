@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SegmentedTabs } from '@/components/ui';
@@ -26,13 +26,16 @@ export const DisputesContent: React.FC = () => {
     resolveToFreelancer,
   } = useDisputes(account);
   
-  console.log('[DisputesContent] Account:', account);
-  console.log('[DisputesContent] Is Reviewer:', isReviewer);
-  console.log('[DisputesContent] Checking Role:', checkingRole);
-  console.log('[DisputesContent] Disputes:', disputes);
-  console.log('[DisputesContent] Disputes count:', disputes.length);
-  console.log('[DisputesContent] Loading:', loading);
-  console.log('[DisputesContent] Error:', errorMsg);
+  // Auto refresh khi component mount hoặc khi activeTab thay đổi
+  useEffect(() => {
+    if (account && isReviewer && !checkingRole) {
+      if (activeTab === 'current') {
+        setTimeout(() => refresh({ silent: true }), 500);
+      } else {
+        setTimeout(() => fetchHistory(), 500);
+      }
+    }
+  }, [activeTab, account, isReviewer, checkingRole]);
 
   if (!account) {
     return (
@@ -70,7 +73,15 @@ export const DisputesContent: React.FC = () => {
           { value: 'history', label: 'Lịch sử đã tham gia' },
         ]}
         activeTab={activeTab}
-        onChange={(value) => setActiveTab(value as 'current' | 'history')}
+        onChange={(value) => {
+          setActiveTab(value as 'current' | 'history');
+          // Auto refresh khi đổi tab
+          if (value === 'current') {
+            setTimeout(() => refresh({ silent: true }), 500);
+          } else {
+            setTimeout(() => fetchHistory(), 500);
+          }
+        }}
       />
 
       {errorMsg && <div className="p-2 bg-blue-100 text-blue-800 text-sm border border-blue-300">{errorMsg}</div>}

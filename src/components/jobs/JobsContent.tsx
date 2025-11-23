@@ -266,7 +266,10 @@ export const JobsContent: React.FC = () => {
             <Pagination
               currentPage={currentPage}
               totalPages={Math.ceil(jobs.length / JOBS_PER_PAGE)}
-              onPageChange={setCurrentPage}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                setTimeout(() => fetchJobs(), 300);
+              }}
               showAutoPlay={false}
               showFirstLast={true}
             />
