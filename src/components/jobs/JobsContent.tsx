@@ -138,6 +138,14 @@ export const JobsContent: React.FC = () => {
               stateStr = job.state;
             }
             
+            const pendingFreelancer = (job as any).pending_freelancer || null;
+            if (pendingFreelancer && stateStr !== 'Completed' && stateStr !== 'Cancelled' && stateStr !== 'CancelledByPoster') {
+              const inProgressState = stateStr === 'InProgress';
+              if (inProgressState) {
+                stateStr = 'PendingApproval';
+              }
+            }
+            
             let freelancerAddress = '';
             let isFreelancerOfJob = false;
             if (job.freelancer) {

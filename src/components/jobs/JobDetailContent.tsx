@@ -56,7 +56,6 @@ export const JobDetailContent: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Query trực tiếp từ Aptos
       const { getParsedJobData } = await import('@/lib/aptosClient');
       const [jobData, ipfsRes] = await Promise.all([
         getParsedJobData(Number(jobId)),
@@ -66,6 +65,7 @@ export const JobDetailContent: React.FC = () => {
       if (!jobData) {
         throw new Error('Job not found');
       }
+      
       setJobData(jobData);
       
       if (ipfsRes.ok) {
@@ -136,9 +136,16 @@ export const JobDetailContent: React.FC = () => {
         toast.success('Giao dịch ứng tuyển đã được gửi!');
       }
       
+      const { clearJobEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        fetchJobDetails();
+      }, 3000);
     } catch (err: unknown) {
       toast.error(`Lỗi khi ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {
@@ -159,7 +166,17 @@ export const JobDetailContent: React.FC = () => {
       if (!wallet) throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
       const tx = await wallet.signAndSubmitTransaction(payload);
       toast.success(tx?.hash ? `Đã rút ứng tuyển! TX: ${tx.hash}` : 'Đã gửi yêu cầu rút ứng tuyển.');
-      setTimeout(() => window.location.reload(), 2000);
+      
+      const { clearJobEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      
+      setTimeout(() => {
+        fetchJobDetails();
+      }, 3000);
     } catch (err: unknown) {
       toast.error(`Lỗi khi rút ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {

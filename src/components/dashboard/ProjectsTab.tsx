@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 import { useWallet } from '@/contexts/WalletContext';
 import { JobCard } from './JobCard';
+import { FreelancerHistoryTab } from './FreelancerHistoryTab';
+import { PosterHistoryTab } from './PosterHistoryTab';
+import { DisputesTab } from './DisputesTab';
 import { Job } from '@/constants/escrow';
 import { SegmentedTabs } from '@/components/ui';
 import { LoadingState, EmptyState } from '@/components/common';
@@ -24,7 +27,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   const { account } = useWallet();
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [activeTab, setActiveTab] = useState<'posted' | 'applied'>(hasPosterRole ? 'posted' : 'applied');
+  const [activeTab, setActiveTab] = useState<'posted' | 'applied' | 'history' | 'poster_history' | 'disputes'>(hasPosterRole ? 'posted' : hasFreelancerRole ? 'applied' : 'posted');
   const [currentPage, setCurrentPage] = useState(0);
   const [postedCount, setPostedCount] = useState(0);
   const [appliedCount, setAppliedCount] = useState(0);
@@ -56,16 +59,35 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
     setLoading(true);
     try {
-      // Query trực tiếp từ Aptos events
       const { getJobsList } = await import('@/lib/aptosClient');
-      const jobsRes = await getJobsList(200);
+      const { getDisputeOpenedEvents } = await import('@/lib/aptosEvents');
+      const [jobsRes, disputeOpenedEvents] = await Promise.all([
+        getJobsList(200),
+        getDisputeOpenedEvents(200),
+      ]);
+      
       const allJobs = jobsRes.jobs || [];
       
-      const postedJobs = allJobs.filter((job: Job) => job.poster?.toLowerCase() === account.toLowerCase());
+      const disputeJobIds = new Set<number>();
+      disputeOpenedEvents.forEach((evt: any) => {
+        const jobId = Number(evt?.data?.job_id || 0);
+        if (jobId > 0) {
+          disputeJobIds.add(jobId);
+        }
+      });
+      
+      const postedJobs = allJobs.filter((job: Job) => {
+        const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
+        const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
+        const hasDispute = disputeJobIds.has(job.id);
+        return isPoster && !isCancelled && !hasDispute;
+      });
+      
       const appliedJobs = allJobs.filter((job: Job) => {
-        const freelancerMatch = job.freelancer?.toLowerCase() === account.toLowerCase();
-        const pendingMatch = job.pending_freelancer?.toLowerCase() === account.toLowerCase();
-        return freelancerMatch || pendingMatch;
+        const freelancerMatch = job.freelancer && job.freelancer.toLowerCase() === account.toLowerCase();
+        const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
+        const hasDispute = disputeJobIds.has(job.id);
+        return (freelancerMatch || pendingMatch) && !hasDispute;
       });
 
       setPostedCount(postedJobs.length);
@@ -77,15 +99,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         filteredJobs.map(async (job: Job) => {
           let enrichedJob: Job = job;
           try {
-            const { getParsedJobData } = await import('@/lib/aptosClient');
-            const [detailData, cidRes] = await Promise.all([
-              getParsedJobData(job.id),
-              fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`),
-            ]);
-
-            if (detailData) {
-              enrichedJob = { ...enrichedJob, ...detailData };
-            }
+            const cidRes = await fetch(`/api/ipfs/job?jobId=${job.id}&decodeOnly=true`);
 
             if (cidRes.ok) {
               const cidData = await cidRes.json();
@@ -175,28 +189,52 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             ...(hasPosterRole
               ? [{
                   value: 'posted' as const,
-                  label: 'Công việc Đã Đăng',
+                  label: 'Đã đăng',
                   badge: postedCount,
                 }]
               : []),
             ...(hasFreelancerRole
               ? [{
                   value: 'applied' as const,
-                  label: 'Công việc Đã Ứng tuyển',
+                  label: 'Đã tham gia',
                   badge: appliedCount,
+                }]
+              : []),
+            ...(hasPosterRole
+              ? [{
+                  value: 'poster_history' as const,
+                  label: 'Lịch sử',
+                }]
+              : []),
+            ...(hasFreelancerRole
+              ? [{
+                  value: 'history' as const,
+                  label: 'Lịch sử',
+                }]
+              : []),
+            ...((hasPosterRole || hasFreelancerRole)
+              ? [{
+                  value: 'disputes' as const,
+                  label: 'Tranh chấp',
                 }]
               : []),
           ]}
           activeTab={activeTab}
           onChange={(value) => {
-            setActiveTab(value as 'posted' | 'applied');
+            setActiveTab(value as 'posted' | 'applied' | 'history' | 'poster_history' | 'disputes');
             setCurrentPage(0);
           }}
         />
 
     
         <div className="space-y-4">
-          {loading && jobs.length === 0 ? (
+          {activeTab === 'disputes' && account ? (
+            <DisputesTab account={account} />
+          ) : activeTab === 'poster_history' && hasPosterRole && account ? (
+            <PosterHistoryTab posterAddress={account} />
+          ) : activeTab === 'history' && hasFreelancerRole && account ? (
+            <FreelancerHistoryTab freelancerAddress={account} />
+          ) : loading && jobs.length === 0 ? (
             <LoadingState message="Đang tải dự án..." />
           ) : displayedJobs.length === 0 ? (
             <EmptyState
@@ -213,7 +251,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                   key={job.id}
                   job={job}
                   account={account}
-                  activeTab={activeTab}
+                  activeTab={activeTab === 'history' || activeTab === 'poster_history' || activeTab === 'disputes' ? 'applied' : activeTab}
                   onUpdate={fetchJobs}
                 />
               ))}

@@ -67,45 +67,44 @@ export function useDisputes(account?: string | null) {
 
       const myAddr = normalizeAddress(account);
 
-      const { getJobsList, getParsedJobData, getDisputeSummary, getDisputeEvidence } = await import('@/lib/aptosClient');
+      const { getParsedJobData, getDisputeSummary, getDisputeEvidence, getDisputeData } = await import('@/lib/aptosClient');
       const { parseAddressVector } = await import('@/lib/aptosParsers');
+      const { getDisputeOpenedEvents, getReviewerDisputeEvents } = await import('@/lib/aptosEvents');
       
-      const jobsData = await getJobsList();
-      const jobItems = jobsData.jobs || [];
+      const openedEvents = await getDisputeOpenedEvents(200);
+      const reviewerEvents = await getReviewerDisputeEvents(200);
 
       const results: DisputeData[] = [];
 
-      for (const j of jobItems) {
-        const id = Number(j?.id ?? j?.job_id ?? j?.jobId ?? 0);
-        if (!id) continue;
-        
-        const detail = await getParsedJobData(id);
-        if (!detail) continue;
-        
-        // Get raw job data để lấy dispute_id
-        const { getJobData } = await import('@/lib/aptosClient');
-        const rawJobData = await getJobData(id);
-        const disputeId = rawJobData?.dispute_id;
-        if (!disputeId || (Array.isArray(disputeId?.vec) && disputeId.vec.length === 0)) continue;
+      for (const openedEvent of openedEvents) {
+        const disputeId = Number(openedEvent?.data?.dispute_id || 0);
+        if (!disputeId) continue;
 
-        const did = Array.isArray(disputeId?.vec) ? Number(disputeId.vec[0]) : Number(disputeId);
-        if (!did) continue;
-        
-        const dispute = await getDisputeData(did);
-        if (!dispute) continue;
-        
-        const selected = parseAddressVector(dispute?.selected_reviewers);
-        const isAssigned = selected
+        const jobId = Number(openedEvent?.data?.job_id || 0);
+        if (!jobId) continue;
+
+        const selectedReviewers = reviewerEvents
+          .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+          .map((e: any) => String(e?.data?.reviewer || ''))
+          .filter((addr: string) => addr.length > 0);
+
+        const isAssigned = selectedReviewers
           .map((a) => normalizeAddress(a))
           .some((a) => a === myAddr);
         if (!isAssigned) continue;
+
+        const dispute = await getDisputeData(disputeId);
+        if (!dispute) continue;
+
+        const detail = await getParsedJobData(jobId);
+        if (!detail) continue;
 
         let hasVoted = false;
         let votesCompleted = false;
         let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
         let disputeWinner: boolean | null = null;
         
-        const summary = await getDisputeSummary(did);
+        const summary = await getDisputeSummary(disputeId);
         if (summary) {
           const voted: string[] = summary.voted_reviewers || [];
           hasVoted = voted.map((a) => normalizeAddress(a)).some((a) => a === myAddr);
@@ -118,15 +117,14 @@ export function useDisputes(account?: string | null) {
         }
 
         const milestones: any[] = detail.milestones || [];
+        const milestoneId = Number(openedEvent?.data?.milestone_id || 0);
         let lockedIndex = -1;
         for (let i = 0; i < milestones.length; i++) {
-          const st = String(milestones[i]?.status || '');
-          if (st.toLowerCase().includes('locked')) { 
-            lockedIndex = i; 
-            break; 
-          }
-          if (st.toLowerCase().includes('accepted') && disputeId) {
-            if (disputeWinner === null) {
+          if (Number(milestones[i]?.id || 0) === milestoneId) {
+            const st = String(milestones[i]?.status || '');
+            if (st.toLowerCase().includes('locked')) { 
+              lockedIndex = i; 
+              break; 
             }
           }
         }
@@ -137,14 +135,14 @@ export function useDisputes(account?: string | null) {
         
         if (lockedIndex < 0) continue;
         
-        const evidence = await getDisputeEvidence(did);
+        const evidence = await getDisputeEvidence(disputeId);
         const posterEvidenceCid = evidence ? String(evidence.poster_evidence_cid || '') : '';
         const freelancerEvidenceCid = evidence ? String(evidence.freelancer_evidence_cid || '') : '';
 
         results.push({ 
-          jobId: id, 
+          jobId: jobId, 
           milestoneIndex: lockedIndex, 
-          disputeId: did, 
+          disputeId: disputeId, 
           status: disputeStatus, 
           posterEvidenceCid, 
           freelancerEvidenceCid, 

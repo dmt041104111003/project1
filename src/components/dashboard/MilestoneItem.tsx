@@ -54,6 +54,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const isAccepted = statusStr === 'Accepted';
   const isLocked = statusStr === 'Locked';
   const isWithdrawn = statusStr === 'Withdrawn';
+  const hasClaimTimeoutInfo = milestone.claim_timeout !== null && milestone.claim_timeout !== undefined;
   const deadline = Number(milestone.deadline);
   const deadlineDate = deadline ? new Date(deadline * 1000) : null;
   const rawOverdue = Boolean(deadlineDate && deadlineDate.getTime() < Date.now() && !isAccepted);
@@ -168,9 +169,9 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
     <div className={`border-2 rounded p-3 ${getCardClasses()}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex-1">
-          <h5 className="font-bold text-blue-800 text-sm">Milestone #{index + 1}</h5>
+          <h5 className="font-bold text-blue-800 text-sm">Cột mốc #{index + 1}</h5>
           <p className="text-xs text-gray-700">
-            Amount: <span className="font-bold">{(Number(milestone.amount) / 100_000_000).toFixed(2)} APT</span>
+            Số tiền: <span className="font-bold">{(Number(milestone.amount) / 100_000_000).toFixed(2)} APT</span>
           </p>
           {duration > 0 && (
             <p className="text-xs text-gray-600">
@@ -184,8 +185,8 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           )}
           {deadlineDate && (
             <p className={`text-xs ${isOverdue && !isAccepted ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
-              Deadline: {deadlineDate.toLocaleString('vi-VN')}
-              {timersStopped ? ' (Đã dừng - đang dispute)' : (isOverdue && !isAccepted ? ' (Quá hạn)' : '')}
+              Hạn chót: {deadlineDate.toLocaleString('vi-VN')}
+              {timersStopped ? ' (Đã dừng - đang tranh chấp)' : (isOverdue && !isAccepted ? ' (Quá hạn)' : '')}
             </p>
           )}
           {reviewDeadlineDate && isSubmitted && (
@@ -223,7 +224,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 
       {isWithdrawn && (
         <div className="text-xs text-gray-500 italic mb-2">
-          ⚠ Milestone này đã được người thuê rút ký quỹ khi có dispute
+          ⚠ Cột mốc này đã được người thuê rút ký quỹ khi có tranh chấp
+        </div>
+      )}
+
+      {isFreelancer && hasClaimTimeoutInfo && isPending && (
+        <div className="text-xs text-red-700 font-bold italic mb-2">
+          CÔNG VIỆC ĐÃ BỊ HỦY - Bạn đã không hoàn thành cột mốc đúng hạn. Người thuê đã đòi tiền cọc và công việc đã được mở lại cho người khác ứng tuyển.
         </div>
       )}
 
@@ -276,22 +283,22 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 
         {isAccepted && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-green-700 font-bold">✓ Đã hoàn thành</span>
+            <span className="text-xs text-green-700 font-bold">Đã hoàn thành</span>
             {votesCompleted && typeof disputeWinner === 'boolean' && (
               (disputeWinner && isFreelancer) || (!disputeWinner && isPoster) ? (
                 isClaimed || disputeWinner === null ? (
-                  <span className="text-xs text-green-600 font-bold">✓ Đã claim</span>
+                  <span className="text-xs text-green-600 font-bold">Đã đòi</span>
                 ) : (
                 <button
                   onClick={() => onClaimDispute && onClaimDispute(Number(milestone.id))}
                   disabled={interactionLocked}
                   className="bg-purple-100 text-black hover:bg-purple-200 text-xs px-3 py-2 rounded border-2 border-purple-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Claim dispute {disputeWinner ? 'payment' : 'refund'}
+                  Đòi tranh chấp {disputeWinner ? 'thanh toán' : 'hoàn tiền'}
                 </button>
                 )
               ) : (
-                <span className="text-xs text-gray-600">(Chờ bên thắng claim)</span>
+                <span className="text-xs text-gray-600">(Chờ bên thắng đòi)</span>
               )
             )}
       
@@ -300,7 +307,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
 
         {isLocked && (
           <div className="flex flex-col gap-2 w-full">
-            <span className="text-xs text-red-700 font-bold">⚠ Đã bị lock (dispute)</span>
+            <span className="text-xs text-red-700 font-bold">Đã bị khóa (tranh chấp)</span>
             {(isPoster || isFreelancer) && canInteract && (
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="flex-1 min-w-[180px]">
@@ -317,7 +324,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                   <span className="text-xs text-blue-600">Đang upload...</span>
                 )}
                 {disputeSelectedFile && (
-                  <span className="text-xs text-green-600">✓ {disputeSelectedFile.name}</span>
+                  <span className="text-xs text-green-600">{disputeSelectedFile.name}</span>
                 )}
                 {disputeEvidenceCid && (
                   <span className="text-xs text-green-700 font-bold">CID OK</span>
@@ -328,7 +335,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                     disabled={openingDispute || !disputeEvidenceCid || disputeUploading || interactionLocked}
                     className="bg-red-100 text-black hover:bg-red-200 text-xs px-3 py-2 rounded border-2 border-red-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {openingDispute ? 'Đang mở dispute...' : 'Mở Dispute'}
+                    {openingDispute ? 'Đang mở tranh chấp...' : 'Mở tranh chấp'}
                   </button>
                 )}
                 {hasDisputeId && (

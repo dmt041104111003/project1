@@ -109,7 +109,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     
     const applyDeadlineExpiredForApply = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
     
-    if (pendingCandidate && (stateStr === 'PendingApproval' || stateStr === 'Posted')) {
+    if (pendingCandidate && stateStr !== 'Cancelled' && stateStr !== 'CancelledByPoster') {
       const isPendingCandidate = pendingCandidate && account && pendingCandidate.toLowerCase() === account.toLowerCase();
       const isPoster = account && jobData?.poster && account.toLowerCase() === String(jobData.poster).toLowerCase();
       return (
@@ -232,6 +232,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   const applyDeadline = jobData.apply_deadline ? Number(jobData.apply_deadline) : 0;
   const applyDeadlineExpired = applyDeadline > 0 && applyDeadline * 1000 < Date.now();
   const hasFreelancer = freelancerAddr !== null;
+  const pendingCandidate = pendingFreelancerAddress;
   
   const freelancerStake = Number(jobData.freelancer_stake || 0);
   const isCancelled = stateStr === 'Cancelled';
@@ -252,7 +253,12 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer && !isReopenedAfterTimeout;
   
   
-  const displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
+  let displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
+  if (pendingCandidate && displayState !== 'Completed' && displayState !== 'Cancelled' && displayState !== 'CancelledByPoster') {
+    if (displayState === 'InProgress' || displayState === 'Posted') {
+      displayState = 'PendingApproval';
+    }
+  }
   const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
                       displayState === 'Posted' ? 'Open' :
                       displayState === 'PendingApproval' ? 'Chờ duyệt' :
