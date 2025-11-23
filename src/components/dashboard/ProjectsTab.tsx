@@ -80,6 +80,16 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
         const hasDispute = disputeJobIds.has(job.id);
+        
+        if (hasDispute) {
+          const { parseStatus } = require('@/components/dashboard/MilestoneUtils');
+          const hasRemainingMilestones = job.milestones?.some((m: any) => {
+            const status = parseStatus(m.status);
+            return status !== 'Accepted' && status !== 'Withdrawn';
+          });
+          return hasRemainingMilestones;
+        }
+        
         return isPoster && !isCancelled && !hasDispute;
       });
       
@@ -87,6 +97,16 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         const freelancerMatch = job.freelancer && job.freelancer.toLowerCase() === account.toLowerCase();
         const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
         const hasDispute = disputeJobIds.has(job.id);
+        
+        if (hasDispute) {
+          const { parseStatus } = require('@/components/dashboard/MilestoneUtils');
+          const hasRemainingMilestones = job.milestones?.some((m: any) => {
+            const status = parseStatus(m.status);
+            return status !== 'Accepted' && status !== 'Withdrawn';
+          });
+          return hasRemainingMilestones;
+        }
+        
         return (freelancerMatch || pendingMatch) && !hasDispute;
       });
 
