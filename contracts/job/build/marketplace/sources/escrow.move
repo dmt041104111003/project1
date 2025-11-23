@@ -385,7 +385,12 @@ module job_work_board::escrow {
         let len = vector::length(&job.milestones);
         if (len > 0) {
             let first_milestone = vector::borrow_mut(&mut job.milestones, 0);
-            if (first_milestone.deadline == 0) {
+            if (first_milestone.status != MilestoneStatus::Accepted) {
+                first_milestone.status = MilestoneStatus::Pending;
+                first_milestone.deadline = now + first_milestone.duration;
+                first_milestone.review_deadline = 0;
+                first_milestone.evidence_cid = option::none();
+            } else if (first_milestone.deadline == 0) {
                 first_milestone.deadline = now + first_milestone.duration;
             };
         };

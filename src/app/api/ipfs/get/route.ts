@@ -12,15 +12,12 @@ const findMilestoneByCid = async (
 	targetCid: string,
 	jobIdFilter?: number
 ): Promise<{ jobId: number; milestoneId: number; poster: string; freelancer: string } | null> => {
-	// Query milestone submitted events
 	const milestoneEvents = await getMilestoneSubmittedEvents(200);
 	
-	// Filter by jobId if provided
 	const filteredEvents = jobIdFilter 
 		? milestoneEvents.filter((e: any) => Number(e?.data?.job_id || 0) === jobIdFilter)
 		: milestoneEvents;
 	
-	// Find milestone with matching evidence_cid
 	for (const event of filteredEvents) {
 		const evidenceCid = String(event?.data?.evidence_cid || '');
 		if (!evidenceCid) continue;
@@ -31,7 +28,6 @@ const findMilestoneByCid = async (
 			const milestoneId = Number(event?.data?.milestone_id || 0);
 			const freelancer = normalizeAddress(event?.data?.freelancer);
 			
-			// Get poster from JobCreatedEvent
 			const createdEvents = await getJobCreatedEvents(200);
 			const jobCreatedEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
 			const poster = normalizeAddress(jobCreatedEvent?.data?.poster || '');
@@ -56,6 +52,16 @@ export async function GET(request: NextRequest) {
 		
 		const decryptedRequested = await decryptCid(cidParam) || cidParam;
 		
+		if (decodeOnly) {
+			const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
+			const ipfsUrl = `${gateway}/${decryptedRequested}`;
+			return NextResponse.json({
+				success: true,
+				cid: decryptedRequested,
+				url: ipfsUrl
+			});
+		}
+		
 		let jobIdFilter: number | undefined;
 		if (jobIdParam) {
 			const parsedJobId = Number(jobIdParam);
@@ -78,18 +84,6 @@ export async function GET(request: NextRequest) {
 		
 		if (requester !== poster && requester !== freelancer) {
 			return NextResponse.json({ success: false, error: 'Bạn không có quyền truy cập CID này' }, { status: 403 });
-		}
-		
-		if (decodeOnly) {
-			const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-			const ipfsUrl = `${gateway}/${decryptedRequested}`;
-			return NextResponse.json({
-				success: true,
-				cid: decryptedRequested,
-				url: ipfsUrl,
-				jobId,
-				milestoneId
-			});
 		}
 		
 		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
