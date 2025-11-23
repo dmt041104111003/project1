@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
+import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { LoadingState, EmptyState, StatusBadge } from '@/components/common';
 import { getJobsWithDisputes, JobWithDispute } from '@/lib/aptosClient';
@@ -10,11 +11,23 @@ import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
 
+const getWallet = async () => {
+  const wallet = (window as { aptos?: { account: () => Promise<string | { address: string }>; signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos;
+  if (!wallet) throw new Error('Không tìm thấy ví');
+  const acc = await wallet.account();
+  const address = typeof acc === 'string' ? acc : acc?.address;
+  if (!address) throw new Error('Vui lòng kết nối ví');
+  return { wallet, address };
+};
+
 const JOBS_PER_PAGE = 1;
 
 interface DisputesTabProps {
   account: string;
 }
+
+const INITIAL_VOTE_TIMEOUT = 60;
+const RESELECT_COOLDOWN = 120;
 
 export const DisputesTab: React.FC<DisputesTabProps> = ({
   account,
@@ -23,6 +36,9 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
   const [disputeJobs, setDisputeJobs] = useState<JobWithDispute[]>([]);
   const [jobsData, setJobsData] = useState<Job[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
+  const [reselecting, setReselecting] = useState<number | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<Map<number, number>>(new Map());
+  const [canReselect, setCanReselect] = useState<Map<number, boolean>>(new Map());
 
   useEffect(() => {
     const maxPageIndex = Math.max(0, Math.ceil(disputeJobs.length / JOBS_PER_PAGE) - 1);
@@ -30,6 +46,55 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
       setCurrentPage(maxPageIndex);
     }
   }, [disputeJobs.length, currentPage]);
+
+  useEffect(() => {
+    const updateTimers = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const newTimeRemaining = new Map<number, number>();
+      const newCanReselect = new Map<number, boolean>();
+
+      disputeJobs.forEach((dispute) => {
+        if (dispute.disputeStatus === 'resolved' || (dispute.votesCount || 0) >= 3) {
+          newCanReselect.set(dispute.disputeId, false);
+          return;
+        }
+
+        const votesCount = dispute.votesCount || 0;
+        if (votesCount >= 3) {
+          newCanReselect.set(dispute.disputeId, false);
+          return;
+        }
+
+        let deadline = 0;
+        if (!dispute.lastReselectionTime || dispute.lastReselectionTime === 0) {
+          deadline = dispute.initialVoteDeadline || dispute.openedAt + INITIAL_VOTE_TIMEOUT;
+        } else {
+          const lastReselectionBy = dispute.lastReselectionTime;
+          const lastVoteTime = dispute.lastVoteTime || dispute.openedAt;
+          deadline = lastReselectionBy + RESELECT_COOLDOWN;
+          if (lastVoteTime > lastReselectionBy) {
+            deadline = lastVoteTime + RESELECT_COOLDOWN;
+          }
+        }
+
+        const remaining = deadline - now;
+        if (remaining <= 0) {
+          newCanReselect.set(dispute.disputeId, true);
+          newTimeRemaining.set(dispute.disputeId, 0);
+        } else {
+          newCanReselect.set(dispute.disputeId, false);
+          newTimeRemaining.set(dispute.disputeId, remaining);
+        }
+      });
+
+      setTimeRemaining(newTimeRemaining);
+      setCanReselect(newCanReselect);
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+    return () => clearInterval(interval);
+  }, [disputeJobs]);
 
   useEffect(() => {
     const fetchDisputes = async () => {
@@ -42,7 +107,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
       setLoading(true);
       try {
         const disputes = await getJobsWithDisputes(account, 200);
-        setDisputeJobs(disputes);
+        setDisputeJobs(disputes.filter(d => d.disputeStatus !== 'resolved'));
 
         const jobsWithMetadata = await Promise.all(
           disputes.map(async (dispute) => {
@@ -150,6 +215,93 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
 
         const statusDisplay = getDisputeStatusDisplay();
 
+        const votesCount = dispute.votesCount || 0;
+        const isReselecting = reselecting === dispute.disputeId;
+        const canReselectNow = canReselect.get(dispute.disputeId) || false;
+        const timeRemainingNow = timeRemaining.get(dispute.disputeId) || 0;
+        const showReselectButton = votesCount < 3 && (account?.toLowerCase() === dispute.poster.toLowerCase() || account?.toLowerCase() === dispute.freelancer?.toLowerCase());
+
+        const handleReselect = async () => {
+          if (!canReselectNow || isReselecting) return;
+          try {
+            setReselecting(dispute.disputeId);
+            const { wallet } = await getWallet();
+            const { disputeHelpers } = await import('@/utils/contractHelpers');
+            const payload = disputeHelpers.reselectReviewers(dispute.disputeId);
+            await wallet.signAndSubmitTransaction(payload as any);
+            
+            const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+            const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+            clearJobEventsCache();
+            clearDisputeEventsCache();
+            clearJobTableCache();
+            
+            window.dispatchEvent(new CustomEvent('jobsUpdated'));
+            setTimeout(() => {
+              fetchDisputes();
+              setReselecting(null);
+            }, 3000);
+          } catch (e: any) {
+            console.error('Error reselecting reviewers:', e);
+            setReselecting(null);
+          }
+        };
+
+        const fetchDisputes = async () => {
+          if (!account) return;
+          setLoading(true);
+          try {
+            const disputes = await getJobsWithDisputes(account, 200);
+            setDisputeJobs(disputes.filter(d => d.disputeStatus !== 'resolved'));
+            
+            const jobsWithMetadata = await Promise.all(
+              disputes.filter(d => d.disputeStatus !== 'resolved').map(async (dispute) => {
+                let enrichedJob: Job = {
+                  id: dispute.jobId,
+                  cid: dispute.cid,
+                  poster: dispute.poster,
+                  freelancer: dispute.freelancer,
+                  total_amount: dispute.totalAmount,
+                  milestones_count: 0,
+                  has_freelancer: !!dispute.freelancer,
+                  state: 'Disputed',
+                };
+
+                try {
+                  const { getParsedJobData } = await import('@/lib/aptosClient');
+                  const [detailData, cidRes] = await Promise.all([
+                    getParsedJobData(dispute.jobId),
+                    fetch(`/api/ipfs/job?jobId=${dispute.jobId}&decodeOnly=true`),
+                  ]);
+
+                  if (detailData) {
+                    enrichedJob = { ...enrichedJob, ...detailData, state: 'Disputed' };
+                  }
+
+                  if (cidRes.ok) {
+                    const cidData = await cidRes.json();
+                    if (cidData?.success) {
+                      enrichedJob = {
+                        ...enrichedJob,
+                        decodedCid: cidData.cid,
+                        ipfsUrl: cidData.url,
+                      };
+                    }
+                  }
+                } catch {
+                }
+                return enrichedJob;
+              })
+            );
+
+            setJobsData(jobsWithMetadata);
+          } catch (error) {
+            console.error('Error fetching disputes:', error);
+          } finally {
+            setLoading(false);
+          }
+        };
+
         return (
           <div key={job.id} className="space-y-2">
             <div className="p-3 bg-orange-50 border-2 border-orange-300 rounded">
@@ -160,6 +312,9 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
               <div className="text-sm text-gray-700 space-y-1">
                 <div>
                   <span className="font-semibold">Cột mốc:</span> #{dispute.milestoneId + 1}
+                </div>
+                <div>
+                  <span className="font-semibold">Số phiếu:</span> {votesCount}/3
                 </div>
                 <div>
                   <span className="font-semibold">Mở bởi:</span>{' '}
@@ -174,16 +329,22 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                   <span className="font-semibold">Thời gian mở:</span>{' '}
                   {new Date(dispute.openedAt * 1000).toLocaleString('vi-VN')}
                 </div>
-                {dispute.resolvedAt && (
-                  <div className="text-green-700">
-                    <span className="font-semibold">Giải quyết lúc:</span>{' '}
-                    {new Date(dispute.resolvedAt * 1000).toLocaleString('vi-VN')}
-                  </div>
-                )}
-                {dispute.disputeWinner !== null && (
-                  <div className="text-green-700">
-                    <span className="font-semibold">Người thắng:</span>{' '}
-                    {dispute.disputeWinner ? 'Người làm tự do' : 'Người thuê'}
+                {showReselectButton && (
+                  <div className="mt-2 pt-2 border-t border-orange-200">
+                    {!canReselectNow && timeRemainingNow > 0 && (
+                      <div className="text-xs text-orange-600 mb-2">
+                        Có thể chọn lại reviewers sau: {Math.floor(timeRemainingNow / 60)}:{(timeRemainingNow % 60).toString().padStart(2, '0')}
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="!bg-white !text-black !border-2 !border-black"
+                      size="sm"
+                      disabled={!canReselectNow || isReselecting}
+                      onClick={handleReselect}
+                    >
+                      {isReselecting ? 'Đang chọn lại reviewers...' : 'Chọn lại Reviewers'}
+                    </Button>
                   </div>
                 )}
               </div>

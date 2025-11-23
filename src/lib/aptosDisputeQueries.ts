@@ -21,6 +21,10 @@ export interface JobWithDispute {
   openedAt: number;
   resolvedAt?: number;
   openedBy: string;
+  initialVoteDeadline?: number;
+  lastReselectionTime?: number;
+  lastVoteTime?: number;
+  votesCount?: number;
 }
 
 export async function getJobsWithDisputes(account: string, limit: number = 200): Promise<JobWithDispute[]> {
@@ -88,9 +92,11 @@ export async function getJobsWithDisputes(account: string, limit: number = 200):
     const summary = await getDisputeSummary(disputeId);
     let disputeStatus: 'open' | 'resolved' | 'voting' = 'open';
     let disputeWinner: boolean | null = null;
+    let votesCount = 0;
 
     if (summary) {
       const totalVotes = Number(summary.counts?.total || 0);
+      votesCount = totalVotes;
       if (summary.winner !== null && summary.winner !== undefined) {
         disputeStatus = 'resolved';
         disputeWinner = summary.winner;
@@ -115,6 +121,10 @@ export async function getJobsWithDisputes(account: string, limit: number = 200):
       openedAt: Number(openedEvent?.data?.created_at || 0),
       resolvedAt: resolved?.resolved_at,
       openedBy: String(openedEvent?.data?.opened_by || ''),
+      initialVoteDeadline: dispute.initial_vote_deadline || 0,
+      lastReselectionTime: dispute.last_reselection_time || 0,
+      lastVoteTime: dispute.last_vote_time || Number(openedEvent?.data?.created_at || 0),
+      votesCount,
     });
   }
 

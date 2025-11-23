@@ -13,6 +13,8 @@ module job_work_board::dispute {
 
     const MIN_REVIEWERS: u64 = 3; 
     const REVIEWER_VOTE_DELAY: u64 = 180; // 3 minutes
+    const RESELECT_COOLDOWN: u64 = 120; // 2 minutes
+    const INITIAL_VOTE_TIMEOUT: u64 = 60; // 1 minute
 
     enum DisputeStatus has copy, drop, store {
         Open,
@@ -37,6 +39,10 @@ module job_work_board::dispute {
         votes: vector<Vote>,
         selected_reviewers: vector<address>,
         created_at: u64,
+        last_reselection_time: u64,
+        last_reselection_by: option::Option<address>,
+        last_vote_time: u64,
+        initial_vote_deadline: u64,
     }
 
     struct DisputeStore has key {
@@ -242,6 +248,10 @@ module job_work_board::dispute {
             votes: vector::empty<Vote>(),
             selected_reviewers: selected,
             created_at,
+            last_reselection_time: 0,
+            last_reselection_by: option::none(),
+            last_vote_time: created_at,
+            initial_vote_deadline: created_at + INITIAL_VOTE_TIMEOUT,
         });
 
         let sel_len_mark = vector::length(&selected);
@@ -327,6 +337,7 @@ module job_work_board::dispute {
         };
 
         vector::push_back(&mut dispute.votes, Vote { reviewer: reviewer_addr, choice: vote_choice });
+        dispute.last_vote_time = now;
 
         // Emit vote event
         event::emit_event(
@@ -374,6 +385,147 @@ module job_work_board::dispute {
                 added_at: now,
             }
         );
+    }
+
+    public entry fun reselect_reviewers(s: &signer, dispute_id: u64) acquires DisputeStore {
+        let caller = signer::address_of(s);
+        let store = borrow_global_mut<DisputeStore>(@job_work_board);
+        let dispute = table::borrow_mut(&mut store.table, dispute_id);
+        
+        assert!(dispute.status == DisputeStatus::Voting, 1);
+        assert!(caller == dispute.poster || caller == dispute.freelancer, 2);
+        
+        let now = timestamp::now_seconds();
+        let votes_count = vector::length(&dispute.votes);
+        assert!(votes_count < MIN_REVIEWERS, 3);
+        
+        if (option::is_some(&dispute.last_reselection_by)) {
+            let last_caller = *option::borrow(&dispute.last_reselection_by);
+            if (last_caller == caller) {
+                assert!(now >= dispute.last_reselection_time + RESELECT_COOLDOWN, 4);
+            } else {
+                assert!(now >= dispute.last_vote_time + RESELECT_COOLDOWN, 5);
+            };
+        } else {
+            assert!(now >= dispute.initial_vote_deadline, 6);
+        };
+        
+        let voted_reviewers = vector::empty<address>();
+        let votes_len = vector::length(&dispute.votes);
+        let i = 0;
+        while (i < votes_len) {
+            let vote = vector::borrow(&dispute.votes, i);
+            vector::push_back(&mut voted_reviewers, vote.reviewer);
+            i = i + 1;
+        };
+        
+        let new_selected = vector::empty<address>();
+        let sel_len = vector::length(&dispute.selected_reviewers);
+        i = 0;
+        while (i < sel_len) {
+            let r = *vector::borrow(&dispute.selected_reviewers, i);
+            let has_voted = false;
+            let v = 0;
+            let voted_len = vector::length(&voted_reviewers);
+            while (v < voted_len) {
+                if (*vector::borrow(&voted_reviewers, v) == r) {
+                    has_voted = true;
+                    v = voted_len;
+                } else {
+                    v = v + 1;
+                };
+            };
+            if (has_voted) {
+                vector::push_back(&mut new_selected, r);
+            } else {
+                if (table::contains(&store.reviewer_load, r)) {
+                    let cur = table::borrow_mut(&mut store.reviewer_load, r);
+                    if (*cur > 0) { *cur = *cur - 1; };
+                };
+            };
+            i = i + 1;
+        };
+        dispute.selected_reviewers = new_selected;
+        
+        let all_reviewers = role::get_reviewers();
+        let eligible = vector::empty<address>();
+        let n_all = vector::length(&all_reviewers);
+        i = 0;
+        while (i < n_all) {
+            let r = *vector::borrow(&all_reviewers, i);
+            if (r != dispute.poster && r != dispute.freelancer) {
+                let already_voted = false;
+                let v = 0;
+                let voted_len = vector::length(&voted_reviewers);
+                while (v < voted_len) {
+                    if (*vector::borrow(&voted_reviewers, v) == r) {
+                        already_voted = true;
+                        v = voted_len;
+                    } else {
+                        v = v + 1;
+                    };
+                };
+                if (!already_voted) {
+                    let in_selected = false;
+                    let sel_len = vector::length(&dispute.selected_reviewers);
+                    v = 0;
+                    while (v < sel_len) {
+                        if (*vector::borrow(&dispute.selected_reviewers, v) == r) {
+                            in_selected = true;
+                            v = sel_len;
+                        } else {
+                            v = v + 1;
+                        };
+                    };
+                    if (!in_selected) {
+                        let busy = if (table::contains(&store.reviewer_load, r)) { *table::borrow(&store.reviewer_load, r) } else { 0 };
+                        if (busy == 0) {
+                            vector::push_back(&mut eligible, r);
+                        };
+                    };
+                };
+            };
+            i = i + 1;
+        };
+        
+        let needed = MIN_REVIEWERS - votes_count;
+        let n_eligible = vector::length(&eligible);
+        assert!(n_eligible >= needed, 7);
+        
+        let new_reviewers = vector::empty<address>();
+        i = 0;
+        while (i < needed && i < n_eligible) {
+            let r = *vector::borrow(&eligible, i);
+            vector::push_back(&mut new_reviewers, r);
+            if (table::contains(&store.reviewer_load, r)) {
+                let cur = table::borrow_mut(&mut store.reviewer_load, r);
+                *cur = *cur + 1;
+            } else {
+                table::add(&mut store.reviewer_load, r, 1);
+            };
+            event::emit_event(
+                &mut store.reviewer_events,
+                ReviewerDisputeEvent {
+                    dispute_id,
+                    job_id: dispute.job_id,
+                    milestone_id: dispute.milestone_id,
+                    reviewer: r,
+                    timestamp: now,
+                }
+            );
+            i = i + 1;
+        };
+        
+        let new_len = vector::length(&new_reviewers);
+        i = 0;
+        while (i < new_len) {
+            let r = *vector::borrow(&new_reviewers, i);
+            vector::push_back(&mut dispute.selected_reviewers, r);
+            i = i + 1;
+        };
+        
+        dispute.last_reselection_time = now;
+        dispute.last_reselection_by = option::some(caller);
     }
 
     public fun tally_votes(dispute_id: u64) acquires DisputeStore {

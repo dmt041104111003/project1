@@ -1,7 +1,7 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
-export const CONTRACT_ADDRESS = "0x8a3e24b58e5eeecd9b4281c177b4aaf75f3ca9b320826d8bb2ffd3fe9122baa2";
+export const CONTRACT_ADDRESS = "0x5abfeac81b518e27e30e8ae3c89b0d6fd43a6515ad1ff442779a39964910d2b3";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
@@ -44,6 +44,7 @@ export const DISPUTE = {
   OPEN_DISPUTE: `${CONTRACT_ADDRESS}::dispute::open_dispute`,
   ADD_EVIDENCE: `${CONTRACT_ADDRESS}::dispute::add_evidence`,
   REVIEWER_VOTE: `${CONTRACT_ADDRESS}::dispute::reviewer_vote`,
+  RESELECT_REVIEWERS: `${CONTRACT_ADDRESS}::dispute::reselect_reviewers`,
 } as const;
 
 export const REPUTATION = {

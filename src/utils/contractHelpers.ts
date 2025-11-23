@@ -100,6 +100,9 @@ export const disputeHelpers = {
   
   reviewerVote: (disputeId: number, voteChoice: boolean) =>
     buildTransactionPayload(DISPUTE.REVIEWER_VOTE, [disputeId, voteChoice]),
+  
+  reselectReviewers: (disputeId: number) =>
+    buildTransactionPayload(DISPUTE.RESELECT_REVIEWERS, [disputeId]),
 };
 
 export const roleHelpers = {

@@ -45,8 +45,7 @@ export const RolesProvider: React.FC<React.PropsWithChildren> = ({ children }) =
     }
     setLoading(true);
     try {
-      const { getUserRoles, getProofData, clearRoleEventsCache } = await import('@/lib/aptosClient');
-      clearRoleEventsCache();
+      const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
       const [rolesData, proofData] = await Promise.all([
         getUserRoles(account),
         getProofData(account),

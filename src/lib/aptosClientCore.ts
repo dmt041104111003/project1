@@ -26,7 +26,7 @@ const withAptosHeaders = (init?: RequestInit): RequestInit => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MAX_RETRY = 3;
-const CACHE_TTL = 30_000;
+const CACHE_TTL = 300_000;
 
 type CacheEntry<T> = {
   timestamp: number;

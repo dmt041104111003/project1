@@ -82,10 +82,10 @@ export const DisputesContent: React.FC = () => {
               {loading ? 'Đang tải...' : 'Làm mới danh sách'}
             </Button>
           </div>
-          {disputes.length === 0 ? (
+          {disputes.filter(d => d.status !== 'resolved').length === 0 ? (
             <Card variant="outlined" className="p-6 text-sm text-gray-700">Không có tranh chấp nào để xem xét.</Card>
           ) : (
-            disputes.map((d) => (
+            disputes.filter(d => d.status !== 'resolved').map((d) => (
               <DisputeItem
                 key={`${d.jobId}:${d.milestoneIndex}`}
                 dispute={d}

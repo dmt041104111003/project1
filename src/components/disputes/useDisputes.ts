@@ -205,6 +205,9 @@ export function useDisputes(account?: string | null) {
           disputeId: disputeId, 
           status: disputeStatus, 
           createdAt: dispute.created_at,
+          initialVoteDeadline: dispute.initial_vote_deadline || 0,
+          lastReselectionTime: dispute.last_reselection_time || 0,
+          lastVoteTime: dispute.last_vote_time || dispute.created_at,
           posterEvidenceCid, 
           freelancerEvidenceCid, 
           hasVoted, 
@@ -346,6 +349,29 @@ export function useDisputes(account?: string | null) {
     }
   }, [refresh]);
 
+  const reselectReviewers = useCallback(async (disputeIdNum: number) => {
+    try {
+      setResolving(`${disputeIdNum}:reselect`);
+      const { wallet } = await getWallet();
+      const { disputeHelpers } = await import('@/utils/contractHelpers');
+      const payload = disputeHelpers.reselectReviewers(disputeIdNum);
+      await wallet.signAndSubmitTransaction(payload as any);
+      
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
+    } catch (e: any) {
+      setErrorMsg(e?.message || 'Không thể chọn lại reviewers');
+    } finally {
+      setResolving(null);
+    }
+  }, [refresh]);
+
   return {
     loading,
     errorMsg,
@@ -367,6 +393,7 @@ export function useDisputes(account?: string | null) {
     withdrawing,
     resolveToPoster,
     resolveToFreelancer,
+    reselectReviewers,
   } as const;
 }
 
