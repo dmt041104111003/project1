@@ -112,6 +112,21 @@ export function clearJobEventsCache() {
   });
 }
 
+export function clearDisputeEventsCache() {
+  const eventHandle = `${CONTRACT_ADDRESS}::dispute::DisputeStore`;
+  const disputeEventTypes = [
+    'dispute_opened_events',
+    'dispute_voted_events',
+    'evidence_added_events',
+    'dispute_resolved_events',
+    'reviewer_events',
+  ];
+  disputeEventTypes.forEach((eventType) => {
+    const cacheKey = `${eventHandle}_${eventType}_200`;
+    eventsCache.delete(cacheKey);
+  });
+}
+
 export async function getReputationChangedEvents(limit: number = 200) {
   const eventHandle = `${CONTRACT_ADDRESS}::reputation::RepStore`;
   return queryEvents(eventHandle, 'reputation_changed_events', limit);

@@ -25,6 +25,14 @@ export const DisputesContent: React.FC = () => {
     resolveToPoster,
     resolveToFreelancer,
   } = useDisputes(account);
+  
+  console.log('[DisputesContent] Account:', account);
+  console.log('[DisputesContent] Is Reviewer:', isReviewer);
+  console.log('[DisputesContent] Checking Role:', checkingRole);
+  console.log('[DisputesContent] Disputes:', disputes);
+  console.log('[DisputesContent] Disputes count:', disputes.length);
+  console.log('[DisputesContent] Loading:', loading);
+  console.log('[DisputesContent] Error:', errorMsg);
 
   if (!account) {
     return (
