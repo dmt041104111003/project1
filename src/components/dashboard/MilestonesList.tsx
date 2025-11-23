@@ -232,7 +232,12 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
           <Pagination
             currentPage={milestonePage}
             totalPages={Math.ceil(milestones.length / MILESTONES_PER_PAGE)}
-            onPageChange={setMilestonePage}
+            onPageChange={(page) => {
+              setMilestonePage(page);
+              if (onUpdate) {
+                setTimeout(() => onUpdate(), 300);
+              }
+            }}
             showAutoPlay={false}
             showFirstLast={true}
           />

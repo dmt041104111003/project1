@@ -214,12 +214,20 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       }
     };
 
+    const handleTabChanged = () => {
+      if (account) {
+        setTimeout(() => fetchJobs(), 500);
+      }
+    };
+
     window.addEventListener('rolesUpdated', handleRolesUpdated);
     window.addEventListener('jobsUpdated', handleJobsUpdated);
+    window.addEventListener('tabChanged', handleTabChanged);
     
     return () => {
       window.removeEventListener('rolesUpdated', handleRolesUpdated);
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
+      window.removeEventListener('tabChanged', handleTabChanged);
     };
   }, [account, fetchJobs]);
 
@@ -289,6 +297,10 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           onChange={(value) => {
             setActiveTab(value as 'posted' | 'applied' | 'history' | 'poster_history' | 'disputes');
             setCurrentPage(0);
+            // Auto refresh khi đổi tab
+            if (account) {
+              setTimeout(() => fetchJobs(), 500);
+            }
           }}
         />
 
@@ -327,7 +339,12 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                   <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
-                    onPageChange={setCurrentPage}
+                    onPageChange={(page) => {
+                      setCurrentPage(page);
+                      if (account) {
+                        setTimeout(() => fetchJobs(), 300);
+                      }
+                    }}
                     showAutoPlay={false}
                     showFirstLast
                   />

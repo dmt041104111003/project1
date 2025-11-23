@@ -241,7 +241,10 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              setTimeout(() => fetchHistory(), 300);
+            }}
             showAutoPlay={false}
             showFirstLast
           />

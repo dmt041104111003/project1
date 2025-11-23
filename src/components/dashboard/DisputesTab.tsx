@@ -410,7 +410,12 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              if (account) {
+                setTimeout(() => fetchDisputes(), 300);
+              }
+            }}
             showAutoPlay={false}
             showFirstLast
           />

@@ -12,6 +12,10 @@ export const DashboardContent: React.FC = () => {
   const { hasPosterRole, hasFreelancerRole } = useRoles();
   const [activeTab, setActiveTab] = useState<TabType>('post');
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('tabChanged', { detail: { tab: activeTab } }));
+  }, []);
+
   const availableTabs = useMemo(() => {
     const tabs: TabType[] = [];
     if (hasPosterRole) tabs.push('post');
@@ -54,7 +58,11 @@ export const DashboardContent: React.FC = () => {
             : []),
         ]}
           activeTab={activeTab}
-        onChange={(value) => setActiveTab(value as TabType)}
+        onChange={(value) => {
+          setActiveTab(value as TabType);
+          // Auto refresh khi đổi tab - trigger event để các component con refresh
+          window.dispatchEvent(new CustomEvent('tabChanged', { detail: { tab: value } }));
+        }}
       />
 
       {activeTab === 'post' && hasPosterRole && (

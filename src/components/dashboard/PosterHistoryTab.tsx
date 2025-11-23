@@ -267,7 +267,11 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              // Auto refresh khi đổi trang
+              setTimeout(() => fetchHistory(), 300);
+            }}
             showAutoPlay={false}
             showFirstLast
           />
