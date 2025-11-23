@@ -158,11 +158,22 @@ export async function getDisputeEvidence(disputeId: number) {
   
   const posterAddr = String(disputeEvent?.data?.poster || '').toLowerCase();
   const freelancerAddr = String(disputeEvent?.data?.freelancer || '').toLowerCase();
-  
-  const disputeEvidences = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  const openedBy = String(disputeEvent?.data?.opened_by || '').toLowerCase();
   
   let posterEvidenceCid = '';
   let freelancerEvidenceCid = '';
+  
+  const initialEvidenceCid = disputeEvent?.data?.evidence_cid;
+  if (initialEvidenceCid) {
+    const initialCid = String(initialEvidenceCid);
+    if (openedBy === posterAddr) {
+      posterEvidenceCid = initialCid;
+    } else if (openedBy === freelancerAddr) {
+      freelancerEvidenceCid = initialCid;
+    }
+  }
+  
+  const disputeEvidences = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   
   disputeEvidences.forEach((e: any) => {
     const addedBy = String(e?.data?.added_by || '').toLowerCase();

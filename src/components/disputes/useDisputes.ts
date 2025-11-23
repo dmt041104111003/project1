@@ -5,6 +5,7 @@ import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { DisputeData, DisputeHistoryItem } from '@/constants/escrow';
 import { toast } from 'sonner';
 import { getDisputeData } from '@/lib/aptosClient';
+import { parseStatus } from '@/components/dashboard/MilestoneUtils';
 
 export function useDisputes(account?: string | null) {
   const [loading, setLoading] = useState(false);
@@ -55,43 +56,80 @@ export function useDisputes(account?: string | null) {
   }, [account]);
 
   const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
+    console.log('[useDisputes] refresh() called', { isReviewer, account, options });
     const silent = options?.silent ?? true;
     const skipLoading = options?.skipLoading ?? false;
     if (!isReviewer || !account) {
+      console.log('[useDisputes] SKIPPED: !isReviewer || !account', { isReviewer, account });
       setDisputes([]);
       return false;
     }
     try {
+      console.log('[useDisputes] Starting refresh...');
       if (!skipLoading) setLoading(true);
       setErrorMsg('');
 
       const myAddr = normalizeAddress(account);
+      console.log('[useDisputes] My normalized address:', myAddr);
+      console.log('[useDisputes] Account:', account);
 
       const { getParsedJobData, getDisputeSummary, getDisputeEvidence, getDisputeData } = await import('@/lib/aptosClient');
       const { parseAddressVector } = await import('@/lib/aptosParsers');
-      const { getDisputeOpenedEvents, getReviewerDisputeEvents } = await import('@/lib/aptosEvents');
+      const { getDisputeOpenedEvents, getReviewerDisputeEvents, clearDisputeEventsCache } = await import('@/lib/aptosEvents');
       
+      console.log('[useDisputes] Clearing cache...');
+      clearDisputeEventsCache();
+      
+      console.log('[useDisputes] Fetching events...');
       const openedEvents = await getDisputeOpenedEvents(200);
       const reviewerEvents = await getReviewerDisputeEvents(200);
+      
+      console.log('[useDisputes] Opened events count:', openedEvents.length);
+      console.log('[useDisputes] Reviewer events count:', reviewerEvents.length);
+      console.log('[useDisputes] Reviewer events:', reviewerEvents.map((e: any) => ({
+        dispute_id: e?.data?.dispute_id,
+        reviewer: e?.data?.reviewer,
+        reviewer_normalized: normalizeAddress(e?.data?.reviewer),
+      })));
 
       const results: DisputeData[] = [];
 
       for (const openedEvent of openedEvents) {
         const disputeId = Number(openedEvent?.data?.dispute_id || 0);
-        if (!disputeId) continue;
+        if (!disputeId) {
+          console.log('[useDisputes] Skipping: no disputeId');
+          continue;
+        }
 
         const jobId = Number(openedEvent?.data?.job_id || 0);
-        if (!jobId) continue;
+        if (!jobId) {
+          console.log('[useDisputes] Skipping dispute #' + disputeId + ': no jobId');
+          continue;
+        }
+        
+        console.log(`[useDisputes] Processing dispute #${disputeId}, job #${jobId}`);
 
-        const selectedReviewers = reviewerEvents
-          .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+        const disputeReviewerEvents = reviewerEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+        console.log(`[useDisputes] Dispute #${disputeId} - Found ${disputeReviewerEvents.length} reviewer events`);
+        
+        const selectedReviewers = disputeReviewerEvents
           .map((e: any) => String(e?.data?.reviewer || ''))
           .filter((addr: string) => addr.length > 0);
+        
+        console.log(`[useDisputes] Dispute #${disputeId} - Selected reviewers (raw):`, selectedReviewers);
+        
+        const normalizedReviewers = selectedReviewers.map((a: string) => normalizeAddress(a));
+        console.log(`[useDisputes] Dispute #${disputeId} - Selected reviewers (normalized):`, normalizedReviewers);
+        console.log(`[useDisputes] Dispute #${disputeId} - My address (normalized):`, myAddr);
+        console.log(`[useDisputes] Dispute #${disputeId} - Is assigned?`, normalizedReviewers.includes(myAddr));
 
-        const isAssigned = selectedReviewers
-          .map((a: string) => normalizeAddress(a))
-          .some((a: string) => a === myAddr);
-        if (!isAssigned) continue;
+        const isAssigned = normalizedReviewers.includes(myAddr);
+        if (!isAssigned) {
+          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Not assigned to me`);
+          continue;
+        }
+        
+        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: I am assigned!`);
 
         const dispute = await getDisputeData(disputeId);
         if (!dispute) continue;
@@ -118,28 +156,50 @@ export function useDisputes(account?: string | null) {
 
         const milestones: any[] = detail.milestones || [];
         const milestoneId = Number(openedEvent?.data?.milestone_id || 0);
+        console.log(`[useDisputes] Dispute #${disputeId} - Milestone ID from event: ${milestoneId}`);
+        console.log(`[useDisputes] Dispute #${disputeId} - Milestones count: ${milestones.length}`);
+        console.log(`[useDisputes] Dispute #${disputeId} - Milestones:`, milestones.map((m: any) => ({
+          id: m?.id,
+          status: m?.status,
+          status_parsed: parseStatus(m?.status),
+        })));
+        
         let lockedIndex = -1;
         for (let i = 0; i < milestones.length; i++) {
           if (Number(milestones[i]?.id || 0) === milestoneId) {
-            const st = String(milestones[i]?.status || '');
-            if (st.toLowerCase().includes('locked')) { 
+            const statusStr = parseStatus(milestones[i]?.status);
+            console.log(`[useDisputes] Dispute #${disputeId} - Milestone ${i} matches ID ${milestoneId}, status: ${statusStr}`, milestones[i]?.status);
+            if (statusStr.toLowerCase() === 'locked') { 
               lockedIndex = i; 
+              console.log(`[useDisputes] Dispute #${disputeId} - Found locked milestone at index ${i}`);
               break; 
             }
           }
         }
         
+        console.log(`[useDisputes] Dispute #${disputeId} - Locked index: ${lockedIndex}`);
+        console.log(`[useDisputes] Dispute #${disputeId} - Dispute status: ${disputeStatus}`);
+        
         if (disputeStatus === 'resolved' && lockedIndex < 0) {
+          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Resolved but no locked milestone`);
           continue; 
         }
         
-        if (lockedIndex < 0) continue;
+        if (lockedIndex < 0) {
+          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: No locked milestone found`);
+          continue;
+        }
+        
+        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: Found locked milestone at index ${lockedIndex}`);
         
         const evidence = await getDisputeEvidence(disputeId);
+        console.log(`[useDisputes] Dispute #${disputeId} - Evidence:`, evidence);
         const posterEvidenceCid = evidence ? String(evidence.poster_evidence_cid || '') : '';
         const freelancerEvidenceCid = evidence ? String(evidence.freelancer_evidence_cid || '') : '';
+        console.log(`[useDisputes] Dispute #${disputeId} - Poster CID:`, posterEvidenceCid);
+        console.log(`[useDisputes] Dispute #${disputeId} - Freelancer CID:`, freelancerEvidenceCid);
 
-        results.push({ 
+        const disputeData = { 
           jobId: jobId, 
           milestoneIndex: lockedIndex, 
           disputeId: disputeId, 
@@ -149,9 +209,14 @@ export function useDisputes(account?: string | null) {
           hasVoted, 
           votesCompleted,
           disputeWinner 
-        });
+        };
+        
+        console.log(`[useDisputes] Dispute #${disputeId} - Adding to results:`, disputeData);
+        results.push(disputeData);
       }
 
+      console.log(`[useDisputes] Final results count: ${results.length}`);
+      console.log(`[useDisputes] Final results:`, results);
       setDisputes(results);
       if (!silent) {
         toast.success('Đã làm mới danh sách tranh chấp');
@@ -241,7 +306,15 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
+      
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
@@ -256,7 +329,15 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await wallet.signAndSubmitTransaction(payload as any);
-      setTimeout(() => refresh({ silent: true, skipLoading: true }), 2000);
+      
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {

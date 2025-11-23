@@ -4,13 +4,20 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DisputeItemProps } from '@/constants/escrow';
+import { useWallet } from '@/contexts/WalletContext';
 
 export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
+  const { account } = useWallet();
   const key = `${dispute.jobId}:${dispute.milestoneIndex}`;
   const [posterEvidenceUrl, setPosterEvidenceUrl] = useState<string | null>(null);
   const [freelancerEvidenceUrl, setFreelancerEvidenceUrl] = useState<string | null>(null);
   const [loadingPoster, setLoadingPoster] = useState(false);
   const [loadingFreelancer, setLoadingFreelancer] = useState(false);
+  
+  console.log('[DisputeItem] Dispute:', dispute);
+  console.log('[DisputeItem] Poster Evidence CID:', dispute.posterEvidenceCid);
+  console.log('[DisputeItem] Freelancer Evidence CID:', dispute.freelancerEvidenceCid);
+  console.log('[DisputeItem] Account:', account);
   useEffect(() => {
     const decodeCid = async (
       encCid: string,
@@ -30,24 +37,38 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
 
       try {
         setLoading(true);
+        if (!account) {
+          console.log(`[DisputeItem] No account, cannot decode CID for ${side}`);
+          setUrl(null);
+          return;
+        }
         const params = new URLSearchParams({
           disputeId: String(dispute.disputeId),
           role: 'reviewer',
           side,
           decodeOnly: 'true',
+          address: account,
         });
+        console.log(`[DisputeItem] Decoding CID for ${side}, disputeId: ${dispute.disputeId}, CID: ${encCid}`);
         const res = await fetch(`/api/ipfs/dispute?${params.toString()}`);
+        console.log(`[DisputeItem] API response for ${side}:`, res.status, res.statusText);
         if (res.ok) {
           const data = await res.json();
+          console.log(`[DisputeItem] API data for ${side}:`, data);
           if (data.success && data.url) {
             setUrl(data.url);
+            console.log(`[DisputeItem] Successfully decoded CID for ${side}:`, data.url);
           } else {
+            console.log(`[DisputeItem] Failed to decode CID for ${side}:`, data);
             setUrl(null);
           }
         } else {
+          const errorText = await res.text();
+          console.log(`[DisputeItem] API error for ${side}:`, res.status, errorText);
           setUrl(null);
         }
-      } catch {
+      } catch (error) {
+        console.error(`[DisputeItem] Exception decoding CID for ${side}:`, error);
         setUrl(null);
       } finally {
         setLoading(false);
@@ -60,7 +81,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
     if (dispute.freelancerEvidenceCid) {
       decodeCid(dispute.freelancerEvidenceCid, 'freelancer', setFreelancerEvidenceUrl, setLoadingFreelancer);
     }
-  }, [dispute.posterEvidenceCid, dispute.freelancerEvidenceCid, dispute.disputeId]);
+  }, [dispute.posterEvidenceCid, dispute.freelancerEvidenceCid, dispute.disputeId, account]);
 
   return (
     <Card variant="outlined" className="p-4">
@@ -83,48 +104,51 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
         )}
       </div>
       {dispute.reason && <div className="text-sm text-gray-700 mb-3">Lý do: {dispute.reason}</div>}
-      {(dispute.posterEvidenceCid || dispute.freelancerEvidenceCid) && (
-        <div className="mb-3 text-xs text-gray-700">
-          {dispute.posterEvidenceCid && (
-            <div className="mb-2">
-              Bằng chứng của Người thuê:{' '}
-              {loadingPoster ? (
-                <span className="text-gray-500">Đang tải...</span>
-              ) : posterEvidenceUrl ? (
-                <a 
-                  className="text-blue-700 underline break-all hover:text-blue-900" 
-                  href={posterEvidenceUrl} 
-                  target="_blank" 
-                  rel="noreferrer"
-                >
-                  Xem bằng chứng
-                </a>
-              ) : (
-                <span className="text-red-500">Không thể giải mã CID</span>
-              )}
-            </div>
-          )}
-          {dispute.freelancerEvidenceCid && (
-            <div>
-              Bằng chứng của Người làm tự do:{' '}
-              {loadingFreelancer ? (
-                <span className="text-gray-500">Đang tải...</span>
-              ) : freelancerEvidenceUrl ? (
-                <a 
-                  className="text-blue-700 underline break-all hover:text-blue-900" 
-                  href={freelancerEvidenceUrl} 
-                  target="_blank" 
-                  rel="noreferrer"
-                >
-                  Xem bằng chứng
-                </a>
-              ) : (
-                <span className="text-red-500">Không thể giải mã CID</span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="mb-3 text-xs text-gray-700">
+        <div className="font-bold mb-2">Minh chứng:</div>
+        {dispute.posterEvidenceCid ? (
+          <div className="mb-2">
+            <span className="font-semibold">Người thuê:</span>{' '}
+            {loadingPoster ? (
+              <span className="text-gray-500">Đang giải mã...</span>
+            ) : posterEvidenceUrl ? (
+              <a 
+                className="text-blue-700 underline break-all hover:text-blue-900" 
+                href={posterEvidenceUrl} 
+                target="_blank" 
+                rel="noreferrer"
+              >
+                Xem bằng chứng
+              </a>
+            ) : (
+              <span className="text-red-500">Không thể giải mã CID: {dispute.posterEvidenceCid}</span>
+            )}
+          </div>
+        ) : (
+          <div className="mb-2 text-gray-500">Người thuê: Chưa có minh chứng</div>
+        )}
+        {dispute.freelancerEvidenceCid ? (
+          <div>
+            <span className="font-semibold">Người làm tự do:</span>{' '}
+            {loadingFreelancer ? (
+              <span className="text-gray-500">Đang giải mã...</span>
+            ) : freelancerEvidenceUrl ? (
+              <a 
+                className="text-blue-700 underline break-all hover:text-blue-900" 
+                href={freelancerEvidenceUrl} 
+                target="_blank" 
+                rel="noreferrer"
+              >
+                Xem bằng chứng
+              </a>
+            ) : (
+              <span className="text-red-500">Không thể giải mã CID: {dispute.freelancerEvidenceCid}</span>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-500">Người làm tự do: Chưa có minh chứng</div>
+        )}
+      </div>
       {dispute.status === 'resolved' ? (
         <div className="text-sm text-green-700 font-bold">
           ✓ Tranh chấp đã được giải quyết. Bên thắng có thể yêu cầu thanh toán/hoàn tiền.
