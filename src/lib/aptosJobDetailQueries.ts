@@ -282,23 +282,189 @@ export async function getParsedJobData(jobId: number) {
   let mutualCancelRequestedBy: string | null = null;
   let freelancerWithdrawRequestedBy: string | null = null;
 
-  const mutualCancelEvents = mutualCancelRequestedEvents.filter((evt: any) => Number(evt?.data?.job_id || 0) === jobId);
+  console.log('[getParsedJobData] Total mutualCancelRequestedEvents fetched:', mutualCancelRequestedEvents.length);
+  console.log('[getParsedJobData] Sample mutualCancelRequestedEvents:', mutualCancelRequestedEvents.slice(0, 3).map((e: any) => ({
+    job_id: e?.data?.job_id,
+    requested_by: e?.data?.requested_by,
+    requested_at: e?.data?.requested_at,
+    sequence_number: e?.sequence_number,
+  })));
+
+  const mutualCancelEvents = mutualCancelRequestedEvents
+    .filter((evt: any) => {
+      const eventJobId = Number(evt?.data?.job_id || 0);
+      const matches = eventJobId === jobId;
+      if (matches) {
+        console.log('[getParsedJobData] Found matching mutual cancel event:', {
+          job_id: eventJobId,
+          requested_by: evt?.data?.requested_by,
+          requested_at: evt?.data?.requested_at,
+          sequence_number: evt?.sequence_number,
+        });
+      }
+      return matches;
+    })
+    .sort((a: any, b: any) => {
+      const aTime = Number(a?.data?.requested_at || a?.sequence_number || 0);
+      const bTime = Number(b?.data?.requested_at || b?.sequence_number || 0);
+      return bTime - aTime; // Sort descending: latest first
+    });
+  
+  console.log('[getParsedJobData] Mutual cancel events for job', jobId, ':', mutualCancelEvents.length);
   if (mutualCancelEvents.length > 0) {
-    const latestEvent = mutualCancelEvents[mutualCancelEvents.length - 1];
+    console.log('[getParsedJobData] All mutual cancel events for job:', mutualCancelEvents.map((e: any) => ({
+      job_id: e?.data?.job_id,
+      requested_by: e?.data?.requested_by,
+      requested_at: e?.data?.requested_at,
+      sequence_number: e?.sequence_number,
+    })));
+  }
+  
+  if (mutualCancelEvents.length > 0) {
+    const latestEvent = mutualCancelEvents[0];
     const requestedBy = String(latestEvent?.data?.requested_by || '');
-    if (requestedBy && requestedBy !== '0x0' && requestedBy !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    const zeroAddress = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    const isZero = requestedBy === '0x0' || requestedBy === zeroAddress || requestedBy.toLowerCase() === zeroAddress.toLowerCase();
+    
+    console.log('[getParsedJobData] Latest mutual cancel event:', {
+      requestedBy,
+      isZero,
+      zeroAddress,
+      requestedByLower: requestedBy.toLowerCase(),
+      zeroAddressLower: zeroAddress.toLowerCase(),
+    });
+    
+    if (!isZero) {
       mutualCancelRequestedBy = requestedBy;
+      console.log('[getParsedJobData] Set mutualCancelRequestedBy to:', mutualCancelRequestedBy);
+    } else {
+      console.log('[getParsedJobData] Latest event has zero address, setting to null');
+    }
+  } else {
+    try {
+      const { CONTRACT_ADDRESS } = await import('@/constants/contracts');
+      const { aptosFetch, APTOS_NODE_URL } = await import('./aptosClientCore');
+      
+      const mutualCancelResponse = await aptosFetch(`${APTOS_NODE_URL}/v1/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          function: `${CONTRACT_ADDRESS}::escrow::get_mutual_cancel_requested_by`,
+          type_arguments: [],
+          arguments: [String(jobId)],
+        }),
+      });
+      
+      if (mutualCancelResponse.ok) {
+        const mutualCancelData = await mutualCancelResponse.json();
+        if (mutualCancelData && mutualCancelData[0] && mutualCancelData[0].vec && mutualCancelData[0].vec[0]) {
+          mutualCancelRequestedBy = mutualCancelData[0].vec[0];
+          console.log('[getParsedJobData] Got mutual_cancel_requested_by from view function:', mutualCancelRequestedBy);
+        }
+      }
+    } catch (e) {
+      console.error('[getParsedJobData] Error fetching mutual_cancel_requested_by from view:', e);
     }
   }
 
-  const freelancerWithdrawEvents = freelancerWithdrawRequestedEvents.filter((evt: any) => Number(evt?.data?.job_id || 0) === jobId);
+  console.log('[getParsedJobData] Total freelancerWithdrawRequestedEvents fetched:', freelancerWithdrawRequestedEvents.length);
+  console.log('[getParsedJobData] Sample freelancerWithdrawRequestedEvents:', freelancerWithdrawRequestedEvents.slice(0, 3).map((e: any) => ({
+    job_id: e?.data?.job_id,
+    requested_by: e?.data?.requested_by,
+    requested_at: e?.data?.requested_at,
+    sequence_number: e?.sequence_number,
+  })));
+
+  const freelancerWithdrawEvents = freelancerWithdrawRequestedEvents
+    .filter((evt: any) => {
+      const eventJobId = Number(evt?.data?.job_id || 0);
+      const matches = eventJobId === jobId;
+      if (matches) {
+        console.log('[getParsedJobData] Found matching freelancer withdraw event:', {
+          job_id: eventJobId,
+          requested_by: evt?.data?.requested_by,
+          requested_at: evt?.data?.requested_at,
+          sequence_number: evt?.sequence_number,
+        });
+      }
+      return matches;
+    })
+    .sort((a: any, b: any) => {
+      const aTime = Number(a?.data?.requested_at || a?.sequence_number || 0);
+      const bTime = Number(b?.data?.requested_at || b?.sequence_number || 0);
+      return bTime - aTime; // Sort descending: latest first
+    });
+  
+  console.log('[getParsedJobData] Freelancer withdraw events for job', jobId, ':', freelancerWithdrawEvents.length);
   if (freelancerWithdrawEvents.length > 0) {
-    const latestEvent = freelancerWithdrawEvents[freelancerWithdrawEvents.length - 1];
+    console.log('[getParsedJobData] All freelancer withdraw events for job:', freelancerWithdrawEvents.map((e: any) => ({
+      job_id: e?.data?.job_id,
+      requested_by: e?.data?.requested_by,
+      requested_at: e?.data?.requested_at,
+      sequence_number: e?.sequence_number,
+    })));
+  }
+  
+  if (freelancerWithdrawEvents.length > 0) {
+    const latestEvent = freelancerWithdrawEvents[0];
     const requestedBy = String(latestEvent?.data?.requested_by || '');
-    if (requestedBy && requestedBy !== '0x0' && requestedBy !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    const zeroAddress = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    const isZero = requestedBy === '0x0' || requestedBy === zeroAddress || requestedBy.toLowerCase() === zeroAddress.toLowerCase();
+    
+    console.log('[getParsedJobData] Latest freelancer withdraw event:', {
+      requestedBy,
+      isZero,
+      zeroAddress,
+      requestedByLower: requestedBy.toLowerCase(),
+      zeroAddressLower: zeroAddress.toLowerCase(),
+    });
+    
+    if (!isZero) {
       freelancerWithdrawRequestedBy = requestedBy;
+      console.log('[getParsedJobData] Set freelancerWithdrawRequestedBy to:', freelancerWithdrawRequestedBy);
+    } else {
+      console.log('[getParsedJobData] Latest event has zero address, setting to null');
+    }
+  } else {
+    try {
+      const { CONTRACT_ADDRESS } = await import('@/constants/contracts');
+      const { fetchContractResource, queryTableItem } = await import('./aptosClientCore');
+      
+      const escrowStore = await fetchContractResource<{ table: { handle: string } }>('escrow::EscrowStore');
+      
+      if (escrowStore && escrowStore.table && escrowStore.table.handle) {
+        const jobData = await queryTableItem({
+          handle: escrowStore.table.handle,
+          key: String(jobId),
+          keyType: 'u64',
+          valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
+        });
+        
+        if (jobData && jobData.freelancer_withdraw_requested_by) {
+          if (jobData.freelancer_withdraw_requested_by.vec && jobData.freelancer_withdraw_requested_by.vec[0]) {
+            freelancerWithdrawRequestedBy = jobData.freelancer_withdraw_requested_by.vec[0];
+            console.log('[getParsedJobData] Got freelancer_withdraw_requested_by from table:', freelancerWithdrawRequestedBy);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[getParsedJobData] Error fetching freelancer_withdraw_requested_by from table:', e);
     }
   }
+
+  console.log('[getParsedJobData] Final result:', {
+    jobId,
+    mutualCancelRequestedBy,
+    freelancerWithdrawRequestedBy,
+  });
+
+  console.log('[getParsedJobData] Cancel/Withdraw events:', {
+    jobId,
+    mutualCancelEvents: mutualCancelEvents.length,
+    freelancerWithdrawEvents: freelancerWithdrawEvents.length,
+    mutualCancelRequestedBy,
+    freelancerWithdrawRequestedBy,
+  });
 
   return {
     id: jobId,
