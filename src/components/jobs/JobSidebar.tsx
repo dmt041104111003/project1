@@ -51,7 +51,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (!hasFreelancerRole) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 mb-2 font-bold">
+          <p className="text-sm text-blue-800 mb-2 font-bold">
             Bạn cần có role Người làm tự do để apply job
           </p>
           <Button
@@ -94,7 +94,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (isCancelledByPoster) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 font-bold">Công việc đã bị hủy bởi người thuê</p>
+          <p className="text-sm text-blue-800 font-bold">Công việc đã bị hủy bởi người thuê</p>
         </div>
       );
     }
@@ -102,7 +102,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (isExpiredPosted && !isReopenedAfterTimeout) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 font-bold">Đã hết hạn đăng ký apply</p>
+          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký apply</p>
         </div>
       );
     }
@@ -198,7 +198,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (applyDeadlineExpiredForApply) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-red-700 font-bold">Đã hết hạn đăng ký apply</p>
+          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký apply</p>
           {isReopenedAfterTimeout && (
             <p className="text-xs text-gray-600 mt-1">
               Công việc đã được mở lại nhưng hạn đăng ký đã hết hạn
@@ -364,7 +364,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
             return (
               <div>
                 <div className="text-xs text-gray-600 mb-1">Hạn đăng ký</div>
-                <div className={`text-sm font-bold ${isExpired ? 'text-red-600' : 'text-gray-900'}`}>
+                <div className={`text-sm font-bold ${isExpired ? 'text-blue-700' : 'text-gray-900'}`}>
                   {formatted}{isExpired && ' (Hết hạn)'}
                 </div>
               </div>

@@ -111,7 +111,7 @@ export const JobsContent: React.FC = () => {
   }
 
   if (error) {
-    return <ErrorState message={`Lỗi: ${error}`} onRetry={() => window.location.reload()} />;
+    return <ErrorState message={`Lỗi: ${error}`} onRetry={fetchJobs} />;
   }
 
   return (
@@ -239,7 +239,7 @@ export const JobsContent: React.FC = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700">Hạn đăng ký:</span>
                         <span className={`font-bold text-xs ${
-                          job.apply_deadline * 1000 < Date.now() ? 'text-red-600' : 'text-gray-800'
+                          job.apply_deadline * 1000 < Date.now() ? 'text-blue-700' : 'text-gray-800'
                         }`}>
                           {(() => {
                             const deadline = Number(job.apply_deadline);

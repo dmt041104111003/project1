@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Pagination } from '@/components/ui/pagination';
-import { Button } from '@/components/ui/button';
+import { LockIcon } from '@/components/ui/LockIcon';
 import { LoadingState, EmptyState, StatusBadge } from '@/components/common';
 import { getJobsWithDisputes, JobWithDispute } from '@/lib/aptosClient';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
@@ -24,6 +24,7 @@ interface DisputesTabProps {
   account: string;
 }
 
+const REVIEWER_VOTE_DELAY = 180;
 const INITIAL_VOTE_TIMEOUT = 60;
 const RESELECT_COOLDOWN = 120;
 
@@ -66,7 +67,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
 
         let deadline = 0;
         if (!dispute.lastReselectionTime || dispute.lastReselectionTime === 0) {
-          deadline = dispute.initialVoteDeadline || dispute.openedAt + INITIAL_VOTE_TIMEOUT;
+          deadline = dispute.initialVoteDeadline || dispute.openedAt + REVIEWER_VOTE_DELAY + INITIAL_VOTE_TIMEOUT;
         } else {
           const lastReselectionBy = dispute.lastReselectionTime;
           const lastVoteTime = dispute.lastVoteTime || dispute.openedAt;
@@ -95,69 +96,96 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
     return () => clearInterval(interval);
   }, [disputeJobs]);
 
-  useEffect(() => {
-    const fetchDisputes = async () => {
-      if (!account) {
-        setDisputeJobs([]);
-        setJobsData([]);
-        return;
-      }
+  const fetchDisputes = useCallback(async () => {
+    if (!account) {
+      setDisputeJobs([]);
+      setJobsData([]);
+      return;
+    }
 
-      setLoading(true);
-      try {
-        const disputes = await getJobsWithDisputes(account, 200);
-        setDisputeJobs(disputes.filter(d => d.disputeStatus !== 'resolved'));
+    setLoading(true);
+    try {
+      const disputes = await getJobsWithDisputes(account, 200);
+      const { getParsedJobData } = await import('@/lib/aptosClient');
+      const { parseStatus } = await import('./MilestoneUtils');
+      
+      const filteredDisputes: typeof disputes = [];
+      const jobsWithMetadata: Job[] = [];
 
-        const jobsWithMetadata = await Promise.all(
-          disputes.map(async (dispute) => {
-            let enrichedJob: Job = {
-              id: dispute.jobId,
-              cid: dispute.cid,
-              poster: dispute.poster,
-              freelancer: dispute.freelancer,
-              total_amount: dispute.totalAmount,
-              milestones_count: 0,
-              has_freelancer: !!dispute.freelancer,
-              state: 'Disputed',
-            };
-
-            try {
-              const { getParsedJobData } = await import('@/lib/aptosClient');
-              const [detailData, cidRes] = await Promise.all([
-                getParsedJobData(dispute.jobId),
-                fetch(`/api/ipfs/job?jobId=${dispute.jobId}&decodeOnly=true`),
-              ]);
-
-              if (detailData) {
-                enrichedJob = { ...enrichedJob, ...detailData, state: 'Disputed' };
-              }
-
-              if (cidRes.ok) {
-                const cidData = await cidRes.json();
-                if (cidData?.success) {
-                  enrichedJob = {
-                    ...enrichedJob,
-                    decodedCid: cidData.cid,
-                    ipfsUrl: cidData.url,
-                  };
+      for (const dispute of disputes) {
+        let shouldSkip = false;
+        
+        if (dispute.disputeStatus === 'resolved') {
+          try {
+            const jobData = await getParsedJobData(dispute.jobId);
+            if (jobData?.milestones) {
+              const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
+              if (milestone) {
+                const status = parseStatus(milestone.status);
+                if (status === 'Accepted') {
+                  shouldSkip = true;
                 }
               }
-            } catch {
             }
-            return enrichedJob;
-          })
-        );
+          } catch (e) {
+            console.error('Error checking milestone status:', e);
+          }
+        }
+        
+        if (shouldSkip) {
+          continue;
+        }
+        
+        filteredDisputes.push(dispute);
+        
+        let enrichedJob: Job = {
+          id: dispute.jobId,
+          cid: dispute.cid,
+          poster: dispute.poster,
+          freelancer: dispute.freelancer,
+          total_amount: dispute.totalAmount,
+          milestones_count: 0,
+          has_freelancer: !!dispute.freelancer,
+          state: 'Disputed',
+        };
 
-        setJobsData(jobsWithMetadata);
-      } catch (error) {
-        console.error('Error fetching disputes:', error);
-        setDisputeJobs([]);
-        setJobsData([]);
-      } finally {
-        setLoading(false);
+        try {
+          const [detailData, cidRes] = await Promise.all([
+            getParsedJobData(dispute.jobId),
+            fetch(`/api/ipfs/job?jobId=${dispute.jobId}&decodeOnly=true`),
+          ]);
+
+          if (detailData) {
+            enrichedJob = { ...enrichedJob, ...detailData, state: 'Disputed' };
+          }
+
+          if (cidRes.ok) {
+            const cidData = await cidRes.json();
+            if (cidData?.success) {
+              enrichedJob = {
+                ...enrichedJob,
+                decodedCid: cidData.cid,
+                ipfsUrl: cidData.url,
+              };
+            }
+          }
+        } catch {
+        }
+        jobsWithMetadata.push(enrichedJob);
       }
-    };
 
+      setDisputeJobs(filteredDisputes);
+      setJobsData(jobsWithMetadata);
+    } catch (error) {
+      console.error('Error fetching disputes:', error);
+      setDisputeJobs([]);
+      setJobsData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [account]);
+
+  useEffect(() => {
     fetchDisputes();
 
     const handleJobsUpdated = () => {
@@ -168,7 +196,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
     return () => {
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [account]);
+  }, [fetchDisputes]);
 
   const totalPages = Math.max(1, Math.ceil(disputeJobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobsData.slice(
@@ -261,15 +289,15 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
             const tx = await wallet.signAndSubmitTransaction(payload as any);
             toast.success(`Đã yêu cầu ${dispute.disputeWinner ? 'thanh toán' : 'hoàn tiền'} tranh chấp! TX: ${tx?.hash || 'N/A'}`);
             
-            const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
-            const { clearJobTableCache } = await import('@/lib/aptosClientCore');
-            clearJobEventsCache();
-            clearDisputeEventsCache();
-            clearJobTableCache();
-            
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
             
             setTimeout(async () => {
+              const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+              const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+              clearJobEventsCache();
+              clearDisputeEventsCache();
+              clearJobTableCache();
+              
               const { getParsedJobData } = await import('@/lib/aptosClient');
               const { parseStatus } = await import('@/components/dashboard/MilestoneUtils');
               const jobData = await getParsedJobData(dispute.jobId);
@@ -287,9 +315,9 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                 }
               }
               
-              fetchDisputes();
+              await fetchDisputes();
               setClaimingDispute(null);
-            }, 3000);
+            }, 5000);
           } catch (e: any) {
             const { toast } = await import('sonner');
             toast.error(`Lỗi: ${e?.message || 'Không thể claim tranh chấp'}`);
@@ -297,66 +325,11 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
           }
         };
 
-        const fetchDisputes = async () => {
-          if (!account) return;
-          setLoading(true);
-          try {
-            const disputes = await getJobsWithDisputes(account, 200);
-            setDisputeJobs(disputes.filter(d => d.disputeStatus !== 'resolved'));
-            
-            const jobsWithMetadata = await Promise.all(
-              disputes.filter(d => d.disputeStatus !== 'resolved').map(async (dispute) => {
-                let enrichedJob: Job = {
-                  id: dispute.jobId,
-                  cid: dispute.cid,
-                  poster: dispute.poster,
-                  freelancer: dispute.freelancer,
-                  total_amount: dispute.totalAmount,
-                  milestones_count: 0,
-                  has_freelancer: !!dispute.freelancer,
-                  state: 'Disputed',
-                };
-
-                try {
-                  const { getParsedJobData } = await import('@/lib/aptosClient');
-                  const [detailData, cidRes] = await Promise.all([
-                    getParsedJobData(dispute.jobId),
-                    fetch(`/api/ipfs/job?jobId=${dispute.jobId}&decodeOnly=true`),
-                  ]);
-
-                  if (detailData) {
-                    enrichedJob = { ...enrichedJob, ...detailData, state: 'Disputed' };
-                  }
-
-                  if (cidRes.ok) {
-                    const cidData = await cidRes.json();
-                    if (cidData?.success) {
-                      enrichedJob = {
-                        ...enrichedJob,
-                        decodedCid: cidData.cid,
-                        ipfsUrl: cidData.url,
-                      };
-                    }
-                  }
-                } catch {
-                }
-                return enrichedJob;
-              })
-            );
-
-            setJobsData(jobsWithMetadata);
-          } catch (error) {
-            console.error('Error fetching disputes:', error);
-          } finally {
-            setLoading(false);
-          }
-        };
-
         return (
           <div key={job.id} className="space-y-2">
-            <div className="p-3 bg-orange-50 border-2 border-orange-300 rounded">
+            <div className="p-3 bg-blue-50 border-2 border-blue-300 rounded">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-bold text-orange-800">Tranh chấp #{dispute.disputeId}</span>
+                <span className="font-bold text-blue-800">Tranh chấp #{dispute.disputeId}</span>
                 <StatusBadge text={statusDisplay.text} variant={statusDisplay.variant} />
               </div>
               <div className="text-sm text-gray-700 space-y-1">
@@ -380,37 +353,43 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
                   {new Date(dispute.openedAt * 1000).toLocaleString('vi-VN')}
                 </div>
                 {dispute.disputeStatus === 'resolved' && dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
-                  <div className="mt-2 pt-2 border-t border-orange-200">
+                  <div className="mt-2 pt-2 border-t border-blue-200">
                     {((dispute.disputeWinner && account?.toLowerCase() === dispute.freelancer?.toLowerCase()) ||
                       (!dispute.disputeWinner && account?.toLowerCase() === dispute.poster.toLowerCase())) && (
-                      <Button
-                        variant="outline"
-                        className="!bg-green-600 !text-white !border-2 !border-green-700 hover:!bg-green-700"
-                        size="sm"
+                      <button
+                        className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                          claimingDispute === dispute.disputeId
+                            ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                            : 'bg-blue-100 text-black hover:bg-blue-200 border-blue-300'
+                        }`}
                         disabled={claimingDispute === dispute.disputeId}
                         onClick={handleClaimDispute}
                       >
+                        {claimingDispute === dispute.disputeId && <LockIcon className="w-4 h-4" />}
                         {claimingDispute === dispute.disputeId ? 'Đang xử lý...' : dispute.disputeWinner ? 'Yêu cầu Thanh toán' : 'Yêu cầu Hoàn tiền'}
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
                 {showReselectButton && (
-                  <div className="mt-2 pt-2 border-t border-orange-200">
+                  <div className="mt-2 pt-2 border-t border-blue-200">
                     {!canReselectNow && timeRemainingNow > 0 && (
-                      <div className="text-xs text-orange-600 mb-2">
+                      <div className="text-xs text-blue-700 mb-2">
                         Có thể chọn lại reviewers sau: {Math.floor(timeRemainingNow / 60)}:{(timeRemainingNow % 60).toString().padStart(2, '0')}
                       </div>
                     )}
-                    <Button
-                      variant="outline"
-                      className="!bg-white !text-black !border-2 !border-black"
-                      size="sm"
+                    <button
+                      className={`text-xs px-3 py-2 rounded border-2 font-bold flex items-center gap-2 ${
+                        !canReselectNow || isReselecting
+                          ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
+                          : 'bg-white text-black hover:bg-gray-100 border-black'
+                      }`}
                       disabled={!canReselectNow || isReselecting}
                       onClick={handleReselect}
                     >
+                      {(!canReselectNow || isReselecting) && <LockIcon className="w-4 h-4" />}
                       {isReselecting ? 'Đang chọn lại reviewers...' : 'Chọn lại Reviewers'}
-                    </Button>
+                    </button>
                   </div>
                 )}
               </div>

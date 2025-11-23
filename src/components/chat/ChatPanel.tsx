@@ -49,7 +49,7 @@ export const ChatPanel: React.FC<Props> = ({
 								}
 							</p>
 							{selectedRoom.chatAccepted && (
-								<p className="text-xs text-green-600">Đã chấp nhận</p>
+								<p className="text-xs text-blue-700">Đã chấp nhận</p>
 							)}
 						</div>
 					</div>
@@ -123,7 +123,7 @@ export const ChatPanel: React.FC<Props> = ({
 									<div className="text-xs text-gray-600">{replyingTo.senderId === currentUserId ? 'Reply chính mình:' : `Reply ${replyingTo.sender}:`}</div>
 									<div className="text-sm text-gray-800 truncate">{replyingTo.text}</div>
 									<div className="text-xs text-gray-500 mt-1">{formatTime(replyingTo.timestamp)}</div>
-									<button onClick={() => setReplyingTo(null)} className="text-xs text-red-600 hover:text-red-800 mt-1">Cancel</button>
+									<button onClick={() => setReplyingTo(null)} className="text-xs text-blue-700 hover:text-blue-800 mt-1">Cancel</button>
 								</div>
 							)}
 							<form onSubmit={handleSubmit} className="flex gap-2">

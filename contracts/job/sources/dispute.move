@@ -251,7 +251,7 @@ module job_work_board::dispute {
             last_reselection_time: 0,
             last_reselection_by: option::none(),
             last_vote_time: created_at,
-            initial_vote_deadline: created_at + INITIAL_VOTE_TIMEOUT,
+            initial_vote_deadline: created_at + REVIEWER_VOTE_DELAY + INITIAL_VOTE_TIMEOUT,
         });
 
         let sel_len_mark = vector::length(&selected);

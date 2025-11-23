@@ -15,8 +15,8 @@ interface VerificationStatusProps {
 export function VerificationStatus({ verified }: VerificationStatusProps) {
   if (!verified) return null;
   return (
-    <div className="mt-4 p-3 bg-green-50 border border-green-300 rounded">
-      <div className="text-xs text-green-700 font-bold mb-2">
+    <div className="mt-4 p-3 bg-blue-50 border border-blue-300 rounded">
+      <div className="text-xs text-blue-800 font-bold mb-2">
         {MESSAGES.SUCCESS.VERIFICATION_SUCCESS}
       </div>
     </div>
@@ -81,7 +81,7 @@ export function OCRResult({ idInfo }: OCRResultProps) {
           value={idInfo.expiry_status === 'valid' ? 'Còn hiệu lực' : 'Hết hiệu lực'}
           valueClassName={idInfo.expiry_status === 'valid' 
             ? 'text-windows-blue font-semibold' 
-            : 'text-red-600 font-semibold'
+            : 'text-blue-800 font-semibold'
           }
         />
       )}
@@ -194,17 +194,17 @@ export function VerificationResultDisplay({ result, onRetry, onSuccess, onCancel
     <div className={`p-4 rounded-lg border-2 ${
       result.success 
         ? 'bg-windows-bg border-windows-blue' 
-        : 'bg-windows-bg border-red-600'
+        : 'bg-windows-bg border-blue-600'
     }`}>
       <div className="flex items-center gap-3 mb-3">
         {result.success ? (
           <div className="text-2xl sm:text-3xl text-windows-blue">✓</div>
         ) : (
-          <div className="text-2xl sm:text-3xl text-red-600">✗</div>
+          <div className="text-2xl sm:text-3xl text-blue-800">✗</div>
         )}
         <div className="flex-1 min-w-0">
           <div className={`text-base sm:text-lg font-bold ${
-            result.success ? 'text-windows-blue' : 'text-red-600'
+            result.success ? 'text-windows-blue' : 'text-blue-800'
           }`}>
             {result.success ? 'Xác minh thành công' : 'Xác minh thất bại'}
           </div>

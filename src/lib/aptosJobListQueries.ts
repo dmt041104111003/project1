@@ -7,10 +7,11 @@ import {
   getMilestoneAcceptedEvents,
   getMilestoneRejectedEvents,
   getClaimTimeoutEvents,
+  getDisputeResolvedEvents,
 } from './aptosEvents';
 
 export async function getJobsList(maxJobs: number = 200) {
-  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents] = await Promise.all([
+  const [createdEvents, appliedEvents, stateEvents, claimTimeoutEvents, milestoneCreatedEvents, milestoneSubmittedEvents, milestoneAcceptedEvents, milestoneRejectedEvents, disputeResolvedEvents] = await Promise.all([
     getJobCreatedEvents(maxJobs),
     getJobAppliedEvents(maxJobs),
     getJobStateChangedEvents(maxJobs),
@@ -19,6 +20,7 @@ export async function getJobsList(maxJobs: number = 200) {
     getMilestoneSubmittedEvents(maxJobs),
     getMilestoneAcceptedEvents(maxJobs),
     getMilestoneRejectedEvents(maxJobs),
+    getDisputeResolvedEvents(maxJobs),
   ]);
   
   if (createdEvents.length === 0) {
@@ -121,6 +123,18 @@ export async function getJobsList(maxJobs: number = 200) {
     }
   });
 
+  const disputeResolvedMap = new Map<string, number>();
+  disputeResolvedEvents.forEach((evt: any) => {
+    const jobId = Number(evt?.data?.job_id || 0);
+    const milestoneId = Number(evt?.data?.milestone_id || 0);
+    const key = `${jobId}:${milestoneId}`;
+    const resolvedAt = Number(evt?.data?.resolved_at || 0);
+    const existing = disputeResolvedMap.get(key);
+    if (!existing || resolvedAt > existing) {
+      disputeResolvedMap.set(key, resolvedAt);
+    }
+  });
+
   const claimTimeoutMilestoneMap = new Map<string, { claimed_by: string; claimed_at: number; freelancer_stake_claimed: number }>();
   claimTimeoutEvents.forEach((evt: any) => {
     const jobId = Number(evt?.data?.job_id || 0);
@@ -210,11 +224,12 @@ export async function getJobsList(maxJobs: number = 200) {
 
       const baseMilestones = (milestoneCreatedMap.get(jobId) || [])
         .sort((a, b) => a.id - b.id)
-        .map((m) => {
+        .map((m, index) => {
           const key = `${jobId}:${m.id}`;
           const submitted = milestoneSubmittedMap.get(key);
           const accepted = milestoneAcceptedMap.get(key);
           const rejected = milestoneRejectedMap.get(key);
+          const disputeResolved = disputeResolvedMap.get(key);
           const claimTimeout = claimTimeoutMilestoneMap.get(key);
 
           let status: any = { __variant__: 'Pending' };
@@ -235,7 +250,15 @@ export async function getJobsList(maxJobs: number = 200) {
               evidence_cid = null;
             }
           } else {
-            if (accepted || (claimTimeoutByFreelancer && submitted)) {
+            if (disputeResolved) {
+              status = { __variant__: 'Accepted' };
+            } else if (accepted) {
+              if (rejected && rejected > accepted && !disputeResolved) {
+                status = { __variant__: 'Locked' };
+              } else {
+                status = { __variant__: 'Accepted' };
+              }
+            } else if (claimTimeoutByFreelancer && submitted) {
               status = { __variant__: 'Accepted' };
             } else if (rejected) {
               status = { __variant__: 'Locked' };
@@ -266,6 +289,37 @@ export async function getJobsList(maxJobs: number = 200) {
             claim_timeout: claimTimeout || null,
           };
         });
+
+      const finalMilestones = baseMilestones.map((m: any, index: number) => {
+        if (index > 0) {
+          const prevMilestone = baseMilestones[index - 1];
+          const prevStatus = prevMilestone.status;
+          const isPrevAccepted = prevStatus.__variant__ === 'Accepted';
+          
+          if (isPrevAccepted && m.deadline === 0 && state === 'InProgress') {
+            const prevKey = `${jobId}:${prevMilestone.id}`;
+            const prevSubmitted = milestoneSubmittedMap.get(prevKey);
+            const prevAccepted = milestoneAcceptedMap.get(prevKey);
+            const prevDisputeResolved = disputeResolvedMap.get(prevKey);
+            const prevClaimTimeout = claimTimeoutMilestoneMap.get(prevKey);
+            
+            const claimTimeoutByFreelancer = prevClaimTimeout && freelancerAddr && normalizeAddr(prevClaimTimeout.claimed_by) === freelancerAddr;
+            
+            const resolvedAt = prevDisputeResolved || prevAccepted || (claimTimeoutByFreelancer && prevSubmitted ? prevSubmitted.submitted_at : null);
+            
+            const now = Math.floor(Date.now() / 1000);
+            if (resolvedAt) {
+              m.deadline = resolvedAt + m.duration;
+            } else if (startedAt) {
+              m.deadline = startedAt + m.duration;
+            } else {
+              m.deadline = now + m.duration;
+            }
+          }
+        }
+        
+        return m;
+      });
       
       const jobResult = {
         id: jobId,
@@ -274,7 +328,7 @@ export async function getJobsList(maxJobs: number = 200) {
         cid: evt?.data?.cid || '',
         total_amount: Number(evt?.data?.total_amount || 0),
         milestones_count: Number(evt?.data?.milestones_count || 0),
-        milestones: baseMilestones,
+        milestones: finalMilestones,
         apply_deadline: Number(evt?.data?.apply_deadline || 0),
         has_freelancer: !!freelancer && !(claimTimeoutInfo && claimTimeoutAt > appliedAt),
         pending_freelancer: pendingFreelancer,

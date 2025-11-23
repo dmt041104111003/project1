@@ -60,29 +60,61 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
     setLoading(true);
     try {
-      const { getJobsList } = await import('@/lib/aptosClient');
-      const { getDisputeOpenedEvents } = await import('@/lib/aptosEvents');
-      const [jobsRes, disputeOpenedEvents] = await Promise.all([
+      const { getJobsList, getJobsWithDisputes } = await import('@/lib/aptosClient');
+      const { getDisputeOpenedEvents, getDisputeResolvedEvents } = await import('@/lib/aptosEvents');
+      const [jobsRes, disputeOpenedEvents, disputeResolvedEvents] = await Promise.all([
         getJobsList(200),
         getDisputeOpenedEvents(200),
+        getDisputeResolvedEvents(200),
       ]);
       
       const allJobs = jobsRes.jobs || [];
       
-      const disputeJobIds = new Set<number>();
+      const activeDisputeJobIds = new Set<number>();
       disputeOpenedEvents.forEach((evt: any) => {
         const jobId = Number(evt?.data?.job_id || 0);
         if (jobId > 0) {
-          disputeJobIds.add(jobId);
+          activeDisputeJobIds.add(jobId);
+        }
+      });
+      
+      const resolvedDisputeJobIds = new Set<number>();
+      disputeResolvedEvents.forEach((evt: any) => {
+        const jobId = Number(evt?.data?.job_id || 0);
+        if (jobId > 0) {
+          resolvedDisputeJobIds.add(jobId);
+        }
+      });
+      
+      const disputesData = await getJobsWithDisputes(account, 200);
+      const resolvedDisputesMap = new Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>();
+      disputesData.forEach((d) => {
+        if (d.disputeStatus === 'resolved') {
+          resolvedDisputesMap.set(d.jobId, { disputeStatus: d.disputeStatus, disputeWinner: d.disputeWinner, milestoneId: d.milestoneId });
         }
       });
       
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
-        const hasDispute = disputeJobIds.has(job.id);
+        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !resolvedDisputesMap.has(job.id);
         
-        if (hasDispute) {
+        if (hasActiveDispute) {
+          return false;
+        }
+        
+        const resolvedDispute = resolvedDisputesMap.get(job.id);
+        if (resolvedDispute) {
+          const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
+          if (disputeMilestone) {
+            const status = parseStatus(disputeMilestone.status);
+            if (status !== 'Accepted') {
+              return false;
+            }
+          } else {
+            return false;
+          }
+          
           const hasRemainingMilestones = job.milestones?.some((m: any) => {
             const status = parseStatus(m.status);
             return status !== 'Accepted' && status !== 'Withdrawn';
@@ -90,15 +122,30 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return hasRemainingMilestones;
         }
         
-        return isPoster && !isCancelled && !hasDispute;
+        return isPoster && !isCancelled;
       });
       
       const appliedJobs = allJobs.filter((job: Job) => {
         const freelancerMatch = job.freelancer && job.freelancer.toLowerCase() === account.toLowerCase();
         const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
-        const hasDispute = disputeJobIds.has(job.id);
+        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !resolvedDisputesMap.has(job.id);
         
-        if (hasDispute) {
+        if (hasActiveDispute) {
+          return false;
+        }
+        
+        const resolvedDispute = resolvedDisputesMap.get(job.id);
+        if (resolvedDispute) {
+          const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
+          if (disputeMilestone) {
+            const status = parseStatus(disputeMilestone.status);
+            if (status !== 'Accepted') {
+              return false;
+            }
+          } else {
+            return false;
+          }
+          
           const hasRemainingMilestones = job.milestones?.some((m: any) => {
             const status = parseStatus(m.status);
             return status !== 'Accepted' && status !== 'Withdrawn';
@@ -106,7 +153,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return hasRemainingMilestones;
         }
         
-        return (freelancerMatch || pendingMatch) && !hasDispute;
+        return (freelancerMatch || pendingMatch);
       });
 
       setPostedCount(postedJobs.length);

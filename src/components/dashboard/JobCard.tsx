@@ -174,7 +174,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
                 new Date(job.apply_deadline * 1000).toLocaleString('vi-VN')
               }
               {job.apply_deadline * 1000 < Date.now() && (
-                <span className="ml-2 text-red-600 font-bold">(Đã hết hạn)</span>
+                <span className="ml-2 text-blue-700 font-bold">(Đã hết hạn)</span>
               )}
             </div>
           )}

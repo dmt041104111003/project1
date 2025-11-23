@@ -65,9 +65,9 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
   const getToastStyles = () => {
     switch (toast.type) {
       case 'success':
-        return 'bg-green-600 text-black border border-green-700';
+        return 'bg-blue-600 text-black border border-blue-700';
       case 'error':
-        return 'bg-red-600 text-black border border-red-700';
+        return 'bg-blue-600 text-black border border-blue-700';
       case 'info':
       default:
         return 'bg-blue-600 text-black border border-blue-700';
