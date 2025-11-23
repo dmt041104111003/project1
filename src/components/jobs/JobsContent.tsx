@@ -174,8 +174,7 @@ export const JobsContent: React.FC = () => {
             const hasFreelancer = job.freelancer !== null && job.freelancer !== undefined;
             const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer;
             
-          
-            const displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
+            const displayState = stateStr;
             const stateDisplay = getJobStateDisplay(displayState, job.apply_deadline, hasFreelancer);
             
             return (
