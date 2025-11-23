@@ -1,10 +1,12 @@
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { eventsCache, inflightEventsRequests, aptosFetch, APTOS_NODE_URL } from './aptosClientCore';
 
+const EVENTS_CACHE_TTL = 300_000;
+
 export async function queryEvents(eventHandle: string, fieldName: string, limit: number = 200) {
   const cacheKey = `${eventHandle}_${fieldName}_${limit}`;
   const cached = eventsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < 30_000) {
+  if (cached && Date.now() - cached.timestamp < EVENTS_CACHE_TTL) {
     return cached.data;
   }
 
@@ -91,8 +93,11 @@ export async function getRoleRegisteredEvents(limit: number = 200) {
 
 export function clearRoleEventsCache() {
   const eventHandle = `${CONTRACT_ADDRESS}::role::RoleStore`;
-  const cacheKey = `${eventHandle}_role_registered_events_200`;
-  eventsCache.delete(cacheKey);
+  const cacheKeys = [
+    `${eventHandle}_role_registered_events_200`,
+    `${eventHandle}_proof_stored_events_200`,
+  ];
+  cacheKeys.forEach(key => eventsCache.delete(key));
 }
 
 export function clearJobEventsCache() {

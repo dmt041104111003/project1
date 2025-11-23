@@ -77,6 +77,9 @@ export interface DisputeData {
   status: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn';
   openedAt?: string;
   createdAt?: number;
+  initialVoteDeadline?: number;
+  lastReselectionTime?: number;
+  lastVoteTime?: number;
   reason?: string;
   posterEvidenceCid?: string;
   freelancerEvidenceCid?: string;

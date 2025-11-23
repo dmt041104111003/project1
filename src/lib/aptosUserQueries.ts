@@ -192,16 +192,38 @@ export async function getDisputeEvidence(disputeId: number) {
 }
 
 export async function getDisputeData(disputeId: number) {
-  const openedEvents = await getDisputeOpenedEvents(200);
-  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  const [openedEvents, reviewerEvents, votedEvents] = await Promise.all([
+    getDisputeOpenedEvents(200),
+    getReviewerDisputeEvents(200),
+    getDisputeVotedEvents(200),
+  ]);
   
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   if (!disputeEvent) return null;
 
-  const reviewerEvents = await getReviewerDisputeEvents(200);
+  const created_at = Number(disputeEvent?.data?.created_at || 0);
+  const initial_vote_deadline = created_at + 60;
+
   const selectedReviewers = reviewerEvents
     .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
     .map((e: any) => String(e?.data?.reviewer || ''))
     .filter((addr: string) => addr.length > 0);
+
+  const disputeVotes = votedEvents
+    .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+    .sort((a: any, b: any) => Number(b?.data?.voted_at || 0) - Number(a?.data?.voted_at || 0));
+  
+  const last_vote_time = disputeVotes.length > 0 
+    ? Number(disputeVotes[0]?.data?.voted_at || 0) 
+    : created_at;
+
+  const reviewerEventsForDispute = reviewerEvents
+    .filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId)
+    .sort((a: any, b: any) => Number(b?.data?.timestamp || 0) - Number(a?.data?.timestamp || 0));
+  
+  const last_reselection_time = reviewerEventsForDispute.length > 0
+    ? Number(reviewerEventsForDispute[0]?.data?.timestamp || 0)
+    : 0;
 
   return {
     dispute_id: disputeId,
@@ -213,7 +235,10 @@ export async function getDisputeData(disputeId: number) {
     evidence_cid: disputeEvent?.data?.evidence_cid || null,
     selected_reviewers: { vec: selectedReviewers },
     selected_reviewers_count: Number(disputeEvent?.data?.selected_reviewers_count || 0),
-    created_at: Number(disputeEvent?.data?.created_at || 0),
+    created_at,
+    initial_vote_deadline,
+    last_vote_time,
+    last_reselection_time,
   };
 }
 
