@@ -1,6 +1,5 @@
 import {
   getJobCreatedEvents,
-  getJobStateChangedEvents,
   getDisputeOpenedEvents,
   getDisputeResolvedEvents,
 } from './aptosEvents';
@@ -99,28 +98,8 @@ export async function getJobsWithDisputes(account: string, limit: number = 200):
       votesCount = totalVotes;
       if (summary.winner !== null && summary.winner !== undefined) {
         disputeStatus = 'resolved';
-
         disputeWinner = summary.winner;
-        
-        try {
-          const jobData = await getParsedJobData(jobId);
-          if (jobData?.milestones) {
-            const milestone = jobData.milestones.find((m: any) => Number(m.id) === milestoneId);
-            if (milestone) {
-              const { parseStatus } = await import('@/components/dashboard/MilestoneUtils');
-              const status = parseStatus(milestone.status);
-              const resolved = disputeResolvedMap.get(disputeId);
-              const resolvedAt = resolved?.resolved_at || 0;
-              const now = Math.floor(Date.now() / 1000);
-              
-              if (status === 'Accepted' && resolvedAt > 0 && (now - resolvedAt) > 10) {
-                disputeWinner = null;
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Error checking milestone status for dispute winner:', e);
-        }
+      
       } else if (totalVotes > 0) {
         disputeStatus = 'voting';
       }

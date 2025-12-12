@@ -152,12 +152,23 @@ export function prepareInputData(cccdData: CCCDData): InputData {
   };
 }
 
+// ============ BYPASS MODE FOR TESTING ============
+const BYPASS_DUPLICATE_CHECK = true;
+// =================================================
+
 export async function checkDuplicateProof(
   extendedPublicSignals: any,
   publicSignals: any,
   inputData: InputData,
   normalizedRequester: string
 ): Promise<{ isDuplicate: boolean; matchedAddress: string | null }> {
+  // ========== BYPASS MODE ==========
+  if (BYPASS_DUPLICATE_CHECK) {
+    console.log('[ZK Proof] ⚠️  BYPASS MODE: Bỏ qua kiểm tra duplicate!');
+    return { isDuplicate: false, matchedAddress: null };
+  }
+  // =================================
+  
   try {
     const roleStore = await fetchContractResource('role::RoleStore');
     const identityHashesHandle = roleStore?.identity_hashes?.handle;

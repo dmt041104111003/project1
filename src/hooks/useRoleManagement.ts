@@ -105,14 +105,19 @@ export function useRoleManagement(account: string | null) {
         throw new Error(MESSAGES.ERROR.WALLET_NOT_CONNECTED);
       }
       
+      // Add random suffix for testing (to generate different hash, avoid duplicate)
+      const testSuffix = `_TEST_${Date.now()}`;
+      const idNumberForZkp = `${idInfo.id_number}${testSuffix}`;
+      const nameForZkp = `${idInfo.name}${testSuffix}`;
+      
       const zkRes = await fetch(API_ENDPOINTS.ZK_GENERATE_PROOF, {
         credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: account,
-          id_number: idInfo.id_number,
-          name: idInfo.name,
+          id_number: idNumberForZkp,
+          name: nameForZkp,
           date_of_birth: idInfo.date_of_birth,
           gender: idInfo.gender,
           nationality: idInfo.nationality,

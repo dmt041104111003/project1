@@ -109,23 +109,20 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
         let shouldSkip = false;
         
         if (dispute.disputeStatus === 'resolved') {
-          if (dispute.disputeWinner === null || dispute.disputeWinner === undefined) {
-            try {
-              const jobData = await getParsedJobData(dispute.jobId);
-              if (jobData?.milestones) {
-                const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
-                if (milestone) {
-                  const status = parseStatus(milestone.status);
-                  if (status === 'Accepted') {
-                    shouldSkip = true;
-                  }
+          try {
+            const jobData = await getParsedJobData(dispute.jobId);
+            if (jobData?.milestones) {
+              const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
+              if (milestone) {
+                const status = parseStatus(milestone.status);
+                if (status === 'Accepted' && jobData.state !== 'Disputed') {
+                  shouldSkip = true;
                 }
               }
-            } catch (e) {
-              console.error('Error checking milestone status:', e);
             }
+          } catch (e) {
+            console.error('Error checking milestone status:', e);
           }
-          // Nếu dispute_winner !== null, không skip - hiển thị để user có thể claim
         }
         
         if (shouldSkip) {
