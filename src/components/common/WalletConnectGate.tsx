@@ -37,7 +37,7 @@ export const WalletConnectGate: React.FC<WalletConnectGateProps> = ({
           <div className="space-y-4">
             <Button
               size="lg"
-              onClick={connectWallet}
+              onClick={() => connectWallet()}
               disabled={isConnecting}
               className="flex items-center gap-2 mx-auto"
             >

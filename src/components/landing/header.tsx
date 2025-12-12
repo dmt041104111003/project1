@@ -177,7 +177,7 @@ export function Header() {
                 {!account ? (
                   <button
                     className="px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
-                    onClick={connectWallet}
+                    onClick={() => connectWallet()}
                     disabled={isConnecting}
                   >
                     {isConnecting ? 'Đang kết nối...' : 'Kết nối ví'}
@@ -194,7 +194,7 @@ export function Header() {
                     </Link>
                     <button
                       className="px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
-                      onClick={disconnectWallet}
+                      onClick={() => disconnectWallet()}
                     >
                       Ngắt kết nối
                     </button>
