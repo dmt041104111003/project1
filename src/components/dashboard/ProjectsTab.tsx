@@ -12,7 +12,6 @@ import { DisputesTab } from './DisputesTab';
 import { Job } from '@/constants/escrow';
 import { SegmentedTabs } from '@/components/ui';
 import { LoadingState, EmptyState } from '@/components/common';
-import { parseStatus } from './MilestoneUtils';
 
 const JOBS_PER_PAGE = 1;
 
@@ -33,6 +32,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   const [postedCount, setPostedCount] = useState(0);
   const [appliedCount, setAppliedCount] = useState(0);
   const [resolvedDisputesMap, setResolvedDisputesMap] = useState<Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>>(new Map());
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (!hasPosterRole && activeTab === 'posted') {
@@ -96,6 +96,13 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       });
       setResolvedDisputesMap(newResolvedDisputesMap);
       
+      const { checkDisputeWinnerPendingClaim } = await import('@/lib/aptosClientCore');
+      const pendingClaimMap = new Map<number, boolean>();
+      for (const [jobId] of newResolvedDisputesMap) {
+        const { hasPendingClaim } = await checkDisputeWinnerPendingClaim(jobId);
+        pendingClaimMap.set(jobId, hasPendingClaim);
+      }
+      
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
@@ -106,26 +113,13 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return false;
         }
         
-        // Ẩn job đang có dispute chưa resolved
         if (hasActiveDispute) {
           return false;
         }
         
-        // Nếu có resolved dispute, kiểm tra đã claim chưa
-        const resolvedDispute = newResolvedDisputesMap.get(job.id);
-        if (resolvedDispute) {
-          const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
-          if (disputeMilestone) {
-            const status = parseStatus(disputeMilestone.status);
-            // Nếu milestone Accepted VÀ job state !== Disputed → đã claim xong → hiển thị
-            if (status === 'Accepted' && job.state !== 'Disputed') {
-              return isPoster;
-            }
-          }
-          // Nếu chưa claim (job vẫn Disputed) → ẩn (hiển thị ở Disputes tab)
-          if (job.state === 'Disputed') {
-            return false;
-          }
+        const hasPendingClaim = pendingClaimMap.get(job.id);
+        if (hasPendingClaim) {
+          return false;
         }
         
         return isPoster;
@@ -146,20 +140,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return false;
         }
         
-        const resolvedDispute = newResolvedDisputesMap.get(job.id);
-        if (resolvedDispute) {
-          const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
-          if (disputeMilestone) {
-            const status = parseStatus(disputeMilestone.status);
-            // Nếu milestone Accepted VÀ job state !== Disputed → đã claim xong → hiển thị
-            if (status === 'Accepted' && job.state !== 'Disputed') {
-              return (freelancerMatch || pendingMatch);
-            }
-          }
-          // Nếu chưa claim (job vẫn Disputed) → ẩn (hiển thị ở Disputes tab)
-          if (job.state === 'Disputed') {
-            return false;
-          }
+        const hasPendingClaim = pendingClaimMap.get(job.id);
+        if (hasPendingClaim) {
+          return false;
         }
         
         return (freelancerMatch || pendingMatch);
@@ -193,6 +176,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       );
 
       setJobs(jobsWithMetadata);
+      setInitialized(true);
     } catch {
       setJobs([]);
     } finally {
@@ -201,46 +185,40 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   };
 
   useEffect(() => {
-    if (account) {
-      fetchJobs();
+    if (initialized && account && (activeTab === 'posted' || activeTab === 'applied')) {
+      const timer = setTimeout(() => {
+        fetchJobs();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
+  }, [activeTab, initialized, account, hasPosterRole, hasFreelancerRole]);
 
   useEffect(() => {
     const handleRolesUpdated = () => {
-      if (account) {
+      if (account && initialized) {
         setTimeout(() => fetchJobs(), 1000);
       }
     };
     
     const handleJobsUpdated = async () => {
-      if (account) {
+      if (account && initialized) {
         const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
         const { clearJobTableCache } = await import('@/lib/aptosClientCore');
         clearJobEventsCache();
         clearDisputeEventsCache();
         clearJobTableCache();
-        // Giảm delay để refresh nhanh hơn sau khi claim
         setTimeout(() => fetchJobs(), 1000);
-      }
-    };
-
-    const handleTabChanged = () => {
-      if (account) {
-        setTimeout(() => fetchJobs(), 500);
       }
     };
 
     window.addEventListener('rolesUpdated', handleRolesUpdated);
     window.addEventListener('jobsUpdated', handleJobsUpdated);
-    window.addEventListener('tabChanged', handleTabChanged);
     
     return () => {
       window.removeEventListener('rolesUpdated', handleRolesUpdated);
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
-      window.removeEventListener('tabChanged', handleTabChanged);
     };
-  }, [account, fetchJobs]);
+  }, [account, initialized]);
 
   const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobs.slice(
@@ -259,12 +237,33 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
     return <EmptyState message="Vui lòng kết nối wallet" />;
   }
 
+  if (!initialized && !loading) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <Card variant="outlined" className="p-8 text-center">
+          <h2 className="text-2xl font-bold text-blue-800 mb-2">Dự Án</h2>
+          <p className="text-gray-700 mb-6">Xem và quản lý dự án từ blockchain</p>
+          <Button onClick={fetchJobs} className="px-6 py-3">
+            Tải danh sách dự án
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <Card variant="outlined" className="p-8">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Dự Án</h2>
           <p className="text-gray-700">Xem và quản lý dự án từ blockchain</p>
+          <button
+            onClick={fetchJobs}
+            disabled={loading}
+            className="absolute right-0 top-0 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? '...' : '↻'}
+          </button>
         </div>
 
         <SegmentedTabs
@@ -308,10 +307,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           onChange={(value) => {
             setActiveTab(value as 'posted' | 'applied' | 'history' | 'poster_history' | 'disputes');
             setCurrentPage(0);
-            // Auto refresh khi đổi tab
-            if (account) {
-              setTimeout(() => fetchJobs(), 500);
-            }
           }}
         />
 
@@ -361,9 +356,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                     totalPages={totalPages}
                     onPageChange={(page) => {
                       setCurrentPage(page);
-                      if (account) {
-                        setTimeout(() => fetchJobs(), 300);
-                      }
+                      // No need to re-fetch - just change page display
                     }}
                     showAutoPlay={false}
                     showFirstLast

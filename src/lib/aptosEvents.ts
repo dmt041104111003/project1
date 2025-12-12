@@ -1,10 +1,11 @@
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { eventsCache, inflightEventsRequests, aptosFetch, APTOS_NODE_URL } from './aptosClientCore';
 
-const EVENTS_CACHE_TTL = 300_000; 
+// Increased cache TTL to reduce API calls and avoid 429 rate limits
+const EVENTS_CACHE_TTL = 600_000; // 10 minutes (was 5 minutes)
 
 const lastFetchTime = new Map<string, number>();
-const MIN_FETCH_INTERVAL = 10_000; 
+const MIN_FETCH_INTERVAL = 30_000; // 30 seconds minimum between fetches (was 10 seconds) 
 
 export async function queryEvents(eventHandle: string, fieldName: string, limit: number = 200) {
   const cacheKey = `${eventHandle}_${fieldName}_${limit}`;

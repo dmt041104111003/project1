@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWallet } from '@/contexts/WalletContext';
+import { useRoles } from '@/contexts/RolesContext';
 import { toast } from 'sonner';
 import { formatDeadline, formatSeconds } from '@/utils/timeUtils';
 import { LoadingState, ErrorState, StatusBadge } from '@/components/common';
@@ -14,12 +15,12 @@ export const JobDetailContent: React.FC = () => {
   const params = useParams();
   const jobId = params.id;
   const { account, signAndSubmitTransaction } = useWallet();
+  const { hasFreelancerRole } = useRoles(); 
   
   const [jobDetails, setJobDetails] = useState<Record<string, unknown> | null>(null);
   const [jobData, setJobData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasFreelancerRole, setHasFreelancerRole] = useState(false);
   const [applying, setApplying] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
 
@@ -99,17 +100,6 @@ export const JobDetailContent: React.FC = () => {
     };
   }, [fetchJobDetails]);
 
-  useEffect(() => {
-    if (!account) {
-      setHasFreelancerRole(false);
-      return;
-    }
-    (async () => {
-      const { getUserRoles } = await import('@/lib/aptosClient');
-      const { roles } = await getUserRoles(account);
-      setHasFreelancerRole(roles.some((r: any) => r.name === 'freelancer'));
-    })().catch(() => setHasFreelancerRole(false));
-  }, [account]);
 
   const handleApply = async () => {
     if (!account || !hasFreelancerRole || !jobId) {

@@ -189,11 +189,6 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Đăng Dự Án</h2>
           <p className="text-gray-700">Tạo dự án mới và tìm freelancer phù hợp</p>
-          {posterStatus && (
-            <div className="p-4 border-2 bg-blue-800 text-white border-blue-800 text-sm font-bold mt-4 rounded">
-              {posterStatus}
-            </div>
-          )}
         </div>
         <SegmentedTabs
           stretch

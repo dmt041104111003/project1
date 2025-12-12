@@ -17,20 +17,21 @@ export const JobsContent: React.FC = () => {
   const router = useRouter();
   const { account } = useWallet();
   const [jobs, setJobs] = useState<JobListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [latestFreelancers, setLatestFreelancers] = useState<Record<number, string | null>>({});
+  const [initialized, setInitialized] = useState(false);
 
   const fetchJobs = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Query trực tiếp từ Aptos events
       const { getJobsList } = await import('@/lib/aptosClient');
       const result = await getJobsList(200);
       setJobs(result.jobs || []);
+      setInitialized(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tải danh sách công việc');
     } finally {
@@ -39,12 +40,10 @@ export const JobsContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
-
-  useEffect(() => {
     const handleJobsUpdated = () => {
-      setTimeout(() => fetchJobs(), 1000);
+      if (initialized) {
+        setTimeout(() => fetchJobs(), 1000);
+      }
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -52,7 +51,7 @@ export const JobsContent: React.FC = () => {
     return () => {
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [fetchJobs]);
+  }, [fetchJobs, initialized]);
 
   useEffect(() => {
     const jobsNeedingLookup = jobs.filter((job) => !job.freelancer && job.cid);
@@ -114,11 +113,40 @@ export const JobsContent: React.FC = () => {
     return <ErrorState message={`Lỗi: ${error}`} onRetry={fetchJobs} />;
   }
 
+  if (!initialized) {
+    return (
+      <>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-blue-800 mb-2">Tìm công việc</h1>
+          <p className="text-lg text-gray-700">Công việc trên blockchain (nhấp để xem chi tiết từ CID)</p>
+        </div>
+        <Card className="p-8 text-center">
+          <p className="text-gray-600 mb-4">Nhấn nút bên dưới để tải danh sách công việc</p>
+          <button
+            onClick={fetchJobs}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Tải danh sách công việc
+          </button>
+        </Card>
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-blue-800 mb-2">Tìm công việc</h1>
-        <p className="text-lg text-gray-700">Công việc trên blockchain (nhấp để xem chi tiết từ CID)</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-blue-800 mb-2">Tìm công việc</h1>
+          <p className="text-lg text-gray-700">Công việc trên blockchain (nhấp để xem chi tiết từ CID)</p>
+        </div>
+        <button
+          onClick={fetchJobs}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+        >
+          {loading ? 'Đang tải...' : 'Làm mới'}
+        </button>
       </div>
 
       {jobs.length === 0 ? (

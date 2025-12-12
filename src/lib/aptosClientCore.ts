@@ -10,12 +10,7 @@ const APTOS_API_KEY =
 const withAptosHeaders = (init?: RequestInit): RequestInit => {
   const headers = new Headers(init?.headers);
   if (APTOS_API_KEY) {
-    if (!headers.has('x-api-key')) {
-      headers.set('x-api-key', APTOS_API_KEY);
-    }
-    if (!headers.has('Authorization')) {
-      headers.set('Authorization', `Bearer ${APTOS_API_KEY}`);
-    }
+    headers.set('Authorization', `Bearer ${APTOS_API_KEY}`);
   }
   return {
     ...init,
@@ -25,11 +20,42 @@ const withAptosHeaders = (init?: RequestInit): RequestInit => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const MAX_RETRY = 3;
-const CACHE_TTL = 300_000;
+// Global request queue to serialize API calls and prevent rate limiting
+const requestQueue: Array<() => Promise<void>> = [];
+let isProcessingQueue = false;
+const MIN_DELAY_BETWEEN_REQUESTS = 200; // 200ms between each request
 
-const lastRequestTime = new Map<string, number>();
-const MIN_REQUEST_INTERVAL = 2000; 
+async function processQueue() {
+  if (isProcessingQueue || requestQueue.length === 0) return;
+  isProcessingQueue = true;
+  
+  while (requestQueue.length > 0) {
+    const task = requestQueue.shift();
+    if (task) {
+      await task();
+      await sleep(MIN_DELAY_BETWEEN_REQUESTS);
+    }
+  }
+  
+  isProcessingQueue = false;
+}
+
+function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    requestQueue.push(async () => {
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    processQueue();
+  });
+}
+
+const MAX_RETRY = 3;
+const CACHE_TTL = 600_000; 
 
 type CacheEntry<T> = {
   timestamp: number;
@@ -43,26 +69,21 @@ export const inflightResourceRequests = new Map<string, Promise<any>>();
 export const inflightTableRequests = new Map<string, Promise<any>>();
 export const inflightEventsRequests = new Map<string, Promise<any>>();
 
-export const aptosFetch = async (input: RequestInfo | URL, init?: RequestInit, attempt = 0): Promise<Response> => {
-  const url = typeof input === 'string' ? input : input.toString();
-  
-  const lastTime = lastRequestTime.get(url) || 0;
-  const timeSinceLastRequest = Date.now() - lastTime;
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    await sleep(MIN_REQUEST_INTERVAL - timeSinceLastRequest);
-  }
-  lastRequestTime.set(url, Date.now());
-  
+const aptosFetchInternal = async (input: RequestInfo | URL, init?: RequestInit, attempt = 0): Promise<Response> => {
   const response = await fetch(input, withAptosHeaders(init));
   
   if (response.status === 429 && attempt < MAX_RETRY) {
     const backoff = 2000 * Math.pow(2, attempt);
     console.warn(`[Aptos] Rate limited (429), retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRY})`);
     await sleep(backoff);
-    return aptosFetch(input, init, attempt + 1);
+    return aptosFetchInternal(input, init, attempt + 1);
   }
   
   return response;
+};
+
+export const aptosFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return enqueueRequest(() => aptosFetchInternal(input, init));
 };
 
 export const contractResource = (path: string) => `${CONTRACT_ADDRESS}::${path}`;
@@ -190,5 +211,37 @@ export function clearJobTableCache() {
       tableCache.delete(key);
     }
   });
+}
+
+export async function checkDisputeWinnerPendingClaim(jobId: number): Promise<{ hasPendingClaim: boolean; winnerIsFreelancer: boolean | null }> {
+  try {
+    const escrowStore = await fetchContractResource<any>('escrow::EscrowStore');
+    if (!escrowStore?.table?.handle) {
+      return { hasPendingClaim: false, winnerIsFreelancer: null };
+    }
+
+    const job = await queryTableItem<any>({
+      handle: escrowStore.table.handle,
+      keyType: 'u64',
+      valueType: `${CONTRACT_ADDRESS}::escrow::Job`,
+      key: jobId,
+    });
+
+    if (!job) {
+      return { hasPendingClaim: false, winnerIsFreelancer: null };
+    }
+
+    const disputeWinner = job.dispute_winner;
+    
+    if (disputeWinner && disputeWinner.vec && disputeWinner.vec.length > 0) {
+      const winnerIsFreelancer = disputeWinner.vec[0] === true || disputeWinner.vec[0] === 'true';
+      return { hasPendingClaim: true, winnerIsFreelancer };
+    }
+
+    return { hasPendingClaim: false, winnerIsFreelancer: null };
+  } catch (error) {
+    console.error('[checkDisputeWinnerPendingClaim] Error:', error);
+    return { hasPendingClaim: false, winnerIsFreelancer: null };
+  }
 }
 
