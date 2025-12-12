@@ -6,10 +6,9 @@ API Flask để xử lý OCR và Face Verification với anti-spoofing.
 
 - **Flask**: https://github.com/pallets/flask
 - **RapidOCR**: https://github.com/RapidAI/RapidOCR
-- **DeepFace**: https://github.com/serengil/deepface
+- **UniFace**: https://github.com/yakhyo/uniface (thay thế DeepFace - nhẹ hơn, nhanh hơn)
 - **OpenCV**: https://github.com/opencv/opencv
 - **PyTorch**: https://github.com/pytorch/pytorch
-- **TensorFlow**: https://github.com/tensorflow/tensorflow
 - **Silent-Face-Anti-Spoofing**: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing
 
 ## Cài đặt
@@ -51,7 +50,7 @@ Verify khuôn mặt từ webcam
 ## Tài liệu
 
 - RapidOCR: https://github.com/RapidAI/RapidOCR
-- DeepFace: https://github.com/serengil/deepface
+- UniFace: https://github.com/yakhyo/uniface
 - Silent-Face-Anti-Spoofing: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing
 - Flask: https://flask.palletsprojects.com/
 - OpenCV: https://docs.opencv.org/
