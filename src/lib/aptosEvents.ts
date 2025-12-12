@@ -108,7 +108,10 @@ export function clearRoleEventsCache() {
     `${eventHandle}_role_registered_events_200`,
     `${eventHandle}_proof_stored_events_200`,
   ];
-  cacheKeys.forEach(key => eventsCache.delete(key));
+  cacheKeys.forEach(key => {
+    eventsCache.delete(key);
+    lastFetchTime.delete(key);
+  });
 }
 
 export async function getMutualCancelRequestedEvents(limit: number = 200) {
@@ -137,6 +140,7 @@ export function clearJobEventsCache() {
   jobEventTypes.forEach((eventType) => {
     const cacheKey = `${eventHandle}_${eventType}_200`;
     eventsCache.delete(cacheKey);
+    lastFetchTime.delete(cacheKey);
   });
 }
 
@@ -152,6 +156,7 @@ export function clearDisputeEventsCache() {
   disputeEventTypes.forEach((eventType) => {
     const cacheKey = `${eventHandle}_${eventType}_200`;
     eventsCache.delete(cacheKey);
+    lastFetchTime.delete(cacheKey); 
   });
 }
 

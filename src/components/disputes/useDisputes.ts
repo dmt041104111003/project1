@@ -146,33 +146,30 @@ export function useDisputes(account?: string | null) {
           status_parsed: parseStatus(m?.status),
         })));
         
-        let lockedIndex = -1;
+        let milestoneIndex = -1;
         for (let i = 0; i < milestones.length; i++) {
           if (Number(milestones[i]?.id || 0) === milestoneId) {
+            milestoneIndex = i;
             const statusStr = parseStatus(milestones[i]?.status);
-            console.log(`[useDisputes] Dispute #${disputeId} - Milestone ${i} matches ID ${milestoneId}, status: ${statusStr}`, milestones[i]?.status);
-            if (statusStr.toLowerCase() === 'locked') { 
-              lockedIndex = i; 
-              console.log(`[useDisputes] Dispute #${disputeId} - Found locked milestone at index ${i}`);
-              break; 
-            }
+            console.log(`[useDisputes] Dispute #${disputeId} - Found milestone at index ${i}, status: ${statusStr}`);
+            break;
           }
         }
         
-        console.log(`[useDisputes] Dispute #${disputeId} - Locked index: ${lockedIndex}`);
+        if (milestoneIndex < 0) {
+          milestoneIndex = milestoneId;
+          console.log(`[useDisputes] Dispute #${disputeId} - Using milestoneId as index: ${milestoneIndex}`);
+        }
+        
+        console.log(`[useDisputes] Dispute #${disputeId} - Milestone index: ${milestoneIndex}`);
         console.log(`[useDisputes] Dispute #${disputeId} - Dispute status: ${disputeStatus}`);
         
-        if (disputeStatus === 'resolved' && lockedIndex < 0) {
-          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Resolved but no locked milestone`);
+        if (disputeStatus === 'resolved') {
+          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Already resolved`);
           continue; 
         }
         
-        if (lockedIndex < 0) {
-          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: No locked milestone found`);
-          continue;
-        }
-        
-        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: Found locked milestone at index ${lockedIndex}`);
+        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: Adding dispute to list`);
         
         const evidence = await getDisputeEvidence(disputeId);
         console.log(`[useDisputes] Dispute #${disputeId} - Evidence:`, evidence);
@@ -183,7 +180,7 @@ export function useDisputes(account?: string | null) {
 
         const disputeData = { 
           jobId: jobId, 
-          milestoneIndex: lockedIndex, 
+          milestoneIndex: milestoneIndex, 
           disputeId: disputeId, 
           status: disputeStatus, 
           createdAt: dispute.created_at,
