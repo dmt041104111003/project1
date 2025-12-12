@@ -6,8 +6,10 @@ import { DisputeData, DisputeHistoryItem } from '@/constants/escrow';
 import { toast } from 'sonner';
 import { getDisputeData } from '@/lib/aptosClient';
 import { parseStatus } from '@/components/dashboard/MilestoneUtils';
+import { useWallet } from '@/contexts/WalletContext';
 
 export function useDisputes(account?: string | null) {
+  const { signAndSubmitTransaction } = useWallet();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [disputes, setDisputes] = useState<DisputeData[]>([]);
@@ -31,14 +33,6 @@ export function useDisputes(account?: string | null) {
     return '0x' + (trimmed.length === 0 ? '0' : trimmed);
   }, []);
 
-  const getWallet = async () => {
-    const wallet = (window as { aptos?: { account: () => Promise<string | { address: string }>; signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos;
-    if (!wallet) throw new Error('Không tìm thấy ví');
-    const acc = await wallet.account();
-    const address = typeof acc === 'string' ? acc : acc?.address;
-    if (!address) throw new Error('Vui lòng kết nối ví');
-    return { wallet, address };
-  };
 
   const checkReviewerRole = useCallback(async () => {
     if (!account) return;
@@ -288,10 +282,9 @@ export function useDisputes(account?: string | null) {
     try {
       setLoading(true);
       setErrorMsg('');
-      const { wallet } = await getWallet();
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.openDispute(Number(jobId), Number(milestoneIndex), openReason || '');
-      await wallet.signAndSubmitTransaction(payload as any);
+      await signAndSubmitTransaction(payload);
       const newItem: DisputeData = { jobId: Number(jobId), milestoneIndex: Number(milestoneIndex), disputeId: 0, status: 'open', reason: openReason, openedAt: new Date().toISOString() };
       const list = [newItem, ...disputes];
       setDisputes(list);
@@ -306,10 +299,9 @@ export function useDisputes(account?: string | null) {
   const resolveToPoster = useCallback(async (disputeIdNum: number) => {
     try {
       setResolving(`${disputeIdNum}:poster`);
-      const { wallet } = await getWallet();
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
-      await wallet.signAndSubmitTransaction(payload as any);
+      await signAndSubmitTransaction(payload);
       
       const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
       const { clearJobTableCache } = await import('@/lib/aptosClientCore');
@@ -329,10 +321,9 @@ export function useDisputes(account?: string | null) {
   const resolveToFreelancer = useCallback(async (disputeIdNum: number) => {
     try {
       setResolving(`${disputeIdNum}:freelancer`);
-      const { wallet } = await getWallet();
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
-      await wallet.signAndSubmitTransaction(payload as any);
+      await signAndSubmitTransaction(payload);
       
       const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
       const { clearJobTableCache } = await import('@/lib/aptosClientCore');
@@ -352,10 +343,9 @@ export function useDisputes(account?: string | null) {
   const reselectReviewers = useCallback(async (disputeIdNum: number) => {
     try {
       setResolving(`${disputeIdNum}:reselect`);
-      const { wallet } = await getWallet();
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.reselectReviewers(disputeIdNum);
-      await wallet.signAndSubmitTransaction(payload as any);
+      await signAndSubmitTransaction(payload);
       
       const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
       const { clearJobTableCache } = await import('@/lib/aptosClientCore');

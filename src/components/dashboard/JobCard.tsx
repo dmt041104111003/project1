@@ -9,9 +9,11 @@ import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { escrowHelpers } from '@/utils/contractHelpers';
 import { StatusBadge } from '@/components/common';
 import { getJobStateDisplay } from '@/utils/jobStateUtils';
+import { useWallet } from '@/contexts/WalletContext';
 
 
 export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpdate }) => {
+  const { signAndSubmitTransaction } = useWallet();
   const [reviewingCandidate, setReviewingCandidate] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -25,10 +27,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             setWithdrawing(true);
             const payload = escrowHelpers.posterWithdrawUnfilled(job.id);
 
-            const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-            if (!wallet) throw new Error('Không tìm thấy ví');
-
-            const tx = await wallet.signAndSubmitTransaction(payload);
+            const tx = await signAndSubmitTransaction(payload);
 
             toast.success(`Rút công việc thành công! TX: ${tx?.hash || 'N/A'}`);
             
@@ -61,9 +60,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     setReviewingCandidate(true);
     try {
       const payload = escrowHelpers.reviewCandidate(job.id, approve);
-      const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-      if (!wallet) throw new Error('Không tìm thấy ví');
-      const tx = await wallet.signAndSubmitTransaction(payload);
+      const tx = await signAndSubmitTransaction(payload);
       toast.success(`${approve ? 'Phê duyệt' : 'Từ chối'} ứng viên thành công! TX: ${tx?.hash || 'N/A'}`);
       
       const { clearJobEventsCache } = await import('@/lib/aptosClient');
@@ -87,9 +84,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     setWithdrawingApplication(true);
     try {
       const payload = escrowHelpers.withdrawApplication(job.id);
-      const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-      if (!wallet) throw new Error('Không tìm thấy ví');
-      const tx = await wallet.signAndSubmitTransaction(payload);
+      const tx = await signAndSubmitTransaction(payload);
       toast.success(`Đã rút ứng tuyển! TX: ${tx?.hash || 'N/A'}`);
       
       const { clearJobEventsCache } = await import('@/lib/aptosClient');

@@ -13,7 +13,7 @@ import { JobSidebar } from './JobSidebar';
 export const JobDetailContent: React.FC = () => {
   const params = useParams();
   const jobId = params.id;
-  const { account } = useWallet();
+  const { account, signAndSubmitTransaction } = useWallet();
   
   const [jobDetails, setJobDetails] = useState<Record<string, unknown> | null>(null);
   const [jobData, setJobData] = useState<any>(null);
@@ -123,12 +123,7 @@ export const JobDetailContent: React.FC = () => {
       const { escrowHelpers } = await import('@/utils/contractHelpers');
       const payload = escrowHelpers.applyJob(Number(jobId));
       
-      const wallet = (window as any).aptos;
-      if (!wallet) {
-        throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
-      }
-      
-      const tx = await wallet.signAndSubmitTransaction(payload);
+      const tx = await signAndSubmitTransaction(payload);
       
       if (tx?.hash) {
         toast.success(`Ứng tuyển thành công! TX: ${tx.hash}`);
@@ -162,9 +157,7 @@ export const JobDetailContent: React.FC = () => {
       setWithdrawingApplication(true);
       const { escrowHelpers } = await import('@/utils/contractHelpers');
       const payload = escrowHelpers.withdrawApplication(Number(jobId));
-      const wallet = (window as any).aptos;
-      if (!wallet) throw new Error('Không tìm thấy ví. Vui lòng kết nối ví trước.');
-      const tx = await wallet.signAndSubmitTransaction(payload);
+      const tx = await signAndSubmitTransaction(payload);
       toast.success(tx?.hash ? `Đã rút ứng tuyển! TX: ${tx.hash}` : 'Đã gửi yêu cầu rút ứng tuyển.');
       
       const { clearJobEventsCache } = await import('@/lib/aptosClient');
