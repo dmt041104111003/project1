@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
 		);
 	}
 
-	// Query dispute data from events
 	const [openedEvents, reviewerEvents, evidenceEvents] = await Promise.all([
 		getDisputeOpenedEvents(200),
 		getReviewerDisputeEvents(200),
@@ -65,11 +64,9 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ success: false, error: 'Thiếu địa chỉ ví (address parameter)' }, { status: 400 });
 	}
 
-	// Get reviewers from ReviewerDisputeEvent
 	const disputeReviewerEvents = reviewerEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
 	const reviewers = disputeReviewerEvents.map((e: any) => normalizeAddress(e?.data?.reviewer));
 
-	// Get evidence CIDs from EvidenceAddedEvent
 	const disputeEvidenceEvents = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
 	let posterEvidenceCid: string | null = null;
 	let freelancerEvidenceCid: string | null = null;
@@ -114,28 +111,45 @@ export async function GET(request: NextRequest) {
 	}
 
 		if (!storedCid) {
-			return NextResponse.json({ success: false, error: 'Không có evidence cho role này' }, { status: 404 });
-		}
+		return NextResponse.json({ success: false, error: 'Không có evidence cho role này' }, { status: 404 });
+	}
 
-		if (cidParam && cidParam !== storedCid) {
-			return NextResponse.json({ success: false, error: 'CID không khớp với tranh chấp này' }, { status: 403 });
-		}
+	if (cidParam && cidParam !== storedCid) {
+		return NextResponse.json({ success: false, error: 'CID không khớp với tranh chấp này' }, { status: 403 });
+	}
 
-		const decryptedCid = await decryptCid(storedCid) || storedCid;
-
-		if (decodeOnly) {
-			const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-			const ipfsUrl = `${gateway}/${decryptedCid}`;
-			return NextResponse.json({ success: true, cid: decryptedCid, url: ipfsUrl });
+	try {
+		const decryptedCid = await decryptCid(storedCid);
+		
+		if (!decryptedCid || decryptedCid.startsWith('enc:')) {
+			console.error('[API/dispute] Không thể giải mã CID:', storedCid);
+			return NextResponse.json({ 
+				success: false, 
+				error: 'Không thể giải mã bằng chứng. Vui lòng kiểm tra CID_SECRET_B64 env var.' 
+			}, { status: 500 });
 		}
 
 		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
-		const res = await fetch(`${gateway}/${decryptedCid}`, { method: 'GET' });
-		if (!res.ok) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy' }, { status: 404 });
+		const ipfsUrl = `${gateway}/${decryptedCid}`;
+
+		if (decodeOnly) {
+			return NextResponse.json({ success: true, cid: decryptedCid, url: ipfsUrl });
 		}
 
-	const data = await res.json();
-	return NextResponse.json({ success: true, cid: decryptedCid, data });
+		const res = await fetch(ipfsUrl, { method: 'GET' });
+		if (!res.ok) {
+			console.error('[API/dispute] Không thể fetch từ IPFS:', res.status, res.statusText);
+			return NextResponse.json({ success: false, error: 'Không thể tải bằng chứng từ IPFS' }, { status: 404 });
+		}
+
+		const data = await res.json();
+		return NextResponse.json({ success: true, cid: decryptedCid, data });
+	} catch (error) {
+		console.error('[API/dispute] Lỗi khi xử lý evidence:', error);
+		return NextResponse.json({ 
+			success: false, 
+			error: 'Lỗi server khi xử lý bằng chứng' 
+		}, { status: 500 });
+	}
 }
 
