@@ -4,11 +4,31 @@ from flask_cors import CORS
 import cv2
 import numpy as np
 import time
-from deepface import DeepFace
+from uniface import RetinaFace, ArcFace
 from my_test import test
 
 from rapidocr import RapidOCR
 from test_ocr import extract_id_info
+
+# Initialize UniFace models (singleton pattern)
+_uniface_detector = None
+_uniface_recognizer = None
+
+def get_uniface_detector():
+    global _uniface_detector
+    if _uniface_detector is None:
+        print("Đang khởi tạo UniFace RetinaFace detector...")
+        _uniface_detector = RetinaFace()
+        print("UniFace RetinaFace detector đã sẵn sàng!")
+    return _uniface_detector
+
+def get_uniface_recognizer():
+    global _uniface_recognizer
+    if _uniface_recognizer is None:
+        print("Đang khởi tạo UniFace ArcFace recognizer...")
+        _uniface_recognizer = ArcFace()
+        print("UniFace ArcFace recognizer đã sẵn sàng!")
+    return _uniface_recognizer
 
 app = Flask(__name__)
 CORS(app)
@@ -68,67 +88,61 @@ def preprocess_image(img):
     return img_rgb
 
 def get_face_embedding(img):
-    temp_path = None
+    """
+    Lấy face embedding sử dụng UniFace (RetinaFace + ArcFace)
+    
+    Args:
+        img: BGR image (numpy array từ OpenCV)
+    
+    Returns:
+        Normalized embedding vector (512-dim) hoặc None nếu không tìm thấy khuôn mặt
+    """
     try:
+        # Preprocess image
         img_processed = preprocess_image(img)
-        temp_path = f"temp_face_{int(time.time())}_{hash(time.time())}.jpg"
-        cv2.imwrite(temp_path, cv2.cvtColor(img_processed, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 95])
         
-        embedding_obj = DeepFace.represent(
-            img_path=temp_path,
-            model_name='ArcFace',
-            detector_backend='retinaface',
-            enforce_detection=True,
-            align=True,
-            normalization='base'
-        )
+        # Convert RGB to BGR for UniFace (UniFace expects BGR like OpenCV)
+        if len(img_processed.shape) == 3 and img_processed.shape[2] == 3:
+            # img_processed is RGB from preprocess_image, convert back to BGR
+            img_bgr = cv2.cvtColor(img_processed, cv2.COLOR_RGB2BGR)
+        else:
+            img_bgr = img_processed
         
-        if len(embedding_obj) > 0:
-            embedding = np.array(embedding_obj[0]['embedding'])
-            print(f"Embedding shape: {embedding.shape}, norm before: {np.linalg.norm(embedding):.4f}")
-            
-            norm = np.linalg.norm(embedding)
-            if norm > 0:
-                embedding = embedding / norm
-                print(f"Embedding norm after: {np.linalg.norm(embedding):.4f}")
-            
+        # Get detector and recognizer
+        detector = get_uniface_detector()
+        recognizer = get_uniface_recognizer()
+        
+        # Detect faces
+        faces = detector.detect(img_bgr)
+        
+        if not faces or len(faces) == 0:
+            print("UniFace: Không tìm thấy khuôn mặt trong ảnh")
+            return None
+        
+        # Get the first face (highest confidence)
+        face = faces[0]
+        landmarks = face['landmarks']  # 5-point landmarks
+        confidence = face['confidence']
+        
+        print(f"UniFace: Detected face with confidence: {confidence:.4f}")
+        
+        # Get normalized embedding using ArcFace
+        # get_normalized_embedding returns already L2-normalized embedding
+        embedding = recognizer.get_normalized_embedding(img_bgr, landmarks)
+        
+        if embedding is not None:
+            # Flatten if needed (uniface returns shape (1, 512))
+            embedding = embedding.flatten()
+            print(f"Embedding shape: {embedding.shape}, norm: {np.linalg.norm(embedding):.4f}")
             return embedding
+        
         return None
+        
     except Exception as e:
-        print(f"Loi lay embedding: {e}")
+        print(f"Lỗi lấy embedding với UniFace: {e}")
         import traceback
         traceback.print_exc()
-        try:
-            print("Fallback to OpenCV detector...")
-            temp_path_fallback = f"temp_face_fallback_{int(time.time())}.jpg"
-            cv2.imwrite(temp_path_fallback, img, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            
-            embedding_obj = DeepFace.represent(
-                img_path=temp_path_fallback,
-                model_name='ArcFace',
-                detector_backend='opencv',
-                enforce_detection=True,
-                align=True
-            )
-            
-            if len(embedding_obj) > 0:
-                embedding = np.array(embedding_obj[0]['embedding'])
-                norm = np.linalg.norm(embedding)
-                if norm > 0:
-                    embedding = embedding / norm
-                return embedding
-            
-            if os.path.exists(temp_path_fallback):
-                os.remove(temp_path_fallback)
-        except:
-            pass
         return None
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
 
 def cosine_similarity(emb1, emb2):
     """Tính cosine similarity giữa 2 embedding"""
@@ -328,7 +342,7 @@ def verify_face():
                     'success': True,
                     'verified': False,
                     'similarity': 0.0,
-                    'threshold': 0.4,
+                    'threshold': 0.5,
                     'face_match_passed': False,
                     'is_real': True,
                     'anti_spoof_label': anti_spoof_label,
@@ -338,7 +352,7 @@ def verify_face():
             embedding_card = sess['embedding']
             similarity = cosine_similarity(embedding_card, embedding_webcam)
             
-            threshold = 0.4
+            threshold = 0.5  # Practical threshold for CCCD (small face images)
             face_match_passed = bool(similarity >= threshold)
             
             print(f"Face matching - Similarity: {similarity:.4f}, Threshold: {threshold:.4f}")
@@ -358,7 +372,7 @@ def verify_face():
             'success': True,
             'verified': final_verified,
             'similarity': float(similarity) if is_real else 0.0,
-            'threshold': 0.4,
+            'threshold': 0.5,
             'face_match_passed': face_match_passed,
             'is_real': is_real,
             'anti_spoof_label': anti_spoof_label,

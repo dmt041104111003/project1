@@ -138,12 +138,15 @@ def test(image, model_dir, device_id):
     print(f"Model prediction - REAL: {real_score:.6f}, PAPER: {paper_score:.6f}, DIGITAL: {digital_score:.6f}")
     print(f"Original label: {label} (0=REAL, 1=PAPER, 2=DIGITAL)")
     
-    if label == 0 or label == 1:
-        print(f"Accepting label {label} as REAL (0=REAL, 1=PAPER both acceptable)")
+    # Chỉ accept label 0 (REAL) là thật
+    # Label 1 (PAPER) và Label 2 (DIGITAL) đều là spoof
+    if label == 0:
+        print(f"✅ REAL FACE DETECTED (label={label})")
         return 0
     else:
-        print(f"Rejecting label {label} (DIGITAL SPOOF)")
-    return label
+        spoof_type = "PAPER SPOOF" if label == 1 else "DIGITAL SPOOF"
+        print(f"❌ SPOOF DETECTED: {spoof_type} (label={label})")
+        return label
 
 
 
