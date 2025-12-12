@@ -28,6 +28,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_RETRY = 3;
 const CACHE_TTL = 300_000;
 
+const lastRequestTime = new Map<string, number>();
+const MIN_REQUEST_INTERVAL = 2000; 
+
 type CacheEntry<T> = {
   timestamp: number;
   data: T | null;
@@ -41,12 +44,24 @@ export const inflightTableRequests = new Map<string, Promise<any>>();
 export const inflightEventsRequests = new Map<string, Promise<any>>();
 
 export const aptosFetch = async (input: RequestInfo | URL, init?: RequestInit, attempt = 0): Promise<Response> => {
+  const url = typeof input === 'string' ? input : input.toString();
+  
+  const lastTime = lastRequestTime.get(url) || 0;
+  const timeSinceLastRequest = Date.now() - lastTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await sleep(MIN_REQUEST_INTERVAL - timeSinceLastRequest);
+  }
+  lastRequestTime.set(url, Date.now());
+  
   const response = await fetch(input, withAptosHeaders(init));
+  
   if (response.status === 429 && attempt < MAX_RETRY) {
-    const backoff = 300 * Math.pow(2, attempt);
+    const backoff = 2000 * Math.pow(2, attempt);
+    console.warn(`[Aptos] Rate limited (429), retrying in ${backoff}ms (attempt ${attempt + 1}/${MAX_RETRY})`);
     await sleep(backoff);
     return aptosFetch(input, init, attempt + 1);
   }
+  
   return response;
 };
 

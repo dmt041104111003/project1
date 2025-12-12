@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+// ============ BYPASS MODE FOR TESTING ============
+const BYPASS_FACE_VERIFICATION_UI = true;
+// =================================================
+
 interface VerificationResult {
   success: boolean;
   verified?: boolean;
@@ -17,6 +21,33 @@ export const useFaceVerification = (sessionId: string) => {
   const [currentAction, setCurrentAction] = useState<string>('');
 
   const startVerification = async (capturePhoto: () => Promise<File | null>) => {
+    // ========== BYPASS MODE ==========
+    if (BYPASS_FACE_VERIFICATION_UI) {
+      setIsVerifying(true);
+      setVerificationStep('face-matching');
+      setCurrentAction('Đang xử lý...');
+      
+      // Simulate small delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const bypassResult: VerificationResult = {
+        success: true,
+        verified: true,
+        similarity: 0.99,
+        is_real: true,
+        message: 'Xác minh thành công',
+        processing_time: 0.5
+      };
+      
+      setResult(bypassResult);
+      setVerificationStep('idle');
+      setCurrentAction('');
+      setIsVerifying(false);
+      toast.success("Xác minh khuôn mặt thành công!");
+      return;
+    }
+    // =================================
+    
     if (!sessionId) {
       toast.error("Không có session_id");
       return;

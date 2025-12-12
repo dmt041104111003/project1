@@ -99,42 +99,48 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
+        const isCompleted = job.state === 'Completed';
         const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
         
+        if (isCancelled || isCompleted) {
+          return false;
+        }
+        
+        // Ẩn job đang có dispute chưa resolved
         if (hasActiveDispute) {
           return false;
         }
         
+        // Nếu có resolved dispute, kiểm tra đã claim chưa
         const resolvedDispute = newResolvedDisputesMap.get(job.id);
         if (resolvedDispute) {
-          if (resolvedDispute.disputeWinner !== null && resolvedDispute.disputeWinner !== undefined) {
-            return false;
-          }
-          
           const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
           if (disputeMilestone) {
             const status = parseStatus(disputeMilestone.status);
-            if (status !== 'Accepted') {
-              return false;
+            // Nếu milestone Accepted VÀ job state !== Disputed → đã claim xong → hiển thị
+            if (status === 'Accepted' && job.state !== 'Disputed') {
+              return isPoster;
             }
-          } else {
+          }
+          // Nếu chưa claim (job vẫn Disputed) → ẩn (hiển thị ở Disputes tab)
+          if (job.state === 'Disputed') {
             return false;
           }
-          
-          const hasRemainingMilestones = job.milestones?.some((m: any) => {
-            const status = parseStatus(m.status);
-            return status !== 'Accepted' && status !== 'Withdrawn';
-          });
-          return hasRemainingMilestones;
         }
         
-        return isPoster && !isCancelled;
+        return isPoster;
       });
       
       const appliedJobs = allJobs.filter((job: Job) => {
         const freelancerMatch = job.freelancer && job.freelancer.toLowerCase() === account.toLowerCase();
         const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
+        const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
+        const isCompleted = job.state === 'Completed';
         const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
+        
+        if (isCancelled || isCompleted) {
+          return false;
+        }
         
         if (hasActiveDispute) {
           return false;
@@ -142,25 +148,18 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         
         const resolvedDispute = newResolvedDisputesMap.get(job.id);
         if (resolvedDispute) {
-          if (resolvedDispute.disputeWinner !== null && resolvedDispute.disputeWinner !== undefined) {
-            return false; 
-          }
-          
           const disputeMilestone = job.milestones?.find((m: any) => Number(m.id) === resolvedDispute.milestoneId);
           if (disputeMilestone) {
             const status = parseStatus(disputeMilestone.status);
-            if (status !== 'Accepted') {
-              return false;
+            // Nếu milestone Accepted VÀ job state !== Disputed → đã claim xong → hiển thị
+            if (status === 'Accepted' && job.state !== 'Disputed') {
+              return (freelancerMatch || pendingMatch);
             }
-          } else {
+          }
+          // Nếu chưa claim (job vẫn Disputed) → ẩn (hiển thị ở Disputes tab)
+          if (job.state === 'Disputed') {
             return false;
           }
-          
-          const hasRemainingMilestones = job.milestones?.some((m: any) => {
-            const status = parseStatus(m.status);
-            return status !== 'Accepted' && status !== 'Withdrawn';
-          });
-          return hasRemainingMilestones;
         }
         
         return (freelancerMatch || pendingMatch);

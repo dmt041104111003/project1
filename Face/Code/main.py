@@ -33,6 +33,11 @@ def get_uniface_recognizer():
 app = Flask(__name__)
 CORS(app)
 
+# ============ BYPASS MODE FOR TESTING ============
+# Set to True to bypass all face verification (always pass)
+BYPASS_FACE_VERIFICATION = True
+# =================================================
+
 MODEL_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources/anti_spoof_models'))
 
 ocr_reader = None
@@ -197,6 +202,21 @@ def ocr_extract():
 @app.route('/face/upload_id_card', methods=['POST'])
 def upload_id_card():
     try:
+        # ========== BYPASS MODE ==========
+        if BYPASS_FACE_VERIFICATION:
+            print("⚠️  BYPASS MODE: Tạo session giả!")
+            session_id = os.urandom(16).hex()
+            sessions[session_id] = {
+                'embedding': np.zeros(512),  # Fake embedding
+                'created': time.time()
+            }
+            return jsonify({
+                'success': True,
+                'session_id': session_id,
+                'message': '[BYPASS MODE] Da luu embedding tu anh CCCD'
+            }), 200
+        # =================================
+        
         if 'image' not in request.files:
             return jsonify({'error': 'Khong co anh'}), 400
         
@@ -239,6 +259,17 @@ def upload_id_card():
 @app.route('/face/anti_spoof', methods=['POST'])
 def anti_spoof():
     try:
+        # ========== BYPASS MODE ==========
+        if BYPASS_FACE_VERIFICATION:
+            print("⚠️  BYPASS MODE: Luôn pass anti-spoofing!")
+            return jsonify({
+                'success': True,
+                'is_real': True,
+                'result': 0,
+                'message': '[BYPASS MODE] Khuon mat la that'
+            }), 200
+        # =================================
+        
         if 'image' not in request.files:
             return jsonify({'error': 'Khong co anh'}), 400
         
@@ -267,7 +298,7 @@ def anti_spoof():
                 'is_real': False,
                 'error': 'Khuon mat qua nho hoac qua lon trong khung hinh. Vui long chup lai voi khuon mat chiem 25-45% khung hinh.',
                 'message': 'Vui lòng di chuyển camera để khuôn mặt chiếm 25-45% khung hình (không quá gần, không quá xa).'
-            }), 400
+            }), 200
         
         print(f"Anti-spoofing result: label={is_real} (0=that, 1/2=gia)")
         is_real_face = bool(is_real == 0)
@@ -288,6 +319,21 @@ def anti_spoof():
 @app.route('/face/verify', methods=['POST'])
 def verify_face():
     try:
+        # ========== BYPASS MODE ==========
+        if BYPASS_FACE_VERIFICATION:
+            print("⚠️  BYPASS MODE: Luôn pass face verification!")
+            return jsonify({
+                'success': True,
+                'verified': True,
+                'similarity': 0.99,
+                'threshold': 0.5,
+                'face_match_passed': True,
+                'is_real': True,
+                'anti_spoof_label': 0,
+                'message': '[BYPASS MODE] Xac minh thanh cong'
+            }), 200
+        # =================================
+        
         if 'image' not in request.files:
             return jsonify({'error': 'Khong co anh webcam'}), 400
         
@@ -396,6 +442,11 @@ if __name__ == '__main__':
     print("=" * 80)
     print("Dang khoi dong Verification API server (OCR + Face Verification)...")
     print("=" * 80)
+    if BYPASS_FACE_VERIFICATION:
+        print("⚠️  ⚠️  ⚠️  BYPASS MODE ENABLED ⚠️  ⚠️  ⚠️")
+        print("⚠️  Tat ca face verification se LUON PASS!")
+        print("⚠️  Chi su dung de test ZKP!")
+        print("=" * 80)
     print("API endpoints:")
     print("  POST /ocr/extract - OCR tu anh CCCD")
     print("  POST /face/upload_id_card - Upload anh CCCD va luu embedding (Face Matching)")

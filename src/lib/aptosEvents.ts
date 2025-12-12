@@ -1,7 +1,10 @@
 import { CONTRACT_ADDRESS } from '@/constants/contracts';
 import { eventsCache, inflightEventsRequests, aptosFetch, APTOS_NODE_URL } from './aptosClientCore';
 
-const EVENTS_CACHE_TTL = 300_000;
+const EVENTS_CACHE_TTL = 300_000; 
+
+const lastFetchTime = new Map<string, number>();
+const MIN_FETCH_INTERVAL = 10_000; 
 
 export async function queryEvents(eventHandle: string, fieldName: string, limit: number = 200) {
   const cacheKey = `${eventHandle}_${fieldName}_${limit}`;
@@ -10,9 +13,16 @@ export async function queryEvents(eventHandle: string, fieldName: string, limit:
     return cached.data;
   }
 
+  const lastTime = lastFetchTime.get(cacheKey) || 0;
+  if (Date.now() - lastTime < MIN_FETCH_INTERVAL) {
+    return cached?.data || [];
+  }
+
   if (inflightEventsRequests.has(cacheKey)) {
     return inflightEventsRequests.get(cacheKey) as Promise<any[]>;
   }
+  
+  lastFetchTime.set(cacheKey, Date.now());
 
   const promise = (async () => {
     try {

@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
         verified: verifyData.verified,
         similarity: verifyData.similarity,
         threshold: verifyData.threshold,
+        is_real: verifyData.is_real,
         message: verifyData.message,
       });
     } catch (error: unknown) {
