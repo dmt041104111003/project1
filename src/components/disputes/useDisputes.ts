@@ -7,16 +7,18 @@ import { toast } from 'sonner';
 import { getDisputeData } from '@/lib/aptosClient';
 import { parseStatus } from '@/components/dashboard/MilestoneUtils';
 import { useWallet } from '@/contexts/WalletContext';
+import { useRoles } from '@/contexts/RolesContext';
 
 export function useDisputes(account?: string | null) {
   const { signAndSubmitTransaction } = useWallet();
+  const { hasReviewerRole } = useRoles(); // Use context instead of separate API call
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [disputes, setDisputes] = useState<DisputeData[]>([]);
   const [history, setHistory] = useState<DisputeHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [isReviewer, setIsReviewer] = useState(false);
-  const [checkingRole, setCheckingRole] = useState(false);
+  const isReviewer = hasReviewerRole; 
+  const checkingRole = false; 
 
   const [jobId, setJobId] = useState('');
   const [milestoneIndex, setMilestoneIndex] = useState('');
@@ -33,21 +35,7 @@ export function useDisputes(account?: string | null) {
     return '0x' + (trimmed.length === 0 ? '0' : trimmed);
   }, []);
 
-
-  const checkReviewerRole = useCallback(async () => {
-    if (!account) return;
-    try {
-      setCheckingRole(true);
-      const { getUserRoles } = await import('@/lib/aptosClient');
-      const { roles } = await getUserRoles(account);
-      const hasReviewer = roles.some((r: any) => String(r?.name).toLowerCase() === 'reviewer');
-      setIsReviewer(hasReviewer);
-    } catch (e: any) {
-      setIsReviewer(false);
-    } finally {
-      setCheckingRole(false);
-    }
-  }, [account]);
+  // checkReviewerRole is no longer needed - using RolesContext
 
   const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
     console.log('[useDisputes] refresh() called', { isReviewer, account, options });
@@ -258,13 +246,10 @@ export function useDisputes(account?: string | null) {
     }
   }, [account, isReviewer, normalizeAddress]);
 
-  useEffect(() => { 
-    if (account) checkReviewerRole(); 
-  }, [account, checkReviewerRole]);
 
   useEffect(() => { 
-    if (isReviewer) refresh({ silent: true });
-  }, [isReviewer, refresh]);
+    if (isReviewer && account) refresh({ silent: true });
+  }, [isReviewer, account, refresh]);
 
   useEffect(() => {
     if (isReviewer) {

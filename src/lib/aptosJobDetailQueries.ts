@@ -156,6 +156,7 @@ export async function getParsedJobData(jobId: number) {
     });
 
   const disputeResolvedMap = new Map<number, number>();
+  let disputeWinnerInfo: { winner_is_freelancer: boolean; milestone_id: number; resolved_at: number } | null = null;
   disputeResolvedEvents
     .filter((e: any) => {
       const eventJobId = Number(e?.data?.job_id || 0);
@@ -164,9 +165,13 @@ export async function getParsedJobData(jobId: number) {
     .forEach((e: any) => {
       const milestoneId = Number(e?.data?.milestone_id || 0);
       const resolvedAt = Number(e?.data?.resolved_at || 0);
+      const winnerIsFreelancer = e?.data?.winner_is_freelancer === true || e?.data?.winner_is_freelancer === 'true';
       const existing = disputeResolvedMap.get(milestoneId);
       if (!existing || resolvedAt > existing) {
         disputeResolvedMap.set(milestoneId, resolvedAt);
+      }
+      if (!disputeWinnerInfo || resolvedAt > disputeWinnerInfo.resolved_at) {
+        disputeWinnerInfo = { winner_is_freelancer: winnerIsFreelancer, milestone_id: milestoneId, resolved_at: resolvedAt };
       }
     });
 
@@ -432,6 +437,7 @@ export async function getParsedJobData(jobId: number) {
     apply_deadline: jobEvent?.data?.apply_deadline ? Number(jobEvent.data.apply_deadline) : undefined,
     mutual_cancel_requested_by: mutualCancelRequestedBy,
     freelancer_withdraw_requested_by: freelancerWithdrawRequestedBy,
+    dispute_resolved: disputeWinnerInfo,
   };
 }
 

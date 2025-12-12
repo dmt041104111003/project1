@@ -128,14 +128,20 @@ export async function getJobsList(maxJobs: number = 200) {
   });
 
   const disputeResolvedMap = new Map<string, number>();
+  const disputeWinnerMap = new Map<number, { winner_is_freelancer: boolean; milestone_id: number; resolved_at: number }>();
   disputeResolvedEvents.forEach((evt: any) => {
     const jobId = Number(evt?.data?.job_id || 0);
     const milestoneId = Number(evt?.data?.milestone_id || 0);
     const key = `${jobId}:${milestoneId}`;
     const resolvedAt = Number(evt?.data?.resolved_at || 0);
+    const winnerIsFreelancer = evt?.data?.winner_is_freelancer === true || evt?.data?.winner_is_freelancer === 'true';
     const existing = disputeResolvedMap.get(key);
     if (!existing || resolvedAt > existing) {
       disputeResolvedMap.set(key, resolvedAt);
+    }
+    const existingWinner = disputeWinnerMap.get(jobId);
+    if (!existingWinner || resolvedAt > existingWinner.resolved_at) {
+      disputeWinnerMap.set(jobId, { winner_is_freelancer: winnerIsFreelancer, milestone_id: milestoneId, resolved_at: resolvedAt });
     }
   });
 
@@ -361,6 +367,8 @@ export async function getJobsList(maxJobs: number = 200) {
         return m;
       });
       
+      const disputeWinnerInfo = disputeWinnerMap.get(jobId);
+      
       const jobResult = {
         id: jobId,
         created_at: Number(evt?.data?.created_at || 0),
@@ -376,6 +384,11 @@ export async function getJobsList(maxJobs: number = 200) {
         freelancer: freelancer,
         mutual_cancel_requested_by: mutualCancelMap.get(jobId) || null,
         freelancer_withdraw_requested_by: freelancerWithdrawMap.get(jobId) || null,
+        dispute_resolved: disputeWinnerInfo ? {
+          winner_is_freelancer: disputeWinnerInfo.winner_is_freelancer,
+          milestone_id: disputeWinnerInfo.milestone_id,
+          resolved_at: disputeWinnerInfo.resolved_at,
+        } : null,
       };
       
       return jobResult;

@@ -56,39 +56,26 @@ export function useRoleManagement(account: string | null) {
       return;
     }
     
-    setCheckingProof(true);
-    setLoadingRoles(true);
+    // Don't auto-fetch - wait for user action or rolesUpdated event
+    setCheckingProof(false);
+    setLoadingRoles(false);
     
-    Promise.all([
-      (async () => {
-        try {
-          const { getUserRoles } = await import('@/lib/aptosClient');
-          const { roles } = await getUserRoles(account);
-          setRoles(roles || []);
-          if (roles.length > 0) {
-            setFaceVerified(true);
-          }
-          return roles;
-        } catch {
-          setRoles([]);
-          return [];
-        }
-      })(),
-      
-      (async () => {
-        try {
-          const { getProofData } = await import('@/lib/aptosClient');
-          const proof = await getProofData(account);
-          setFaceVerified(!!proof);
-        } catch (error) {
-          console.error('Error checking proof:', error);
-          setFaceVerified(false);
-        }
-      })()
-    ]).finally(() => {
-      setLoadingRoles(false);
-      setCheckingProof(false);
-    });
+    const handleRolesUpdated = async () => {
+      try {
+        const { getUserRoles, getProofData } = await import('@/lib/aptosClient');
+        const [rolesResult, proof] = await Promise.all([
+          getUserRoles(account),
+          getProofData(account),
+        ]);
+        setRoles(rolesResult?.roles || []);
+        setFaceVerified(!!proof || (rolesResult?.roles?.length || 0) > 0);
+      } catch {
+        // Silently fail - data will be fetched when needed
+      }
+    };
+    
+    window.addEventListener('rolesUpdated', handleRolesUpdated);
+    return () => window.removeEventListener('rolesUpdated', handleRolesUpdated);
   }, [account]);
 
   const handleFaceVerificationSuccess = useCallback(async (
@@ -105,7 +92,6 @@ export function useRoleManagement(account: string | null) {
         throw new Error(MESSAGES.ERROR.WALLET_NOT_CONNECTED);
       }
       
-      // Add random suffix for testing (to generate different hash, avoid duplicate)
       const testSuffix = `_TEST_${Date.now()}`;
       const idNumberForZkp = `${idInfo.id_number}${testSuffix}`;
       const nameForZkp = `${idInfo.name}${testSuffix}`;

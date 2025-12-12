@@ -4,6 +4,12 @@ export interface LayoutProps {
   children: ReactNode;
 }
 
+export interface DisputeResolvedInfo {
+  winner_is_freelancer: boolean;
+  milestone_id: number;
+  resolved_at: number;
+}
+
 export interface Job {
   id: number;
   cid: string;
@@ -22,6 +28,7 @@ export interface Job {
   apply_deadline?: number;
   pending_stake?: number;
   pending_fee?: number;
+  dispute_resolved?: DisputeResolvedInfo | null;
 }
 
 export interface JobListItem {

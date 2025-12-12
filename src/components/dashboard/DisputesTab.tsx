@@ -100,7 +100,6 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
     try {
       const disputes = await getJobsWithDisputes(account, 200);
       const { getParsedJobData } = await import('@/lib/aptosClient');
-      const { parseStatus } = await import('./MilestoneUtils');
       
       const filteredDisputes: typeof disputes = [];
       const jobsWithMetadata: Job[] = [];
@@ -110,18 +109,14 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
         
         if (dispute.disputeStatus === 'resolved') {
           try {
-            const jobData = await getParsedJobData(dispute.jobId);
-            if (jobData?.milestones) {
-              const milestone = jobData.milestones.find((m: any) => Number(m.id) === dispute.milestoneId);
-              if (milestone) {
-                const status = parseStatus(milestone.status);
-                if (status === 'Accepted' && jobData.state !== 'Disputed') {
-                  shouldSkip = true;
-                }
-              }
+            const { checkDisputeWinnerPendingClaim } = await import('@/lib/aptosClientCore');
+            const { hasPendingClaim } = await checkDisputeWinnerPendingClaim(dispute.jobId);
+            
+            if (!hasPendingClaim) {
+              shouldSkip = true;
             }
           } catch (e) {
-            console.error('Error checking milestone status:', e);
+            console.error('Error checking pending claim:', e);
           }
         }
         
