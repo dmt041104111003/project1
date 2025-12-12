@@ -1,11 +1,25 @@
 "use client";
 
-import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { 
-  useWallet as useAptosWallet,
-  WalletName 
-} from '@aptos-labs/wallet-adapter-react';
+import { useWallet as useAptosWallet } from '@aptos-labs/wallet-adapter-react';
+
+type LegacyTransactionPayload = {
+  type: 'entry_function_payload';
+  function: string;
+  type_arguments: string[];
+  arguments: unknown[];
+};
+
+type NewTransactionPayload = {
+  data: {
+    function: string;
+    functionArguments: unknown[];
+    typeArguments?: string[];
+  };
+};
+
+type TransactionPayload = LegacyTransactionPayload | NewTransactionPayload;
 
 type WalletContextType = {
   account: string | null;
@@ -16,16 +30,9 @@ type WalletContextType = {
   ensureWallet: () => boolean;
   accountType: 'aptos' | null;
   aptosNetwork: string | null;
-  // New fields from Wallet Adapter
   wallets: readonly { name: string; icon: string; url: string }[];
   wallet: { name: string; icon: string; url: string } | null;
-  signAndSubmitTransaction: (transaction: {
-    data: {
-      function: string;
-      functionArguments: unknown[];
-      typeArguments?: string[];
-    };
-  }) => Promise<{ hash: string }>;
+  signAndSubmitTransaction: (transaction: TransactionPayload) => Promise<{ hash: string }>;
   signMessage: (message: { message: string; nonce: string }) => Promise<{
     signature: string;
     fullMessage: string;
@@ -53,7 +60,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const {
     account: aptosAccount,
     connected,
-    connecting,
     disconnect,
     connect,
     wallets,
@@ -62,6 +68,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     signAndSubmitTransaction: aptosSignAndSubmit,
     signMessage: aptosSignMessage,
   } = useAptosWallet();
+  
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const account = useMemo(() => {
     return aptosAccount?.address?.toString()?.toLowerCase() ?? null;
@@ -77,11 +85,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const connectWallet = useCallback(async (walletName: string = 'Petra') => {
     try {
-      await connect(walletName as WalletName<string>);
+      setIsConnecting(true);
+      await connect(walletName);
       toast.success(`Đã kết nối ví ${walletName}`);
     } catch (error) {
       console.error('Connect wallet error:', error);
       toast.error(error instanceof Error ? error.message : 'Không thể kết nối ví');
+    } finally {
+      setIsConnecting(false);
     }
   }, [connect]);
 
@@ -103,23 +114,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return true;
   }, [connected, account]);
 
-  const signAndSubmitTransaction = useCallback(async (transaction: {
-    data: {
-      function: string;
-      functionArguments: unknown[];
-      typeArguments?: string[];
-    };
-  }) => {
+  const signAndSubmitTransaction = useCallback(async (transaction: TransactionPayload) => {
     if (!account) {
       throw new Error('Wallet not connected');
+    }
+    
+    const isLegacy = 'type' in transaction && 'arguments' in transaction;
+    
+    let functionName: string;
+    let functionArguments: unknown[];
+    let typeArguments: string[] | undefined;
+    
+    if (isLegacy) {
+      const legacy = transaction as LegacyTransactionPayload;
+      functionName = legacy.function;
+      functionArguments = legacy.arguments;
+      typeArguments = legacy.type_arguments;
+    } else {
+      const newFormat = transaction as NewTransactionPayload;
+      functionName = newFormat.data.function;
+      functionArguments = newFormat.data.functionArguments;
+      typeArguments = newFormat.data.typeArguments;
     }
     
     const response = await aptosSignAndSubmit({
       sender: account,
       data: {
-        function: transaction.data.function as `${string}::${string}::${string}`,
-        functionArguments: transaction.data.functionArguments,
-        typeArguments: transaction.data.typeArguments,
+        function: functionName as `${string}::${string}::${string}`,
+        functionArguments: functionArguments as any[],
+        typeArguments,
       },
     });
     
@@ -129,7 +152,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const signMessage = useCallback(async (message: { message: string; nonce: string }) => {
     const response = await aptosSignMessage(message);
     return {
-      signature: response.signature,
+      signature: String(response.signature),
       fullMessage: response.fullMessage,
     };
   }, [aptosSignMessage]);
@@ -155,7 +178,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     <WalletContext.Provider
       value={{
         account,
-        isConnecting: connecting,
+        isConnecting,
         isConnected: connected,
         connectWallet,
         disconnectWallet,

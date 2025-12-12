@@ -8,15 +8,7 @@ import { getJobsWithDisputes, JobWithDispute } from '@/lib/aptosClient';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
 import { JobCard } from './JobCard';
 import { Job } from '@/constants/escrow';
-
-const getWallet = async () => {
-  const wallet = (window as { aptos?: { account: () => Promise<string | { address: string }>; signAndSubmitTransaction: (payload: unknown) => Promise<{ hash?: string }> } }).aptos;
-  if (!wallet) throw new Error('Không tìm thấy ví');
-  const acc = await wallet.account();
-  const address = typeof acc === 'string' ? acc : acc?.address;
-  if (!address) throw new Error('Vui lòng kết nối ví');
-  return { wallet, address };
-};
+import { useWallet } from '@/contexts/WalletContext';
 
 const JOBS_PER_PAGE = 1;
 
@@ -31,6 +23,7 @@ const RESELECT_COOLDOWN = 120;
 export const DisputesTab: React.FC<DisputesTabProps> = ({
   account,
 }) => {
+  const { signAndSubmitTransaction } = useWallet();
   const [loading, setLoading] = useState(false);
   const [disputeJobs, setDisputeJobs] = useState<JobWithDispute[]>([]);
   const [jobsData, setJobsData] = useState<Job[]>([]);
@@ -255,10 +248,9 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
           if (!canReselectNow || isReselecting) return;
           try {
             setReselecting(dispute.disputeId);
-            const { wallet } = await getWallet();
             const { disputeHelpers } = await import('@/utils/contractHelpers');
             const payload = disputeHelpers.reselectReviewers(dispute.disputeId);
-            await wallet.signAndSubmitTransaction(payload as any);
+            await signAndSubmitTransaction(payload);
             
             const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
             const { clearJobTableCache } = await import('@/lib/aptosClientCore');
@@ -281,7 +273,6 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
           if (claimingDispute === dispute.disputeId) return;
           try {
             setClaimingDispute(dispute.disputeId);
-            const { wallet } = await getWallet();
             const { escrowHelpers } = await import('@/utils/contractHelpers');
             const { toast } = await import('sonner');
             
@@ -289,7 +280,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
               ? escrowHelpers.claimDisputePayment(dispute.jobId, dispute.milestoneId)
               : escrowHelpers.claimDisputeRefund(dispute.jobId, dispute.milestoneId);
             
-            const tx = await wallet.signAndSubmitTransaction(payload as any);
+            const tx = await signAndSubmitTransaction(payload);
             toast.success(`Đã yêu cầu ${dispute.disputeWinner ? 'thanh toán' : 'hoàn tiền'} tranh chấp! TX: ${tx?.hash || 'N/A'}`);
             
             const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');

@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '@/contexts/WalletContext';
 
-const executeTransaction = async (payload: unknown): Promise<string> => {
-  if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
-    throw new Error(payload.error);
-  }
-  const wallet = (window as { aptos?: { signAndSubmitTransaction: (p: unknown) => Promise<{ hash?: string }> } }).aptos;
-  if (!wallet) throw new Error('Không tìm thấy ví');
-  const tx = await wallet.signAndSubmitTransaction(payload);
-  return tx?.hash || 'N/A';
+const createExecuteTransaction = (signAndSubmitTransaction: (payload: any) => Promise<{ hash: string }>) => {
+  return async (payload: unknown): Promise<string> => {
+    if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
+      throw new Error(payload.error);
+    }
+    const tx = await signAndSubmitTransaction(payload);
+    return tx?.hash || 'N/A';
+  };
 };
 
 export function useMilestoneHandlers(
@@ -18,7 +18,8 @@ export function useMilestoneHandlers(
   isFreelancer: boolean,
   onUpdate?: () => void
 ) {
-  const { account } = useWallet();
+  const { account, signAndSubmitTransaction } = useWallet();
+  const executeTransaction = createExecuteTransaction(signAndSubmitTransaction);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);

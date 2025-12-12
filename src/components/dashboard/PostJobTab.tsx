@@ -17,7 +17,7 @@ interface PostJobTabProps {
 }
 
 export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
-  const { account } = useWallet();
+  const { account, signAndSubmitTransaction } = useWallet();
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [jobDuration, setJobDuration] = useState('7');
@@ -161,7 +161,7 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
         applyDeadlineDuration
       );
       
-      const tx = await (window as { aptos: { signAndSubmitTransaction: (payload: unknown) => Promise<{ hash: string }> } }).aptos.signAndSubmitTransaction(payload);
+      const tx = await signAndSubmitTransaction(payload);
       
       if (tx?.hash) {
         setJobResult(`Job đã được tạo thành công! TX: ${tx.hash}`);

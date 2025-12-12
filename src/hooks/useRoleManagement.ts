@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_ENDPOINTS, MESSAGES, ROLES } from '@/constants/auth';
 import type { RoleType } from '@/constants/auth';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface Role {
   name: string;
@@ -17,6 +18,7 @@ interface IdInfo {
 }
 
 export function useRoleManagement(account: string | null) {
+  const { signAndSubmitTransaction, isConnected } = useWallet();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingRoles, setLoadingRoles] = useState(false);
@@ -140,7 +142,7 @@ export function useRoleManagement(account: string | null) {
 
       setMessage(MESSAGES.LOADING.SAVING_PROOF);
       
-      if (!window.aptos) {
+      if (!isConnected) {
         throw new Error(MESSAGES.ERROR.WALLET_NOT_CONNECTED);
       }
       
@@ -164,7 +166,7 @@ export function useRoleManagement(account: string | null) {
         identityHash
       );
 
-      await window.aptos.signAndSubmitTransaction(proofPayload);
+      await signAndSubmitTransaction(proofPayload);
       
       setFaceVerified(true);
       
@@ -226,7 +228,7 @@ export function useRoleManagement(account: string | null) {
     setRole: (role: string) => void,
     setDesc: (desc: string) => void
   ) => {
-    if (!role || !window.aptos || !account) return;
+    if (!role || !isConnected || !account) return;
 
     setLoading(true);
     setMessage(MESSAGES.LOADING.CHECKING_PROOF_STATUS);
@@ -312,7 +314,7 @@ export function useRoleManagement(account: string | null) {
         throw new Error(MESSAGES.ERROR.INVALID_ROLE);
       }
       
-      await window.aptos.signAndSubmitTransaction(payload);
+      await signAndSubmitTransaction(payload);
       
       setMessage(MESSAGES.SUCCESS.REGISTRATION_SUCCESS);
       setRole('');
