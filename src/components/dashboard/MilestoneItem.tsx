@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { MilestoneFileUpload } from './MilestoneFileUpload';
 import { MilestoneReviewActions } from './MilestoneReviewActions';
-import { parseStatus, parseEvidenceCid } from './MilestoneUtils';
+import { parseStatus, parseEvidenceCid, getMilestoneStatusDisplay } from './MilestoneUtils';
 import { LockIcon } from '@/components/ui/LockIcon';
 import { MilestoneItemProps } from '@/constants/escrow';
 
@@ -151,9 +151,9 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
       formData.append('jobId', String(jobId));
       formData.append('address', account);
       const uploadRes = await fetch('/api/ipfs/upload', { method: 'POST', body: formData });
-      const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Upload failed' }));
+      const uploadData = await uploadRes.json().catch(() => ({ success: false, error: 'Tải lên thất bại' }));
       if (!uploadRes.ok || !uploadData.success) {
-        throw new Error(uploadData.error || 'Upload failed');
+        throw new Error(uploadData.error || 'Tải lên thất bại');
       }
       const finalCid = uploadData.encCid || uploadData.ipfsHash;
       if (onDisputeFileUploaded) {
@@ -181,7 +181,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           )}
           {reviewPeriod > 0 && (
             <p className="text-xs text-gray-600">
-              Review period: {formatSeconds(reviewPeriod)}
+              Thời gian đánh giá: {formatSeconds(reviewPeriod)}
             </p>
           )}
           {deadlineDate && (
@@ -198,13 +198,13 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
           )}
         </div>
         <span className={getStatusBadgeClasses()}>
-          {statusStr}
+          {getMilestoneStatusDisplay(statusStr)}
         </span>
       </div>
 
       {evidence && (
         <div className="mb-2 p-2 bg-white rounded border border-gray-300">
-          <p className="text-xs text-gray-600 mb-1">Evidence CID:</p>
+          <p className="text-xs text-gray-600 mb-1">Mã bằng chứng:</p>
           <p className="text-xs font-mono break-all mb-1">{evidence}</p>
           {loadingEvidence ? (
             <p className="text-xs text-gray-500">Đang giải mã...</p>
@@ -215,10 +215,10 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
               target="_blank"
               rel="noreferrer"
             >
-              Mở file bằng chứng
+              Mở tệp bằng chứng
             </a>
           ) : (
-            <p className="text-xs text-blue-700">Không thể giải mã CID</p>
+            <p className="text-xs text-blue-700">Không thể giải mã</p>
           )}
         </div>
       )}
@@ -325,20 +325,20 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                   <input
                     type="file"
                     accept="*/*"
-                    title="Chọn file evidence để upload"
+                    title="Chọn tệp bằng chứng để tải lên"
                     onChange={(e) => handleDisputeFileChange(e.target.files?.[0] || null)}
                     disabled={disputeUploading || interactionLocked}
                     className="w-full px-2 py-1 border border-gray-400 text-xs rounded text-gray-700 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </label>
                 {disputeUploading && (
-                  <span className="text-xs text-blue-600">Đang upload...</span>
+                  <span className="text-xs text-blue-600">Đang tải lên...</span>
                 )}
                 {disputeSelectedFile && (
                   <span className="text-xs text-blue-700">{disputeSelectedFile.name}</span>
                 )}
                 {disputeEvidenceCid && (
-                  <span className="text-xs text-blue-800 font-bold">CID OK</span>
+                  <span className="text-xs text-blue-800 font-bold">Đã tải lên</span>
                 )}
                 {!hasDisputeId && (
                   <button
@@ -365,7 +365,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
                   }`}
                 >
                   {(submittingEvidence || !disputeEvidenceCid || disputeUploading || interactionLocked) && <LockIcon className="w-4 h-4" />}
-                  {submittingEvidence ? 'Đang gửi...' : 'Gửi Evidence'}
+                  {submittingEvidence ? 'Đang gửi...' : 'Gửi bằng chứng'}
                 </button>
                 )}
               </div>

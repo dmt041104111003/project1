@@ -19,7 +19,7 @@ const getVerifierContract = () => {
   const contractAddress = process.env.ZK_VERIFIER_CONTRACT;
 
   if (!rpcUrl || !contractAddress) {
-    throw new Error('ZK verifier RPC URL hoặc contract address chưa được cấu hình (RPC_URL, ZK_VERIFIER_CONTRACT).');
+    throw new Error('Địa chỉ RPC hoặc hợp đồng xác thực ZK chưa được cấu hình (RPC_URL, ZK_VERIFIER_CONTRACT).');
   }
 
   console.log('[Proof API] Verifier config', { rpcUrl, contractAddress });
@@ -47,14 +47,14 @@ const formatHexField = (value: string): bigint => {
 
 const formatArrayField = (arr: string[]): [bigint, bigint] => {
   if (!Array.isArray(arr) || arr.length < 2) {
-    throw new Error('Thiếu dữ liệu field.');
+    throw new Error('Thiếu dữ liệu trường');
   }
   return [formatHexField(arr[0]), formatHexField(arr[1])];
 };
 
 const formatNestedField = (arr: string[][]): [[bigint, bigint], [bigint, bigint]] => {
   if (!Array.isArray(arr) || arr.length < 2) {
-    throw new Error('Thiếu dữ liệu field B.');
+    throw new Error('Thiếu dữ liệu trường B');
   }
   return [
     formatArrayField(arr[0]),
@@ -109,7 +109,7 @@ const normalizePublicSignalsPayload = (raw: any) => {
     };
   }
   
-  throw new Error('Public signals không đúng định dạng.');
+  throw new Error('Tín hiệu đầu ra không đúng định dạng');
 };
 
 export async function GET(request: NextRequest) {
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
         success: true,
         hasProof: false,
         verified: null,
-        message: 'Địa chỉ này chưa có proof'
+        message: 'Địa chỉ chưa có chứng chỉ'
       });
     }
 
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         success: true,
         hasProof: false,
         verified: null,
-        message: 'Địa chỉ này chưa có proof'
+        message: 'Địa chỉ chưa có chứng chỉ'
       });
     }
 
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
         success: true,
         hasProof: true,
         verified: null,
-        message: 'Proof exists (not verified)'
+        message: 'Có chứng chỉ nhưng chưa xác thực'
       }, { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } });
     }
 
@@ -168,16 +168,16 @@ export async function GET(request: NextRequest) {
     const publicSignalsRaw = decodeVectorU8(proofStruct.public_signals);
     const timestamp = proofStruct.timestamp ? Number(proofStruct.timestamp) : null;
 
-    console.log('Decoded proof:', proof ? 'OK' : 'FAILED');
-    console.log('Decoded public_signals:', publicSignalsRaw ? 'OK' : 'FAILED');
+    console.log('Giải mã chứng chỉ:', proof ? 'OK' : 'LỖI');
+    console.log('Giải mã tín hiệu đầu ra:', publicSignalsRaw ? 'OK' : 'LỖI');
 
     if (!proof || !publicSignalsRaw) {
-      console.error('Failed to decode:', {
+      console.error('Không thể giải mã:', {
         proofRaw: proofStruct.proof,
         publicSignalsRaw: proofStruct.public_signals
       });
       return NextResponse.json(
-        { success: false, error: 'Không thể decode proof data. Vui lòng kiểm tra console log.' },
+        { success: false, error: 'Không thể giải mã chứng chỉ' },
         { status: 500 }
       );
     }
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
       normalizedSignals = normalizePublicSignalsPayload(publicSignalsRaw);
     } catch (err: any) {
       return NextResponse.json(
-        { success: false, error: err?.message || 'Public signals không đúng định dạng.' },
+        { success: false, error: err?.message || 'Tín hiệu đầu ra không đúng định dạng' },
         { status: 500 }
       );
     }
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
     } catch (solidityErr) {
       console.error('[Proof API] Lỗi khi convert proof -> solidity calldata:', solidityErr);
       return NextResponse.json(
-        { success: false, error: 'Không thể convert proof sang calldata.' },
+        { success: false, error: 'Không thể chuyển đổi chứng chỉ' },
         { status: 500 }
       );
     }
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
 
     if (inputs.length !== 3) {
       return NextResponse.json(
-        { success: false, error: `Verifier yêu cầu 3 public signals, nhận được ${inputs.length}.` },
+        { success: false, error: `Cần 3 tín hiệu đầu ra, nhận được ${inputs.length}` },
         { status: 500 }
       );
     }
@@ -238,14 +238,14 @@ export async function GET(request: NextRequest) {
       timestamp,
       identity_hash: normalizedSignals.meta?.identity_hash ?? null,
       message: Boolean(verified)
-        ? 'Proof hợp lệ - đã verify qua smart contract.'
-        : 'Proof không hợp lệ. Vui lòng tạo lại proof.'
+        ? 'Chứng chỉ hợp lệ - đã xác thực qua hợp đồng thông minh'
+        : 'Chứng chỉ không hợp lệ. Vui lòng tạo lại'
     });
 
   } catch (error: any) {
-    console.error('Error fetching proof:', error);
+    console.error('Lỗi khi lấy chứng chỉ:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Lỗi khi lấy proof' },
+      { success: false, error: error?.message || 'Lỗi khi lấy chứng chỉ' },
       { status: 500 }
     );
   }

@@ -62,11 +62,11 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         <div className="mb-2 p-2 bg-gray-50 border-2 border-blue-800 rounded">
           {isPoster ? (
             <p className="text-xs text-blue-800 font-bold">
-              ✓ Bạn đã yêu cầu hủy. Đang chờ freelancer xác nhận...
+              ✓ Bạn đã yêu cầu hủy. Đang chờ người làm tự do xác nhận...
             </p>
           ) : (
             <p className="text-xs text-blue-800 font-bold">
-              ⚠ Poster đã yêu cầu hủy. Bạn có muốn chấp nhận không?
+              ⚠ Người thuê đã yêu cầu hủy. Bạn có muốn chấp nhận không?
             </p>
           )}
         </div>
@@ -76,11 +76,11 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
         <div className="mb-2 p-2 bg-gray-50 border-2 border-blue-800 rounded">
           {isFreelancer ? (
             <p className="text-xs text-blue-800 font-bold">
-              ✓ Bạn đã yêu cầu rút. Đang chờ poster xác nhận...
+              ✓ Bạn đã yêu cầu rút. Đang chờ người thuê xác nhận...
             </p>
           ) : (
             <p className="text-xs text-blue-800 font-bold">
-              ⚠ Freelancer đã yêu cầu rút. Bạn có muốn chấp nhận không?
+              ⚠ Người làm tự do đã yêu cầu rút. Bạn có muốn chấp nhận không?
             </p>
           )}
         </div>
@@ -96,7 +96,7 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
                 ? 'bg-gray-400 text-gray-600 border-gray-500 cursor-not-allowed'
                 : 'bg-white text-black hover:bg-gray-100 border-black'
             }`}
-            title={hasActiveDispute ? 'Không thể yêu cầu hủy khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.' : (freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ freelancer' : '')}
+            title={hasActiveDispute ? 'Không thể yêu cầu hủy khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.' : (freelancerWithdrawRequestedBy ? 'Không thể yêu cầu khi đang có yêu cầu rút từ người làm tự do' : '')}
           >
             {(cancelling || !!freelancerWithdrawRequestedBy || hasActiveDispute) && <LockIcon className="w-4 h-4" />}
             {cancelling ? 'Đang xử lý...' : 'Yêu cầu hủy (Mutual Cancel)'}
@@ -173,7 +173,7 @@ export const JobCancelActions: React.FC<JobCancelActionsProps> = ({
             title={hasActiveDispute ? 'Không thể yêu cầu rút khi đang có tranh chấp. Vui lòng giải quyết tranh chấp trước.' : ''}
           >
             {(withdrawing || hasActiveDispute) && <LockIcon className="w-4 h-4" />}
-            {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất stake nếu được chấp nhận)'}
+            {withdrawing ? 'Đang xử lý...' : 'Yêu cầu rút (Mất cọc nếu được chấp nhận)'}
           </button>
         )}
       </div>

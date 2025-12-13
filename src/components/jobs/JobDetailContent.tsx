@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { formatDeadline, formatSeconds } from '@/utils/timeUtils';
 import { LoadingState, ErrorState, StatusBadge } from '@/components/common';
 import { JobSidebar } from './JobSidebar';
+import { getMilestoneStatusDisplay } from '@/components/dashboard/MilestoneUtils';
 
 export const JobDetailContent: React.FC = () => {
   const params = useParams();
@@ -64,7 +65,7 @@ export const JobDetailContent: React.FC = () => {
       ]);
       
       if (!jobData) {
-        throw new Error('Job not found');
+        throw new Error('Không tìm thấy công việc');
       }
       
       setJobData(jobData);
@@ -90,7 +91,7 @@ export const JobDetailContent: React.FC = () => {
 
   useEffect(() => {
     const handleJobsUpdated = () => {
-      setTimeout(() => fetchJobDetails(), 1000);
+      fetchJobDetails();
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -103,7 +104,7 @@ export const JobDetailContent: React.FC = () => {
 
   const handleApply = async () => {
     if (!account || !hasFreelancerRole || !jobId) {
-      toast.error('Bạn cần có role Người làm tự do để ứng tuyển công việc. Vui lòng đăng ký role Người làm tự do trước!');
+      toast.error('Bạn cần có vai trò Người làm tự do để ứng tuyển công việc. Vui lòng đăng ký vai trò Người làm tự do trước!');
       return;
     }
 
@@ -127,10 +128,7 @@ export const JobDetailContent: React.FC = () => {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      
-      setTimeout(() => {
-        fetchJobDetails();
-      }, 3000);
+      fetchJobDetails();
     } catch (err: unknown) {
       toast.error(`Lỗi khi ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {
@@ -156,10 +154,7 @@ export const JobDetailContent: React.FC = () => {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      
-      setTimeout(() => {
-        fetchJobDetails();
-      }, 3000);
+      fetchJobDetails();
     } catch (err: unknown) {
       toast.error(`Lỗi khi rút ứng tuyển: ${(err as Error)?.message || 'Lỗi không xác định'}`);
     } finally {
@@ -281,7 +276,7 @@ export const JobDetailContent: React.FC = () => {
                           <h3 className="font-bold text-lg text-gray-900">
                             Cột mốc {index + 1}
                           </h3>
-                          <StatusBadge text={statusStr} variant={getStatusVariant(milestone.status)} />
+                          <StatusBadge text={getMilestoneStatusDisplay(statusStr)} variant={getStatusVariant(milestone.status)} />
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-blue-800">

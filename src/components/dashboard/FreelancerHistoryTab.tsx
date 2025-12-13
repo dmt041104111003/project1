@@ -55,7 +55,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
       );
       setDecodedCids(cidMap);
     } catch (error) {
-      console.error('Error fetching freelancer history:', error);
+      console.error('Lỗi khi tải lịch sử người làm tự do:', error);
       setHistory([]);
       setDecodedCids(new Map());
     } finally {
@@ -69,7 +69,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
 
   useEffect(() => {
     const handleJobsUpdated = () => {
-      setTimeout(() => fetchHistory(), 2000);
+      fetchHistory();
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -100,7 +100,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
       case 'pending_approval':
         return { text: 'Chờ phê duyệt', variant: 'info' as const };
       case 'posted':
-        return { text: 'Đã apply', variant: 'default' as const };
+        return { text: 'Đã ứng tuyển', variant: 'default' as const };
       default:
         return { text: 'Không xác định', variant: 'default' as const };
     }
@@ -138,7 +138,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
   if (history.length === 0) {
     return (
       <EmptyState
-        message="Bạn chưa từng apply công việc nào."
+        message="Bạn chưa từng ứng tuyển công việc nào."
       />
     );
   }
@@ -180,7 +180,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                     {(item.totalAmount / 100_000_000).toFixed(2)} APT
                   </div>
                   <div>
-                    <span className="font-semibold">CID:</span>{' '}
+                    <span className="font-semibold">Mã định danh:</span>{' '}
                     {decodedCids.has(item.jobId) ? (
                       <span>
                         <span className="font-mono text-xs break-all">{decodedCids.get(item.jobId)?.cid}</span>
@@ -191,7 +191,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 hover:underline text-xs ml-1"
                         >
-                          Mở metadata
+                          Xem chi tiết
                         </a>
                       </span>
                     ) : (
@@ -199,7 +199,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                     )}
                   </div>
                   <div>
-                    <span className="font-semibold">Thời gian apply:</span>{' '}
+                    <span className="font-semibold">Thời gian ứng tuyển:</span>{' '}
                     {new Date(item.appliedAt * 1000).toLocaleString('vi-VN')}
                   </div>
                   {item.completedAt && (
@@ -243,7 +243,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
             totalPages={totalPages}
             onPageChange={(page) => {
               setCurrentPage(page);
-              setTimeout(() => fetchHistory(), 300);
+              fetchHistory();
             }}
             showAutoPlay={false}
             showFirstLast

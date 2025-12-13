@@ -35,8 +35,8 @@ export const DashboardContent: React.FC = () => {
   if (availableTabs.length === 0) {
     return (
       <div className="text-center p-8 border-2 border-dashed border-blue-800 rounded-lg">
-        <h2 className="text-2xl font-bold text-blue-800 mb-2">Chưa có quyền truy cập Dashboard</h2>
-        <p className="text-gray-700">Vui lòng đăng ký vai trò Người thuê hoặc Người làm tự do để sử dụng Dashboard.</p>
+        <h2 className="text-2xl font-bold text-blue-800 mb-2">Chưa có quyền truy cập Bảng điều khiển</h2>
+        <p className="text-gray-700">Vui lòng đăng ký vai trò Người thuê hoặc Người làm tự do để sử dụng Bảng điều khiển.</p>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export const DashboardContent: React.FC = () => {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-blue-800 mb-2">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-blue-800 mb-2">Bảng điều khiển</h1>
         <p className="text-lg text-gray-700">Quản lý dự án và người làm tự do của bạn</p>
       </div>
 

@@ -168,7 +168,7 @@ export const RoomList: React.FC<Props> = ({
                           })()}
                         </p>
                         {!room.chatAccepted && (
-                          <p className="text-xs text-blue-700">Chờ accept</p>
+                          <p className="text-xs text-blue-700">Chờ chấp nhận</p>
                         )}
                       </>
                     )}
@@ -206,7 +206,7 @@ export const RoomList: React.FC<Props> = ({
                               }}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-200"
                             >
-                              Accept phòng
+                              Chấp nhận phòng
                             </button>
                           )}
                         {((room.creatorAddress || '').toLowerCase() === currentUserAddress.toLowerCase() ||

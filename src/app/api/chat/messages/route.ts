@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
       const roomData = await fetchRoomData(roomId);
       if (!roomData) {
-        return NextResponse.json({ error: 'Room không tồn tại' }, { status: 404 });
+        return NextResponse.json({ error: 'Phòng không tồn tại' }, { status: 404 });
       }
       if (!userIsMember(roomData, requester)) {
         return NextResponse.json({ error: 'Bạn không có quyền truy cập phòng này' }, { status: 403 });

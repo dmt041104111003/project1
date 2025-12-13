@@ -11,13 +11,13 @@ export const HOW_IT_WORKS_STEPS = [
   {
     id: 1,
     title: "Xác minh danh tính với xác minh không kiến thức",
-    description: "Upload CCCD, xác minh khuôn mặt với AI, tạo xác minh không kiến thức để đảm bảo mỗi người chỉ có 1 ví",
+    description: "Tải lên CCCD, xác minh khuôn mặt với AI, tạo chứng chỉ ZK để đảm bảo mỗi người chỉ có 1 ví",
     icon: "shield-check"
   },
   {
     id: 2,
     title: "Đăng ký vai trò",
-    description: "Chọn vai trò Người làm tự do, Người thuê hoặc Đánh giá viên và upload hồ sơ lên IPFS",
+    description: "Chọn vai trò Người làm tự do, Người thuê hoặc Đánh giá viên và tải lên hồ sơ",
     icon: "user-circle"
   },
   {
@@ -41,7 +41,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     id: 6,
     title: "Thanh toán tự động",
-    description: "Khi milestone được accept, tiền tự động chuyển từ ký quỹ đến Người làm tự do",
+    description: "Khi cột mốc được chấp nhận, tiền tự động chuyển từ ký quỹ đến Người làm tự do",
     icon: "currency-dollar"
   },
   {
@@ -82,13 +82,13 @@ export const PERSONAS = {
 
 export const TRUST_STATS = [
   {
-    label: "Đã xác minh với ZK Proof",
+    label: "Đã xác minh với chứng chỉ ZK",
     value: "1,234+",
     icon: "shield-check",
     color: "text-success"
   },
   {
-    label: "Milestones đã hoàn thành",
+    label: "Cột mốc đã hoàn thành",
     value: "5,678+",
     icon: "document-check",
     color: "text-primary"
@@ -104,10 +104,10 @@ export const TRUST_STATS = [
 export const FAQS = [
   {
     question: "Làm thế nào để xác minh danh tính?",
-    answer: "Bạn cần upload ảnh CCCD/CMND, hệ thống sẽ đọc thông tin bằng OCR. Sau đó chụp ảnh khuôn mặt qua webcam để so khớp với ảnh trên CCCD. Hệ thống tạo ZK proof để chứng minh bạn đã xác minh mà không lộ thông tin CCCD. Mỗi CCCD chỉ được gắn với 1 ví duy nhất."
+    answer: "Bạn cần tải lên ảnh CCCD/CMND, hệ thống sẽ đọc thông tin bằng OCR. Sau đó chụp ảnh khuôn mặt qua webcam để so khớp với ảnh trên CCCD. Hệ thống tạo chứng chỉ ZK để chứng minh bạn đã xác minh mà không lộ thông tin CCCD. Mỗi CCCD chỉ được gắn với 1 ví duy nhất."
   },
   {
-    question: "Escrow hoạt động như thế nào?",
+    question: "Ký quỹ hoạt động như thế nào?",
     answer: "Khi Người thuê tạo công việc, họ chia thành nhiều cột mốc và gửi tiền vào ký quỹ. Người làm tự do ứng tuyển và đặt cọc 1 APT. Khi Người làm tự do nộp cột mốc, Người thuê có thể chấp nhận hoặc từ chối. Nếu chấp nhận, tiền tự động chuyển từ ký quỹ đến Người làm tự do và cả 2 bên nhận +1 điểm uy tín. Nếu từ chối, chuyển sang tranh chấp."
   },
   {
@@ -116,7 +116,7 @@ export const FAQS = [
   },
   {
     question: "Tranh chấp được giải quyết như thế nào?",
-    answer: "Khi Người thuê reject milestone, hệ thống tự động chọn 3 đánh giá viên đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi đánh giá viên bỏ phiếu. Nếu 2/3 đánh giá viên đồng ý, quyết định được thực thi tự động. Đánh giá viên vote đúng +2 điểm, vote sai -1 điểm."
+    answer: "Khi Người thuê từ chối cột mốc, hệ thống tự động chọn 3 đánh giá viên đã xác minh (1 có điểm < người khởi tạo, 1 có điểm > người khởi tạo, 1 có điểm cao nhất). Mỗi đánh giá viên bỏ phiếu. Nếu 2/3 đánh giá viên đồng ý, quyết định được thực thi tự động. Đánh giá viên bỏ phiếu đúng +2 điểm, bỏ phiếu sai -1 điểm."
   },
   {
     question: "Khi nào tôi có thể nhận thanh toán?",

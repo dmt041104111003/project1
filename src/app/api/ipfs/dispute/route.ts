@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
 	const requesterAddress = searchParams.get('address');
 
 	if (!disputeIdParam) {
-		return NextResponse.json({ success: false, error: 'disputeId là bắt buộc' }, { status: 400 });
+		return NextResponse.json({ success: false, error: 'Thiếu mã tranh chấp' }, { status: 400 });
 	}
 
 	const disputeId = Number(disputeIdParam);
 	if (!Number.isFinite(disputeId) || disputeId <= 0) {
-		return NextResponse.json({ success: false, error: 'disputeId không hợp lệ' }, { status: 400 });
+		return NextResponse.json({ success: false, error: 'Mã tranh chấp không hợp lệ' }, { status: 400 });
 	}
 
 	const isReviewerRole = role === 'reviewer';
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 		// reviewer
 		if (!reviewers.includes(requester)) {
 			return NextResponse.json(
-				{ success: false, error: 'Bạn không phải reviewer của tranh chấp này' },
+				{ success: false, error: 'Bạn không phải người đánh giá của tranh chấp này' },
 				{ status: 403 },
 			);
 		}
@@ -111,11 +111,11 @@ export async function GET(request: NextRequest) {
 	}
 
 		if (!storedCid) {
-		return NextResponse.json({ success: false, error: 'Không có evidence cho role này' }, { status: 404 });
+		return NextResponse.json({ success: false, error: 'Không có bằng chứng cho vai trò này' }, { status: 404 });
 	}
 
 	if (cidParam && cidParam !== storedCid) {
-		return NextResponse.json({ success: false, error: 'CID không khớp với tranh chấp này' }, { status: 403 });
+		return NextResponse.json({ success: false, error: 'Mã định danh không khớp với tranh chấp này' }, { status: 403 });
 	}
 
 	try {
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
 			console.error('[API/dispute] Không thể giải mã CID:', storedCid);
 			return NextResponse.json({ 
 				success: false, 
-				error: 'Không thể giải mã bằng chứng. Vui lòng kiểm tra CID_SECRET_B64 env var.' 
+				error: 'Không thể giải mã bằng chứng. Vui lòng kiểm tra biến môi trường CID_SECRET_B64.' 
 			}, { status: 500 });
 		}
 
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
 		const res = await fetch(ipfsUrl, { method: 'GET' });
 		if (!res.ok) {
 			console.error('[API/dispute] Không thể fetch từ IPFS:', res.status, res.statusText);
-			return NextResponse.json({ success: false, error: 'Không thể tải bằng chứng từ IPFS' }, { status: 404 });
+			return NextResponse.json({ success: false, error: 'Không thể tải bằng chứng từ hệ thống lưu trữ' }, { status: 404 });
 		}
 
 		const data = await res.json();

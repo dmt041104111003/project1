@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   if (!eventType || (eventType !== 'role_registered' && eventType !== 'proof_stored')) {
     return NextResponse.json(
-      { error: 'Invalid event type. Must be "role_registered" or "proof_stored"' },
+      { error: 'Loại sự kiện không hợp lệ. Phải là "role_registered" hoặc "proof_stored"' },
       { status: 400 }
     );
   }
@@ -28,12 +28,12 @@ export async function GET(req: NextRequest) {
     if (!res.ok) {
       if (res.status === 429) {
         return NextResponse.json(
-          { error: 'Rate limit exceeded. Please try again later.' },
+          { error: 'Vượt quá giới hạn yêu cầu. Vui lòng thử lại sau.' },
           { status: 429 }
         );
       }
       return NextResponse.json(
-        { error: `Failed to fetch events: ${res.status} ${res.statusText}` },
+        { error: `Không thể lấy sự kiện: ${res.status} ${res.statusText}` },
         { status: res.status }
       );
     }
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error(`Error fetching ${eventType} events:`, error);
     return NextResponse.json(
-      { error: error?.message || 'Internal server error' },
+      { error: error?.message || 'Lỗi máy chủ nội bộ' },
       { status: 500 }
     );
   }

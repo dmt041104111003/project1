@@ -20,7 +20,7 @@ const resolveProfileCid = async (address: string, roleKind: number): Promise<str
 		
 		const res = await aptosFetch(url);
 		if (!res.ok) {
-			console.error('Failed to fetch role registered events:', res.status, res.statusText);
+			console.error('Lỗi khi lấy sự kiện đăng ký vai trò:', res.status, res.statusText);
 			return null;
 		}
 		const events = await res.json();
@@ -52,7 +52,7 @@ const resolveProfileCid = async (address: string, roleKind: number): Promise<str
 		
 		return null;
 	} catch (error) {
-		console.error('Error resolving profile CID:', error);
+		console.error('Lỗi khi giải mã hồ sơ:', error);
 		return null;
 	}
 };

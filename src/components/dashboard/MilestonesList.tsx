@@ -235,7 +235,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
             onPageChange={(page) => {
               setMilestonePage(page);
               if (onUpdate) {
-                setTimeout(() => onUpdate(), 300);
+                onUpdate();
               }
             }}
             showAutoPlay={false}
@@ -260,7 +260,7 @@ export const MilestonesList: React.FC<MilestonesListProps> = ({
                 }`}
               >
                 {unlockingNonDisputed && <LockIcon className="w-4 h-4" />}
-                {unlockingNonDisputed ? 'Đang rút...' : 'Rút Ký quỹ Các Cột mốc Không Tranh Chấp'}
+                {unlockingNonDisputed ? 'Đang rút...' : 'Rút ký quỹ các cột mốc không tranh chấp'}
               </button>
             ) : (
               <p className="text-sm text-gray-600 font-bold">

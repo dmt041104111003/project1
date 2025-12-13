@@ -83,14 +83,14 @@ export const useFaceVerification = (sessionId: string) => {
       const responseText = await response.text();
       
       if (!responseText || responseText.trim() === '') {
-        throw new Error("Không nhận được response từ server");
+        throw new Error("Không nhận được phản hồi từ máy chủ");
       }
       
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (error) {
-        console.error("Failed to parse JSON response:", responseText);
+        console.error("Không thể phân tích phản hồi JSON:", responseText);
         throw new Error("Lỗi khi xử lý response từ server");
       }
       

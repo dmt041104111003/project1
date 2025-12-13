@@ -48,7 +48,7 @@ const hasProof = async (address: string): Promise<boolean> => {
     
     const res = await aptosFetch(url);
     if (!res.ok) {
-      console.error('Failed to fetch proof stored events:', res.status, res.statusText);
+      console.error('Lỗi khi lấy sự kiện chứng chỉ:', res.status, res.statusText);
       return false;
     }
     const events = await res.json();
@@ -62,7 +62,7 @@ const hasProof = async (address: string): Promise<boolean> => {
     
     return hasProofResult;
   } catch (error) {
-    console.error('Error checking proof from events:', error);
+    console.error('Lỗi khi kiểm tra chứng chỉ:', error);
     return false;
   }
 };
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Bạn chưa có xác minh không kiến thức. Vui lòng xác minh định danh tài khoản trước.' }, { status: 403 });
       }
       if (!participantHasProof) {
-        return NextResponse.json({ success: false, error: 'Người nhận chưa có proof. Không thể tạo phòng.' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Người nhận chưa có xác minh. Không thể tạo phòng.' }, { status: 400 });
       }
 
       const roomsSnapshot = await get(ref(database, 'chatRooms'));
@@ -169,22 +169,22 @@ export async function POST(request: NextRequest) {
       const roomRef = ref(database, `chatRooms/${roomIdToAccept}`);
       const roomSnapshot = await get(roomRef);
       if (!roomSnapshot.exists()) {
-        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Phòng không tồn tại' }, { status: 404 });
       }
       const roomData = roomSnapshot.val();
       const expectedParticipant = normalizeAddress(roomData?.participantAddress);
       if (!expectedParticipant) {
-        return NextResponse.json({ success: false, error: 'Room không hợp lệ' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Phòng không hợp lệ' }, { status: 400 });
       }
       if (expectedParticipant !== requester) {
-        return NextResponse.json({ success: false, error: 'Bạn không phải người được mời vào room này' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'Bạn không phải người được mời vào phòng này' }, { status: 403 });
       }
       if (normalizeAddress(roomData?.creatorAddress) === requester) {
-        return NextResponse.json({ success: false, error: 'Không thể accept phòng của chính bạn' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Không thể chấp nhận phòng của chính bạn' }, { status: 400 });
       }
 
       if (!(await hasProof(requester))) {
-        return NextResponse.json({ success: false, error: 'Bạn chưa có proof nên không thể accept phòng' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'Bạn chưa có xác minh nên không thể chấp nhận phòng' }, { status: 403 });
       }
 
       await update(roomRef, {
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         [requester]: true
       });
 
-      return NextResponse.json({ success: true, message: 'Room đã được accept' });
+      return NextResponse.json({ success: true, message: 'Phòng đã được chấp nhận' });
     }
 
     if (updateLastViewed && roomIdForLastViewed && userAddress && lastViewedTimestamp) {
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
     if (updateRoomName && roomIdToUpdate && newName) {
       const roomData = await fetchRoomData(roomIdToUpdate);
       if (!roomData) {
-        return NextResponse.json({ success: false, error: 'Room không tồn tại' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Phòng không tồn tại' }, { status: 404 });
       }
       if (!ensureRoomMembership(roomData, requester)) {
         return NextResponse.json({ success: false, error: 'Bạn không có quyền sửa phòng này' }, { status: 403 });

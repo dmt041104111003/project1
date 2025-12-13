@@ -51,11 +51,11 @@ export async function POST(request: NextRequest) {
       try {
         const text = await verifyResponse.text();
         if (!text || !text.trim()) {
-          throw new Error('Empty response from Python API');
+          throw new Error('Phản hồi rỗng từ máy chủ xác thực');
         }
         verifyData = JSON.parse(text);
       } catch (error) {
-        console.error('Failed to parse Python API response:', error);
+        console.error('Không thể phân tích phản hồi máy chủ:', error);
         return NextResponse.json(
           { error: 'Lỗi khi xử lý response từ Python API' },
           { status: 500 }
@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
         verified: verifyData.verified,
         similarity: verifyData.similarity,
         threshold: verifyData.threshold,
-        is_real: verifyData.is_real,
         message: verifyData.message,
       });
     } catch (error: unknown) {

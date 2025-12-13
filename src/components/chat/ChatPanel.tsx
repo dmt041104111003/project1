@@ -18,6 +18,7 @@ type Props = {
 	setMessage: (v: string) => void;
 	handleSubmit: (e: React.FormEvent) => void;
 	handleAcceptRoom: (roomId: string) => Promise<void>;
+	onDeleteMessage?: (messageId: string) => void;
 };
 
 const short = (addr: string) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
@@ -34,6 +35,7 @@ export const ChatPanel: React.FC<Props> = ({
 	setMessage,
 	handleSubmit,
 	handleAcceptRoom,
+	onDeleteMessage,
 }) => {
 	return (
 		<div className="flex-1 flex flex-col">
@@ -83,14 +85,17 @@ export const ChatPanel: React.FC<Props> = ({
 									<div className="flex items-end gap-2">
 										{isOwn && (
 											<div className="flex flex-col gap-1">
-												<button onClick={() => setReplyingTo(msg)} className="text-xs text-blue-400 hover:text-blue-300">Reply</button>
+												<button onClick={() => setReplyingTo(msg)} className="text-xs text-blue-400 hover:text-blue-300">Trả lời</button>
+												{onDeleteMessage && (
+													<button onClick={() => onDeleteMessage(msg.id)} className="text-xs text-red-400 hover:text-red-300">Xóa</button>
+												)}
 											</div>
 										)}
 										<div className={`max-w-xs px-4 py-2 border ${isOwn ? 'bg-gray-800 text-white border-gray-800' : 'bg-gray-200 text-gray-800 border-gray-400'}`}>
 											{msg.replyTo && (
 												<div className={`mb-2 p-2 border-l-4 ${isOwn ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-400'}`}>
 													<div className={`text-xs ${isOwn ? 'text-gray-300' : 'text-gray-600'}`}>
-														{msg.replyTo.senderId === currentUserId ? 'Replying to yourself' : `Replying to ${short(msg.replyTo.senderId)}`}
+														{msg.replyTo.senderId === currentUserId ? 'Trả lời chính mình' : `Trả lời ${short(msg.replyTo.senderId)}`}
 													</div>
 													<div className={`text-xs truncate ${isOwn ? 'text-gray-400' : 'text-gray-700'}`}>{msg.replyTo.text}</div>
 												</div>
@@ -104,7 +109,7 @@ export const ChatPanel: React.FC<Props> = ({
 											</div>
 										</div>
 										{!isOwn && (
-											<button onClick={() => setReplyingTo(msg)} className="text-xs text-blue-600 hover:text-blue-800">Reply</button>
+											<button onClick={() => setReplyingTo(msg)} className="text-xs text-blue-600 hover:text-blue-800">Trả lời</button>
 										)}
 									</div>
 								</div>
@@ -120,14 +125,14 @@ export const ChatPanel: React.FC<Props> = ({
 						<div>
 							{replyingTo && (
 								<div className="mb-2 p-2 bg-gray-100 border-l-4 border-blue-500">
-									<div className="text-xs text-gray-600">{replyingTo.senderId === currentUserId ? 'Reply chính mình:' : `Reply ${replyingTo.sender}:`}</div>
+									<div className="text-xs text-gray-600">{replyingTo.senderId === currentUserId ? 'Trả lời chính mình:' : `Trả lời ${replyingTo.sender}:`}</div>
 									<div className="text-sm text-gray-800 truncate">{replyingTo.text}</div>
 									<div className="text-xs text-gray-500 mt-1">{formatTime(replyingTo.timestamp)}</div>
-									<button onClick={() => setReplyingTo(null)} className="text-xs text-blue-700 hover:text-blue-800 mt-1">Cancel</button>
+									<button onClick={() => setReplyingTo(null)} className="text-xs text-blue-700 hover:text-blue-800 mt-1">Hủy</button>
 								</div>
 							)}
 							<form onSubmit={handleSubmit} className="flex gap-2">
-								<input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={replyingTo ? 'Reply...' : 'Nhập tin nhắn...'} className="flex-1 px-4 py-2 border border-gray-400 focus:outline-none focus:border-gray-800" />
+								<input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={replyingTo ? 'Trả lời...' : 'Nhập tin nhắn...'} className="flex-1 px-4 py-2 border border-gray-400 focus:outline-none focus:border-gray-800" />
 								<Button type="submit" disabled={!message.trim()} variant="primary" size="md">GỬI</Button>
 							</form>
 						</div>
@@ -136,7 +141,7 @@ export const ChatPanel: React.FC<Props> = ({
 							<div className="space-y-3">
 								<p className="text-sm">Phòng chat chưa được chấp nhận</p>
 								{selectedRoom.creatorAddress.toLowerCase() !== currentUserId.toLowerCase() && (
-									<Button variant="outline" size="sm" onClick={() => handleAcceptRoom(selectedRoom.id)}>ACCEPT CHAT</Button>
+									<Button variant="outline" size="sm" onClick={() => handleAcceptRoom(selectedRoom.id)}>CHẤP NHẬN CHAT</Button>
 								)}
 							</div>
 						</div>

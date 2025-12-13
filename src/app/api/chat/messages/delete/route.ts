@@ -30,7 +30,7 @@ export async function DELETE(request: NextRequest) {
 
     const roomData = await fetchRoomData(roomId);
     if (!roomData) {
-      return NextResponse.json({ error: 'Room không tồn tại' }, { status: 404 });
+      return NextResponse.json({ error: 'Phòng không tồn tại' }, { status: 404 });
     }
     
     const members = roomData?.members || {};

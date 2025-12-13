@@ -30,9 +30,9 @@ export const DisputesContent: React.FC = () => {
   useEffect(() => {
     if (account && isReviewer && !checkingRole) {
       if (activeTab === 'current') {
-        setTimeout(() => refresh({ silent: true }), 500);
+        refresh({ silent: true });
       } else {
-        setTimeout(() => fetchHistory(), 500);
+        fetchHistory();
       }
     }
   }, [activeTab, account, isReviewer, checkingRole]);
@@ -75,11 +75,10 @@ export const DisputesContent: React.FC = () => {
         activeTab={activeTab}
         onChange={(value) => {
           setActiveTab(value as 'current' | 'history');
-          // Auto refresh khi đổi tab
           if (value === 'current') {
-            setTimeout(() => refresh({ silent: true }), 500);
+            refresh({ silent: true });
           } else {
-            setTimeout(() => fetchHistory(), 500);
+            fetchHistory();
           }
         }}
       />

@@ -185,29 +185,26 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   };
 
   useEffect(() => {
-    if (initialized && account && (activeTab === 'posted' || activeTab === 'applied')) {
-      const timer = setTimeout(() => {
-        fetchJobs();
-      }, 100);
-      return () => clearTimeout(timer);
+    if (account && (activeTab === 'posted' || activeTab === 'applied')) {
+      fetchJobs();
     }
-  }, [activeTab, initialized, account, hasPosterRole, hasFreelancerRole]);
+  }, [activeTab, account, hasPosterRole, hasFreelancerRole]);
 
   useEffect(() => {
     const handleRolesUpdated = () => {
-      if (account && initialized) {
-        setTimeout(() => fetchJobs(), 1000);
+      if (account) {
+        fetchJobs();
       }
     };
     
     const handleJobsUpdated = async () => {
-      if (account && initialized) {
+      if (account) {
         const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
         const { clearJobTableCache } = await import('@/lib/aptosClientCore');
         clearJobEventsCache();
         clearDisputeEventsCache();
         clearJobTableCache();
-        setTimeout(() => fetchJobs(), 1000);
+        fetchJobs();
       }
     };
 
@@ -218,7 +215,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       window.removeEventListener('rolesUpdated', handleRolesUpdated);
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [account, initialized]);
+  }, [account]);
 
   const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobs.slice(
@@ -234,7 +231,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   }, [jobs.length, currentPage]);
 
   if (!account) {
-    return <EmptyState message="Vui lòng kết nối wallet" />;
+    return <EmptyState message="Vui lòng kết nối ví" />;
   }
 
   if (!initialized && !loading) {
@@ -324,8 +321,8 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
             <EmptyState
               message={
                 activeTab === 'posted' 
-                  ? 'Bạn chưa đăng job nào.' 
-                  : 'Bạn chưa apply job nào.'
+                  ? 'Bạn chưa đăng công việc nào.' 
+                  : 'Bạn chưa ứng tuyển công việc nào.'
               }
             />
           ) : (

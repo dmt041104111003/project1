@@ -58,10 +58,10 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
 
       const finalCid = uploadData.encCid || uploadData.ipfsHash;
       onFileUploaded(milestoneId, finalCid);
-      toast.success('Tải file lên thành công!');
+      toast.success('Tải tệp lên thành công!');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-      toast.error(`Lỗi upload file: ${errorMessage}`);
+      toast.error(`Lỗi tải lên tệp: ${errorMessage}`);
       setSelectedFile(null);
     } finally {
       setUploading(false);
@@ -86,7 +86,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             <input
               type="file"
               accept="*/*"
-              title="Chọn file bằng chứng để tải lên"
+              title="Chọn tệp bằng chứng để tải lên"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 handleFileChange(file);
@@ -96,7 +96,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             />
           </label>
           {uploading && (
-            <span className="text-xs text-blue-600">Đang upload...</span>
+            <span className="text-xs text-blue-600">Đang tải lên...</span>
           )}
           {selectedFile && (
             <span className="text-xs text-blue-700">
@@ -104,7 +104,7 @@ export const MilestoneFileUpload: React.FC<MilestoneFileUploadProps> = ({
             </span>
           )}
           {evidenceCid && (
-            <span className="text-xs text-blue-700">✓ CID sẵn sàng</span>
+            <span className="text-xs text-blue-700">✓ Đã tải lên</span>
           )}
           <button
             onClick={() => onSubmit(milestoneId)}

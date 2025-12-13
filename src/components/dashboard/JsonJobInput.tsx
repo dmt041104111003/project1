@@ -15,7 +15,7 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
       onParse(data);
       setJsonInput('');
     } catch (e) {
-      setJsonError(`Lỗi parse JSON: ${(e as Error)?.message || 'Invalid JSON'}`);
+      setJsonError(`Lỗi phân tích JSON: ${(e as Error)?.message || 'JSON không hợp lệ'}`);
     }
   };
 
@@ -23,12 +23,12 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
     <div className="space-y-4">
       <div>
         <label className="block text-sm font-bold text-gray-900 mb-2">
-          Paste JSON data
+          Dán dữ liệu JSON
         </label>
         <textarea
           value={jsonInput}
           onChange={(e) => setJsonInput(e.target.value)}
-          placeholder={`{\n  "title": "Phát triển smart contract",\n  "description": "Mô tả dự án...",\n  "requirements": ["Solidity", "Move"],\n  "deadline": 7,\n  "deadlineUnit": "ngày",\n  "milestones": [\n    { "amount": "0.1", "duration": "300", "unit": "giây", "reviewPeriod": "300", "reviewUnit": "giây" },\n    { "amount": "0.1", "duration": "600", "unit": "giây", "reviewPeriod": "600", "reviewUnit": "giây" }\n  ]\n}`}
+          placeholder={`{\n  "title": "Phát triển hợp đồng thông minh",\n  "description": "Mô tả dự án...",\n  "requirements": ["Solidity", "Move"],\n  "deadline": 7,\n  "deadlineUnit": "ngày",\n  "milestones": [\n    { "amount": "0.1", "duration": "300", "unit": "giây", "reviewPeriod": "300", "reviewUnit": "giây" },\n    { "amount": "0.1", "duration": "600", "unit": "giây", "reviewPeriod": "600", "reviewUnit": "giây" }\n  ]\n}`}
           rows={15}
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 font-mono text-sm resize-none ${
@@ -61,7 +61,7 @@ export const JsonJobInput: React.FC<JsonJobInputProps> = ({ onParse, canPostJobs
           disabled={!canPostJobs || isSubmitting}
           className="!bg-white !text-black !border-2 !border-black font-bold"
         >
-          Clear
+          Xóa
         </Button>
       </div>
     </div>

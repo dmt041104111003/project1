@@ -85,7 +85,7 @@ export function useOcrUpload(
         try {
           data = JSON.parse(responseText);
         } catch (error) {
-          console.error("Failed to parse OCR response:", responseText);
+          console.error("Không thể phân tích phản hồi OCR:", responseText);
           throw new Error("Lỗi khi xử lý response từ API OCR");
         }
 
@@ -177,7 +177,7 @@ export function useOcrUpload(
       try {
         data = JSON.parse(responseText);
       } catch (error) {
-        console.error("Failed to parse upload response:", responseText);
+        console.error("Không thể phân tích phản hồi tải lên:", responseText);
         throw new Error("Lỗi khi xử lý response từ API upload");
       }
 

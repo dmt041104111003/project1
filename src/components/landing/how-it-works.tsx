@@ -89,7 +89,7 @@ export function HowItWorks() {
           </h2>
           <div className="w-16 h-1 bg-blue-800 mx-auto mb-6"></div>
           <p className="text-xl text-gray-700 max-w-2xl mx-auto">
-            Quy trình 7 bước để bắt đầu freelancing an toàn và minh bạch với ZK Proof và ký quỹ
+            Quy trình 7 bước để bắt đầu làm việc tự do an toàn và minh bạch với chứng chỉ ZK và ký quỹ
           </p>
         </div>
         
