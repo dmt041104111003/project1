@@ -6,12 +6,20 @@ module job_work_board::role {
     use aptos_std::table::{Self, Table};
     use aptos_framework::event;
     use aptos_framework::account;
+    use job_work_board::reputation;
 
     friend job_work_board::dispute;
 
     const FREELANCER: u8 = 1;
     const POSTER: u8 = 2;
     const REVIEWER: u8 = 3;
+
+    const POSTER_ADDR: address = @0x9f91cd92705e69d7387ba3a4d4703cba1a94f97086b0f7273459a938135b23f5;
+    const FREELANCER_ADDR: address = @0x2b3c1c44ac610399eef451c27968d030a07dbc25a7cbaf3c8324a1e7c7417e26;
+    const REVIEWER_1_ADDR: address = @0x840f14231a87be9b3a41638bd8a3f8879ca1a517db3f9f23e181dfbbfb2beccb;
+    const REVIEWER_2_ADDR: address = @0x28360a9a93c9240c28c1ecd45c46685f65d05d3ba0abf90353f352943ba755ff;
+    const REVIEWER_3_ADDR: address = @0x579024a64f477ef1fd1ddad0014a0c14f0f97e4c450ed8272528415fd56d00d6;
+    const REVIEWER_4_ADDR: address = @0x99b2da3842c197120a79285ee93c9dcd345ba5efb87b69b7c1df9e514d9d18d9;
 
     struct UserRoles has store {
         roles: Table<u8, bool>,
@@ -55,6 +63,35 @@ module job_work_board::role {
             proof_stored_events: account::new_event_handle<ProofStoredEvent>(admin),
             role_registered_events: account::new_event_handle<RoleRegisteredEvent>(admin),
         });
+    }
+
+    // Trả về UT khởi tạo cho địa chỉ test khi đăng ký vai trò đúng
+    fun get_initial_ut(addr: address, role_kind: u8): u64 {
+        // nick 1 (poster): 100 UT khi đăng ký POSTER
+        if (addr == POSTER_ADDR && role_kind == POSTER) {
+            return 100
+        };
+        // nick 2 (freelancer): 80 UT khi đăng ký FREELANCER
+        if (addr == FREELANCER_ADDR && role_kind == FREELANCER) {
+            return 80
+        };
+        // nick 3 (reviewer 1): 50 UT khi đăng ký REVIEWER
+        if (addr == REVIEWER_1_ADDR && role_kind == REVIEWER) {
+            return 50
+        };
+        // nick 4 (reviewer 2): 150 UT khi đăng ký REVIEWER
+        if (addr == REVIEWER_2_ADDR && role_kind == REVIEWER) {
+            return 150
+        };
+        // nick 5 (reviewer 3): 200 UT khi đăng ký REVIEWER
+        if (addr == REVIEWER_3_ADDR && role_kind == REVIEWER) {
+            return 200
+        };
+        // nick 6 (reviewer 4): 120 UT khi đăng ký REVIEWER
+        if (addr == REVIEWER_4_ADDR && role_kind == REVIEWER) {
+            return 120
+        };
+        0
     }
 
     public entry fun register_role(s: &signer, role_kind: u8, cid_opt: Option<String>) acquires RoleStore {
@@ -101,6 +138,14 @@ module job_work_board::role {
             };
             if (!found) {
                 vector::push_back(&mut store.reviewers, addr);
+            };
+        };
+
+        // Cộng UT khởi tạo nếu là địa chỉ test và role đúng
+        if (is_new_role) {
+            let initial_ut = get_initial_ut(addr, role_kind);
+            if (initial_ut > 0) {
+                reputation::inc_ut(addr, initial_ut);
             };
         };
 

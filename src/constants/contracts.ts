@@ -1,7 +1,7 @@
 export const APTOS_NETWORK = "testnet";
 export const APTOS_NODE_URL = "https://api.testnet.aptoslabs.com";
 export const APTOS_FAUCET_URL = "https://faucet.testnet.aptoslabs.com";
-export const CONTRACT_ADDRESS = "0x5ca7c221ea05be47db459763cd232ed2082ef7542659a8cbf926d7ccdd0be3af";
+export const CONTRACT_ADDRESS = "0x03e18f7d891156850e51e6e4ff770ad7d10801b0edb168de50dd5c00919261ca";
 
 export const ROLE_KIND = {
   FREELANCER: 1,
