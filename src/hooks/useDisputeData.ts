@@ -4,25 +4,38 @@ export function useDisputeData(jobId: number) {
   const [hasDisputeId, setHasDisputeId] = useState<boolean>(false);
   const [disputeWinner, setDisputeWinner] = useState<boolean | null>(null);
   const [disputeVotesDone, setDisputeVotesDone] = useState<boolean>(false);
+  const [activeDisputeMilestoneId, setActiveDisputeMilestoneId] = useState<number | null>(null);
 
   const load = async () => {
     try {
-      const { getDisputeSummary, getDisputeOpenedEvents } = await import('@/lib/aptosClient');
+      const { getDisputeSummary, getDisputeOpenedEvents, getDisputeResolvedEvents } = await import('@/lib/aptosClient');
       const { getParsedJobData } = await import('@/lib/aptosClient');
       
       const openedEvents = await getDisputeOpenedEvents(200);
-      const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.job_id || 0) === Number(jobId));
+      const resolvedEvents = await getDisputeResolvedEvents(200);
       
-      if (disputeEvent) {
-        const disputeId = Number(disputeEvent?.data?.dispute_id || 0);
+      const resolvedDisputeIds = new Set(
+        resolvedEvents.map((e: any) => Number(e?.data?.dispute_id || 0))
+      );
+      
+      // Find ACTIVE (unresolved) dispute for this job
+      const activeDisputeEvent = openedEvents.find((e: any) => {
+        const eventJobId = Number(e?.data?.job_id || 0);
+        const eventDisputeId = Number(e?.data?.dispute_id || 0);
+        return eventJobId === Number(jobId) && !resolvedDisputeIds.has(eventDisputeId);
+      });
+      
+      if (activeDisputeEvent) {
+        const disputeId = Number(activeDisputeEvent?.data?.dispute_id || 0);
+        const milestoneId = Number(activeDisputeEvent?.data?.milestone_id || 0);
         setHasDisputeId(disputeId > 0);
+        setActiveDisputeMilestoneId(milestoneId);
         
         if (disputeId > 0) {
           const summary = await getDisputeSummary(disputeId);
           if (summary) {
-            if (typeof summary.winner === 'boolean') {
+            if (summary.isResolved || typeof summary.winner === 'boolean') {
               const jobData = await getParsedJobData(jobId);
-              const milestoneId = Number(disputeEvent?.data?.milestone_id || 0);
               const milestone = jobData?.milestones?.find((m: any) => Number(m.id) === milestoneId);
               
               if (milestone) {
@@ -52,14 +65,22 @@ export function useDisputeData(jobId: number) {
         }
       } else {
         setHasDisputeId(false);
+        setActiveDisputeMilestoneId(null);
         setDisputeWinner(null);
         setDisputeVotesDone(false);
       }
-    } catch {}
+    } catch (err) {
+      console.error('[useDisputeData] Error:', err);
+    }
   };
 
   useEffect(() => {
-    load();
+    const init = async () => {
+      const { clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      clearDisputeEventsCache();
+      load();
+    };
+    init();
     
     const handleJobsUpdated = async () => {
       const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
@@ -80,6 +101,7 @@ export function useDisputeData(jobId: number) {
     hasDisputeId,
     disputeWinner,
     disputeVotesDone,
+    activeDisputeMilestoneId,
   };
 }
 

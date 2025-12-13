@@ -141,8 +141,17 @@ export function useDisputes(account?: string | null) {
         if (milestoneIndex < 0) milestoneIndex = milestoneId;
         
         const evidence = evidenceMap.get(disputeId);
-        const posterEvidenceCid = evidence ? String(evidence.poster_evidence_cid || '') : '';
-        const freelancerEvidenceCid = evidence ? String(evidence.freelancer_evidence_cid || '') : '';
+        const parseCidValue = (cid: unknown): string => {
+          if (!cid) return '';
+          if (typeof cid === 'string') return cid;
+          if (typeof cid === 'object' && cid !== null && 'vec' in cid) {
+            const vec = (cid as {vec: unknown[]}).vec;
+            if (Array.isArray(vec) && vec.length > 0) return String(vec[0]);
+          }
+          return '';
+        };
+        const posterEvidenceCid = evidence ? parseCidValue(evidence.poster_evidence_cid) : '';
+        const freelancerEvidenceCid = evidence ? parseCidValue(evidence.freelancer_evidence_cid) : '';
 
         results.push({ 
           jobId, 

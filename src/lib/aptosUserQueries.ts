@@ -131,6 +131,17 @@ export async function getDisputeSummary(disputeId: number) {
   };
 }
 
+// Helper to parse CID from Move Option<String> format {vec: ['cid']} or string
+function parseCidFromMove(cid: unknown): string {
+  if (!cid) return '';
+  if (typeof cid === 'string') return cid;
+  if (typeof cid === 'object' && cid !== null && 'vec' in cid) {
+    const vec = (cid as {vec: unknown[]}).vec;
+    if (Array.isArray(vec) && vec.length > 0) return String(vec[0]);
+  }
+  return '';
+}
+
 export async function getDisputeEvidence(disputeId: number) {
   const [openedEvents, evidenceEvents] = await Promise.all([
     getDisputeOpenedEvents(200),
@@ -149,7 +160,7 @@ export async function getDisputeEvidence(disputeId: number) {
   
   const initialEvidenceCid = disputeEvent?.data?.evidence_cid;
   if (initialEvidenceCid) {
-    const initialCid = String(initialEvidenceCid);
+    const initialCid = parseCidFromMove(initialEvidenceCid);
     if (openedBy === posterAddr) {
       posterEvidenceCid = initialCid;
     } else if (openedBy === freelancerAddr) {
@@ -161,7 +172,7 @@ export async function getDisputeEvidence(disputeId: number) {
   
   disputeEvidences.forEach((e: any) => {
     const addedBy = String(e?.data?.added_by || '').toLowerCase();
-    const cid = String(e?.data?.evidence_cid || '');
+    const cid = parseCidFromMove(e?.data?.evidence_cid);
     if (addedBy === posterAddr) {
       posterEvidenceCid = cid;
     } else if (addedBy === freelancerAddr) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MilestonesList } from './MilestonesList';
 import { toast } from 'sonner';
@@ -17,6 +17,22 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
   const [reviewingCandidate, setReviewingCandidate] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [disputeCount, setDisputeCount] = useState<number>(0);
+
+  // Fetch dispute count for this job
+  useEffect(() => {
+    const fetchDisputeCount = async () => {
+      try {
+        const { getDisputeOpenedEvents } = await import('@/lib/aptosClient');
+        const events = await getDisputeOpenedEvents(200);
+        const count = events.filter((e: any) => Number(e?.data?.job_id || 0) === job.id).length;
+        setDisputeCount(count);
+      } catch {
+        setDisputeCount(0);
+      }
+    };
+    fetchDisputeCount();
+  }, [job.id]);
   const handleWithdraw = async () => {
     toast.warning('Bạn có chắc muốn rút lại công việc này? Cọc và ký quỹ sẽ được hoàn về ví của bạn.', {
       action: {
@@ -120,8 +136,13 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
-          {isDisputed && (
-            <span className="text-red-600 text-xl" title="Đang có tranh chấp">🚩</span>
+          {disputeCount > 0 && (
+            <span 
+              className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-600 rounded-full" 
+              title={`Đã có ${disputeCount} lần tranh chấp`}
+            >
+              {disputeCount}
+            </span>
           )}
         </div>
         {!isDisputed && <StatusBadge text={stateDisplay.text} variant={stateDisplay.variant} />}

@@ -50,6 +50,7 @@ export const MilestoneItem: React.FC<MilestoneItemProps> = ({
   const isFreelancer = account && freelancer && account.toLowerCase() === freelancer.toLowerCase();
   const statusStr = parseStatus(milestone.status);
   const evidence = parseEvidenceCid(milestone.evidence_cid);
+  
   const isPending = statusStr === 'Pending';
   const isSubmitted = statusStr === 'Submitted';
   const isAccepted = statusStr === 'Accepted';
