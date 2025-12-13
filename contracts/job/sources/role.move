@@ -161,6 +161,7 @@ module job_work_board::role {
         );
     }
 
+    #[view]
     public fun has_role(addr: address, role_kind: u8): bool acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return false;
         let store = borrow_global<RoleStore>(@job_work_board);
@@ -168,6 +169,7 @@ module job_work_board::role {
         table::contains(&table::borrow(&store.users, addr).roles, role_kind)
     }
 
+    #[view]
     public fun get_cid(addr: address, role_kind: u8): Option<String> acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return option::none();
         let store = borrow_global<RoleStore>(@job_work_board);
@@ -180,8 +182,11 @@ module job_work_board::role {
         }
     }
 
+    #[view]
     public fun has_freelancer(addr: address): bool acquires RoleStore { has_role(addr, FREELANCER) }
+    #[view]
     public fun has_poster(addr: address): bool acquires RoleStore { has_role(addr, POSTER) }
+    #[view]
     public fun has_reviewer(addr: address): bool acquires RoleStore { has_role(addr, REVIEWER) }
 
     public(friend) fun get_reviewers(): vector<address> acquires RoleStore {
@@ -226,12 +231,14 @@ module job_work_board::role {
         );
     }
 
+    #[view]
     public fun has_proof(addr: address): bool acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return false;
         let store = borrow_global<RoleStore>(@job_work_board);
         table::contains(&store.proofs, addr)
     }
 
+    #[view]
     public fun get_proof(addr: address): Option<CCCDProof> acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return option::none();
         let store = borrow_global<RoleStore>(@job_work_board);
@@ -239,6 +246,7 @@ module job_work_board::role {
         option::some(*table::borrow(&store.proofs, addr))
     }
     
+    #[view]
     public fun get_identity_hash_owner(identity_hash: u64): Option<address> acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return option::none();
         let store = borrow_global<RoleStore>(@job_work_board);

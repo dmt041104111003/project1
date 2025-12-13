@@ -79,6 +79,7 @@ module job_work_board::reputation {
         );
     }
 
+    #[view]
     public fun get(addr: address): u64 acquires RepStore {
         if (!exists<RepStore>(@job_work_board)) return 0;
         let store = borrow_global<RepStore>(@job_work_board);
