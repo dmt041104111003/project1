@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    let result: any = { address };
+    const result: any = { address };
 
     if (action === 'all' || action === 'roles') {
       const [hasFreelancer, hasPoster, hasReviewer, hasProof] = await Promise.all([
