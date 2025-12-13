@@ -19,8 +19,8 @@ module job_work_board::role {
     }
 
     struct CCCDProof has store, copy, drop {
-        proof: vector<u8>,  // ZK proof (JSON serialized)
-        public_signals: vector<u8>,  // Public signals (JSON serialized)
+        proof: vector<u8>,
+        public_signals: vector<u8>,
         timestamp: u64,
     }
 
@@ -40,8 +40,8 @@ module job_work_board::role {
     struct RoleStore has key {
         users: Table<address, UserRoles>,
         reviewers: vector<address>,
-        proofs: Table<address, CCCDProof>,  // Map address -> proof
-        identity_hashes: Table<u64, address>,  // Map identity_hash -> address (để check duplicate CCCD)
+        proofs: Table<address, CCCDProof>,
+        identity_hashes: Table<u64, address>,
         proof_stored_events: event::EventHandle<ProofStoredEvent>,
         role_registered_events: event::EventHandle<RoleRegisteredEvent>,
     }
@@ -60,9 +60,7 @@ module job_work_board::role {
     public entry fun register_role(s: &signer, role_kind: u8, cid_opt: Option<String>) acquires RoleStore {
         let addr = signer::address_of(s);
         assert!(role_kind == FREELANCER || role_kind == POSTER || role_kind == REVIEWER, 1);
-        
-        // Check xem địa chỉ đã có proof chưa (bắt buộc phải có proof để đăng ký role)
-        assert!(has_proof(addr), 5); // Error code 5: Proof required to register role
+        assert!(has_proof(addr), 5);
         
         let store = borrow_global_mut<RoleStore>(@job_work_board);
         
@@ -96,7 +94,7 @@ module job_work_board::role {
             while (i < len) {
                 if (*vector::borrow(&store.reviewers, i) == addr) {
                     found = true;
-                    i = len; // break
+                    i = len;
                 } else {
                     i = i + 1;
                 };
@@ -106,7 +104,6 @@ module job_work_board::role {
             };
         };
 
-        // Emit event
         let now = aptos_std::timestamp::now_seconds();
         event::emit_event(
             &mut store.role_registered_events,
@@ -174,7 +171,6 @@ module job_work_board::role {
         });
         table::add(&mut store.identity_hashes, identity_hash, addr);
 
-        // Emit event (metadata only - full proof data stored in table)
         event::emit_event(
             &mut store.proof_stored_events,
             ProofStoredEvent {
@@ -184,11 +180,13 @@ module job_work_board::role {
             }
         );
     }
+
     public fun has_proof(addr: address): bool acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return false;
         let store = borrow_global<RoleStore>(@job_work_board);
         table::contains(&store.proofs, addr)
     }
+
     public fun get_proof(addr: address): Option<CCCDProof> acquires RoleStore {
         if (!exists<RoleStore>(@job_work_board)) return option::none();
         let store = borrow_global<RoleStore>(@job_work_board);
