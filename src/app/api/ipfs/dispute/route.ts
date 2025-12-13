@@ -5,11 +5,10 @@ import { decryptCid } from '@/lib/encryption';
 
 const normalizeAddress = (addr?: string | null): string => {
 	if (!addr) return '';
-	let value = addr.toLowerCase();
-	if (!value.startsWith('0x')) {
-		value = `0x${value}`;
-	}
-	return value;
+	let value = String(addr).toLowerCase();
+	const noPrefix = value.startsWith('0x') ? value.slice(2) : value;
+	const trimmed = noPrefix.replace(/^0+/, '');
+	return '0x' + (trimmed.length === 0 ? '0' : trimmed);
 };
 
 export async function GET(request: NextRequest) {
@@ -67,16 +66,37 @@ export async function GET(request: NextRequest) {
 	const disputeReviewerEvents = reviewerEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
 	const reviewers = disputeReviewerEvents.map((e: any) => normalizeAddress(e?.data?.reviewer));
 
-	const disputeEvidenceEvents = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+	const parseCidFromData = (cid: unknown): string => {
+		if (!cid) return '';
+		if (typeof cid === 'string') return cid;
+		if (typeof cid === 'object' && cid !== null && 'vec' in cid) {
+			const vec = (cid as {vec: unknown[]}).vec;
+			if (Array.isArray(vec) && vec.length > 0) return String(vec[0]);
+		}
+		return '';
+	};
+
+	const openedBy = normalizeAddress(disputeOpenedEvent?.data?.opened_by);
+	const initialEvidenceCid = parseCidFromData(disputeOpenedEvent?.data?.evidence_cid);
+	
 	let posterEvidenceCid: string | null = null;
 	let freelancerEvidenceCid: string | null = null;
 
+	if (initialEvidenceCid) {
+		if (openedBy === posterAddr) {
+			posterEvidenceCid = initialEvidenceCid;
+		} else if (openedBy === freelancerAddr) {
+			freelancerEvidenceCid = initialEvidenceCid;
+		}
+	}
+
+	const disputeEvidenceEvents = evidenceEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
 	disputeEvidenceEvents.forEach((e: any) => {
 		const addedBy = normalizeAddress(e?.data?.added_by);
-		const evidenceCid = String(e?.data?.evidence_cid || '');
-		if (addedBy === posterAddr) {
+		const evidenceCid = parseCidFromData(e?.data?.evidence_cid);
+		if (addedBy === posterAddr && evidenceCid) {
 			posterEvidenceCid = evidenceCid;
-		} else if (addedBy === freelancerAddr) {
+		} else if (addedBy === freelancerAddr && evidenceCid) {
 			freelancerEvidenceCid = evidenceCid;
 		}
 	});

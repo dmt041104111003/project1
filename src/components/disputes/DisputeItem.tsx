@@ -1,12 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DisputeItemProps } from '@/constants/escrow';
 import { useWallet } from '@/contexts/WalletContext';
 
 const REVIEWER_VOTE_DELAY = 180;
+
+const parseCid = (cid: unknown): string | null => {
+  if (!cid) return null;
+  if (typeof cid === 'string') return cid;
+  if (typeof cid === 'object' && cid !== null) {
+    if ('vec' in cid && Array.isArray((cid as {vec: unknown[]}).vec)) {
+      const vec = (cid as {vec: string[]}).vec;
+      if (vec.length > 0) return String(vec[0]);
+    }
+  }
+  return null;
+};
 
 export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey, onResolvePoster, onResolveFreelancer }) => {
   const { account } = useWallet();
@@ -18,17 +30,17 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [canVote, setCanVote] = useState(false);
   
-  console.log('[DisputeItem] Dispute:', dispute);
-  console.log('[DisputeItem] Poster Evidence CID:', dispute.posterEvidenceCid);
-  console.log('[DisputeItem] Freelancer Evidence CID:', dispute.freelancerEvidenceCid);
-  console.log('[DisputeItem] Account:', account);
+  const posterCidStr = useMemo(() => parseCid(dispute.posterEvidenceCid), [dispute.posterEvidenceCid]);
+  const freelancerCidStr = useMemo(() => parseCid(dispute.freelancerEvidenceCid), [dispute.freelancerEvidenceCid]);
+
   useEffect(() => {
     const decodeCid = async (
-      encCid: string,
+      rawCid: unknown,
       side: 'poster' | 'freelancer',
       setUrl: (url: string | null) => void,
       setLoading: (loading: boolean) => void
     ) => {
+      const encCid = parseCid(rawCid);
       if (!encCid) {
         setUrl(null);
         return;
@@ -42,7 +54,6 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       try {
         setLoading(true);
         if (!account) {
-          console.log(`[DisputeItem] No account, cannot decode CID for ${side}`);
           setUrl(null);
           return;
         }
@@ -53,26 +64,18 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
           decodeOnly: 'true',
           address: account,
         });
-        console.log(`[DisputeItem] Decoding CID for ${side}, disputeId: ${dispute.disputeId}, CID: ${encCid}`);
         const res = await fetch(`/api/ipfs/dispute?${params.toString()}`);
-        console.log(`[DisputeItem] API response for ${side}:`, res.status, res.statusText);
         if (res.ok) {
           const data = await res.json();
-          console.log(`[DisputeItem] API data for ${side}:`, data);
           if (data.success && data.url) {
             setUrl(data.url);
-            console.log(`[DisputeItem] Successfully decoded CID for ${side}:`, data.url);
           } else {
-            console.log(`[DisputeItem] Failed to decode CID for ${side}:`, data);
             setUrl(null);
           }
         } else {
-          const errorText = await res.text();
-          console.log(`[DisputeItem] API error for ${side}:`, res.status, errorText);
           setUrl(null);
         }
-      } catch (error) {
-        console.error(`[DisputeItem] Exception decoding CID for ${side}:`, error);
+      } catch {
         setUrl(null);
       } finally {
         setLoading(false);
@@ -141,7 +144,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       {dispute.reason && <div className="text-sm text-gray-700 mb-3">Lý do: {dispute.reason}</div>}
       <div className="mb-3 text-xs text-gray-700">
         <div className="font-bold mb-2">Minh chứng:</div>
-        {dispute.posterEvidenceCid ? (
+        {posterCidStr ? (
           <div className="mb-2">
             <span className="font-semibold">Người thuê:</span>{' '}
             {loadingPoster ? (
@@ -156,13 +159,13 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
                 Xem bằng chứng
               </a>
             ) : (
-              <span className="text-blue-700">Không thể giải mã CID: {dispute.posterEvidenceCid}</span>
+              <span className="text-blue-700 break-all">Không thể giải mã CID: {posterCidStr}</span>
             )}
           </div>
         ) : (
           <div className="mb-2 text-gray-500">Người thuê: Chưa có minh chứng</div>
         )}
-        {dispute.freelancerEvidenceCid ? (
+        {freelancerCidStr ? (
           <div>
             <span className="font-semibold">Người làm tự do:</span>{' '}
             {loadingFreelancer ? (
@@ -177,7 +180,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
                 Xem bằng chứng
               </a>
             ) : (
-              <span className="text-blue-700">Không thể giải mã CID: {dispute.freelancerEvidenceCid}</span>
+              <span className="text-blue-700 break-all">Không thể giải mã CID: {freelancerCidStr}</span>
             )}
           </div>
         ) : (
