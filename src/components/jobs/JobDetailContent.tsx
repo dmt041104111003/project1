@@ -224,7 +224,7 @@ export const JobDetailContent: React.FC = () => {
                 </div>
               )}
             </Card>
-          {jobData?.milestones && Array.isArray(jobData.milestones) && jobData.milestones.length > 0 && jobData?.state !== 'InProgress' && (
+          {jobData?.milestones && Array.isArray(jobData.milestones) && jobData.milestones.length > 0 && (
             <div className="bg-white border-2 border-gray-400 rounded-lg p-6">
               <h2 className="text-xl font-bold text-blue-800 mb-4">Cột mốc dự án ({jobData.milestones.length})</h2>
               <div className="space-y-4">

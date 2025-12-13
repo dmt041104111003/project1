@@ -1,9 +1,15 @@
 export const getJobStateDisplay = (
   state: unknown, 
   applyDeadline?: number, 
-  hasFreelancer?: boolean
+  hasFreelancer?: boolean,
+  disputeResolved?: any
 ): { text: string; variant: 'success' | 'error' | 'warning' | 'info' | 'default' | 'expired' | 'pending' | 'active' | 'completed' | 'disputed' | 'cancelled' } => {
   const stateStr = typeof state === 'string' ? state : 'Active';
+  
+  // Check nếu có tranh chấp đã resolve
+  if (disputeResolved) {
+    return { text: 'Tranh chấp đã xử lý', variant: 'disputed' };
+  }
   
   const applyDeadlineExpired = applyDeadline
     ? applyDeadline * 1000 < Date.now() 
@@ -12,6 +18,9 @@ export const getJobStateDisplay = (
   
   if (isExpiredPosted) {
     return { text: 'Hết hạn đăng ký', variant: 'expired' };
+  }
+  if (stateStr === 'Disputed') {
+    return { text: 'Đang tranh chấp', variant: 'disputed' };
   }
   if (stateStr === 'Posted') {
     return { text: 'Mở', variant: 'active' };
@@ -24,9 +33,6 @@ export const getJobStateDisplay = (
   }
   if (stateStr === 'Completed') {
     return { text: 'Hoàn thành', variant: 'completed' };
-  }
-  if (stateStr === 'Disputed') {
-    return { text: 'Tranh chấp', variant: 'disputed' };
   }
   if (stateStr === 'Cancelled' || stateStr === 'CancelledByPoster') {
     return { text: stateStr === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' : 'Đã hủy', variant: 'cancelled' };

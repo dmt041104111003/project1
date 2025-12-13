@@ -160,11 +160,13 @@ export const JobsContent: React.FC = () => {
             }
             
             const pendingFreelancer = (job as any).pending_freelancer || null;
-            if (pendingFreelancer && stateStr !== 'Completed' && stateStr !== 'Cancelled' && stateStr !== 'CancelledByPoster') {
-              const inProgressState = stateStr === 'InProgress';
-              if (inProgressState) {
-                stateStr = 'PendingApproval';
-              }
+            if (pendingFreelancer && stateStr !== 'Completed' && stateStr !== 'Cancelled' && stateStr !== 'CancelledByPoster' && stateStr !== 'InProgress') {
+              stateStr = 'PendingApproval';
+            }
+            
+            const disputeResolved = (job as any).dispute_resolved;
+            if (disputeResolved) {
+              stateStr = 'Disputed';
             }
             
             let freelancerAddress = '';
@@ -196,7 +198,7 @@ export const JobsContent: React.FC = () => {
             const isExpiredPosted = stateStr === 'Posted' && applyDeadlineExpired && !hasFreelancer;
             
             const displayState = stateStr;
-            const stateDisplay = getJobStateDisplay(displayState, job.apply_deadline, hasFreelancer);
+            const stateDisplay = getJobStateDisplay(displayState, job.apply_deadline, hasFreelancer, disputeResolved);
             
             return (
               <div 
@@ -251,7 +253,7 @@ export const JobsContent: React.FC = () => {
                         </span>
                       ) : (
                         <span className="font-bold text-gray-600">
-                          None
+                          Chưa có
                         </span>
                       )}
                     </div>
