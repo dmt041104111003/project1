@@ -107,59 +107,49 @@ export async function getProofData(address: string) {
 }
 
 export async function getDisputeSummary(disputeId: number) {
-  const [openedEvents, votedEvents, resolvedEvents] = await Promise.all([
+  const [openedEvents, resolvedEvents] = await Promise.all([
     getDisputeOpenedEvents(200),
-    getDisputeVotedEvents(200),
     getDisputeResolvedEvents(200),
   ]);
   
   const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   if (!disputeEvent) return null;
 
-  // Kiểm tra resolved event trước - đây là source of truth
+  // Lấy từ DisputeResolvedEvent - SOURCE OF TRUTH từ blockchain
   const resolvedEvent = resolvedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   
-  const disputeVotes = votedEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
-  
-  const reviewers: string[] = [];
-  const voted: string[] = [];
-  let forFreelancer = 0;
-  let forPoster = 0;
-  
-  disputeVotes.forEach((e: any) => {
-    const reviewer = String(e?.data?.reviewer || '');
-    if (reviewer && !voted.includes(reviewer)) {
-      voted.push(reviewer);
-      const vote = Boolean(e?.data?.vote_choice || false);
-      if (vote) forFreelancer++;
-      else forPoster++;
-    }
-  });
-
-  // Nếu có resolved event, dùng winner từ đó (source of truth từ blockchain)
-  let winner: null | boolean = null;
-  const total = forFreelancer + forPoster;
-  
   if (resolvedEvent) {
-    // Resolved event là source of truth
-    winner = resolvedEvent.data?.winner_is_freelancer === true;
-  } else if (total >= 3) {
-    // Fallback: tính từ votes nếu chưa có resolved event
-    if (forFreelancer >= 2) winner = true;
-    else if (forPoster >= 2) winner = false;
+    // Đã resolved - lấy data trực tiếp từ event
+    const forFreelancer = Number(resolvedEvent.data?.freelancer_votes || 0);
+    const forPoster = Number(resolvedEvent.data?.poster_votes || 0);
+    const winner = resolvedEvent.data?.winner_is_freelancer === true;
+    
+    return {
+      reviewers: [],
+      voted_reviewers: [],
+      counts: {
+        total: forFreelancer + forPoster,
+        forFreelancer,
+        forPoster,
+      },
+      winner,
+      isResolved: true,
+      resolvedAt: Number(resolvedEvent.data?.resolved_at || 0),
+    };
   }
 
+  // Chưa resolved
   return {
-    reviewers,
-    voted_reviewers: voted,
+    reviewers: [],
+    voted_reviewers: [],
     counts: {
-      total,
-      forFreelancer,
-      forPoster,
+      total: 0,
+      forFreelancer: 0,
+      forPoster: 0,
     },
-    winner,
-    isResolved: !!resolvedEvent,
-    resolvedAt: resolvedEvent?.data?.resolved_at || null,
+    winner: null,
+    isResolved: false,
+    resolvedAt: null,
   };
 }
 

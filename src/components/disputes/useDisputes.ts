@@ -130,17 +130,19 @@ export function useDisputes(account?: string | null) {
         let disputeWinner: boolean | null = null;
         
         const summary = summaryMap.get(disputeId);
-        if (summary) {
-          const voted: string[] = summary.voted_reviewers || [];
-          hasVoted = voted.map((a: string) => normalizeAddress(a)).some((a: string) => a === myAddr);
-          const totalVotes = Number(summary.counts?.total || 0);
-          votesCompleted = totalVotes >= 3;
+        if (summary && summary.isResolved) {
+          votesCompleted = true;
           disputeWinner = summary.winner;
-          
-          if (summary.isResolved || (disputeWinner !== null && disputeWinner !== undefined && totalVotes >= 3)) {
-            disputeStatus = 'resolved';
-          }
+          disputeStatus = 'resolved';
         }
+        
+        const { getDisputeVotedEvents } = await import('@/lib/aptosEvents');
+        const votedEvents = await getDisputeVotedEvents(200);
+        const myVoteEvent = votedEvents.find((e: any) => 
+          Number(e?.data?.dispute_id || 0) === disputeId &&
+          normalizeAddress(String(e?.data?.reviewer || '')) === myAddr
+        );
+        hasVoted = !!myVoteEvent;
 
 
         const milestones: any[] = detail.milestones || [];
