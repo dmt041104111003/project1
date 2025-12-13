@@ -142,7 +142,7 @@ export function useDisputes(account?: string | null) {
           }
         }
 
-        if (disputeStatus === 'resolved') continue;
+        // Không bỏ qua dispute đã resolved - vẫn hiển thị để user biết kết quả
 
         const milestones: any[] = detail.milestones || [];
         let milestoneIndex = milestones.findIndex((m: any) => Number(m?.id || 0) === milestoneId);
@@ -259,16 +259,25 @@ export function useDisputes(account?: string | null) {
       const payload = disputeHelpers.reviewerVote(disputeIdNum, false);
       await signAndSubmitTransaction(payload);
       
-      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      toast.success('Đã bỏ phiếu cho Người thuê thành công!');
+      setDisputes(prev => prev.map(d => 
+        d.disputeId === disputeIdNum 
+          ? { ...d, hasVoted: true } 
+          : d
+      ));
+            const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
       const { clearJobTableCache } = await import('@/lib/aptosClientCore');
       clearJobEventsCache();
       clearDisputeEventsCache();
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      refresh({ silent: true, skipLoading: true });
+      setTimeout(() => {
+        refresh({ silent: true, skipLoading: true });
+      }, 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
+      toast.error(e?.message || 'Không thể bỏ phiếu');
     } finally {
       setResolving(null);
     }
@@ -281,6 +290,13 @@ export function useDisputes(account?: string | null) {
       const payload = disputeHelpers.reviewerVote(disputeIdNum, true);
       await signAndSubmitTransaction(payload);
       
+      toast.success('Đã bỏ phiếu cho Người làm tự do thành công!');
+      setDisputes(prev => prev.map(d => 
+        d.disputeId === disputeIdNum 
+          ? { ...d, hasVoted: true } 
+          : d
+      ));
+      
       const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
       const { clearJobTableCache } = await import('@/lib/aptosClientCore');
       clearJobEventsCache();
@@ -288,9 +304,13 @@ export function useDisputes(account?: string | null) {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      refresh({ silent: true, skipLoading: true });
+      
+      setTimeout(() => {
+        refresh({ silent: true, skipLoading: true });
+      }, 2000);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
+      toast.error(e?.message || 'Không thể bỏ phiếu');
     } finally {
       setResolving(null);
     }
