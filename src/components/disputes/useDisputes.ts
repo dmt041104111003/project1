@@ -236,7 +236,7 @@ export function useDisputes(account?: string | null) {
         .sort((a: DisputeHistoryItem, b: DisputeHistoryItem) => b.timestamp - a.timestamp);
       setHistory(mapped);
     } catch (e: any) {
-      console.error('Error loading dispute history', e);
+      console.error('Lỗi khi tải lịch sử tranh chấp', e);
       setHistory([]);
     } finally {
       setHistoryLoading(false);
@@ -258,7 +258,7 @@ export function useDisputes(account?: string | null) {
 
   const openDispute = useCallback(async () => {
     if (!jobId || !milestoneIndex) {
-      setErrorMsg('Job ID và Milestone Index là bắt buộc');
+      setErrorMsg('Mã công việc và chỉ số cột mốc là bắt buộc');
       return;
     }
     try {
@@ -267,16 +267,21 @@ export function useDisputes(account?: string | null) {
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.openDispute(Number(jobId), Number(milestoneIndex), openReason || '');
       await signAndSubmitTransaction(payload);
-      const newItem: DisputeData = { jobId: Number(jobId), milestoneIndex: Number(milestoneIndex), disputeId: 0, status: 'open', reason: openReason, openedAt: new Date().toISOString() };
-      const list = [newItem, ...disputes];
-      setDisputes(list);
-      localStorage.setItem('disputes_list', JSON.stringify(list));
+      
+      const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
+      const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+      clearJobEventsCache();
+      clearDisputeEventsCache();
+      clearJobTableCache();
+      
+      window.dispatchEvent(new CustomEvent('jobsUpdated'));
+      refresh({ silent: true, skipLoading: true });
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể mở tranh chấp');
     } finally {
       setLoading(false);
     }
-  }, [jobId, milestoneIndex, openReason, disputes]);
+  }, [jobId, milestoneIndex, openReason, refresh]);
 
   const resolveToPoster = useCallback(async (disputeIdNum: number) => {
     try {
@@ -292,7 +297,7 @@ export function useDisputes(account?: string | null) {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
+      refresh({ silent: true, skipLoading: true });
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
@@ -314,7 +319,7 @@ export function useDisputes(account?: string | null) {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
+      refresh({ silent: true, skipLoading: true });
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể giải quyết');
     } finally {
@@ -336,7 +341,7 @@ export function useDisputes(account?: string | null) {
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => refresh({ silent: true, skipLoading: true }), 3000);
+      refresh({ silent: true, skipLoading: true });
     } catch (e: any) {
       setErrorMsg(e?.message || 'Không thể chọn lại đánh giá viên');
     } finally {

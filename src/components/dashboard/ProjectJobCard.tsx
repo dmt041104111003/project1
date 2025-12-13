@@ -32,7 +32,7 @@ export const ProjectJobCard: React.FC<ProjectJobCardProps> = ({ roleState, id, c
     <div className="border border-gray-400 bg-gray-50 p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-bold text-blue-800">Công việc #{id} — {meta.title || 'Không có tiêu đề'}</h3>
-        <span className="text-xs text-gray-600 break-all">CID: {cid}</span>
+        <span className="text-xs text-gray-600 break-all">Mã định danh: {cid}</span>
       </div>
       <p className="text-sm text-gray-700 mb-2">{meta.description || 'Không có mô tả'}</p>
       <div className="mb-2">

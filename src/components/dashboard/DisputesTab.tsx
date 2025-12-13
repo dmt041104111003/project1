@@ -116,7 +116,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
               shouldSkip = true;
             }
           } catch (e) {
-            console.error('Error checking pending claim:', e);
+            console.error('Lỗi khi kiểm tra yêu cầu đang chờ:', e);
           }
         }
         
@@ -165,7 +165,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
       setDisputeJobs(filteredDisputes);
       setJobsData(jobsWithMetadata);
     } catch (error) {
-      console.error('Error fetching disputes:', error);
+      console.error('Lỗi khi tải tranh chấp:', error);
       setDisputeJobs([]);
       setJobsData([]);
     } finally {
@@ -177,7 +177,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
     fetchDisputes();
 
     const handleJobsUpdated = () => {
-      setTimeout(() => fetchDisputes(), 2000);
+      fetchDisputes();
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -251,12 +251,10 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
             clearJobTableCache();
             
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => {
-              fetchDisputes();
-              setReselecting(null);
-            }, 3000);
+            fetchDisputes();
+            setReselecting(null);
           } catch (e: any) {
-            console.error('Error reselecting reviewers:', e);
+            console.error('Lỗi khi chọn lại đánh giá viên:', e);
             setReselecting(null);
           }
         };
@@ -282,15 +280,11 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
             clearJobTableCache();
             
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            
-            setTimeout(async () => {
-              await fetchDisputes();
-              window.dispatchEvent(new CustomEvent('jobsUpdated'));
-              setClaimingDispute(null);
-            }, 3000);
+            await fetchDisputes();
+            setClaimingDispute(null);
           } catch (e: any) {
             const { toast } = await import('sonner');
-            toast.error(`Lỗi: ${e?.message || 'Không thể claim tranh chấp'}`);
+            toast.error(`Lỗi: ${e?.message || 'Không thể yêu cầu tranh chấp'}`);
             setClaimingDispute(null);
           }
         };
@@ -383,7 +377,7 @@ export const DisputesTab: React.FC<DisputesTabProps> = ({
             onPageChange={(page) => {
               setCurrentPage(page);
               if (account) {
-                setTimeout(() => fetchDisputes(), 300);
+                fetchDisputes();
               }
             }}
             showAutoPlay={false}

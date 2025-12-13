@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { JobSidebarProps } from '@/constants/escrow';
@@ -35,6 +36,8 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   reviewingCandidate = false,
   onReviewCandidate,
 }) => {
+  const router = useRouter();
+  
   if (!jobData) return null;
 
   const renderApplySection = () => {
@@ -42,7 +45,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       return (
         <div className="text-center py-4">
           <p className="text-sm text-gray-900 mb-2 font-medium">
-            Vui lòng kết nối wallet để apply
+            Vui lòng kết nối ví để ứng tuyển
           </p>
         </div>
       );
@@ -52,15 +55,15 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
       return (
         <div className="text-center py-4">
           <p className="text-sm text-blue-800 mb-2 font-bold">
-            Bạn cần có role Người làm tự do để apply job
+            Bạn cần có vai trò Người làm tự do để ứng tuyển công việc
           </p>
           <Button
-            onClick={() => window.location.href = '/auth/did-verification'}
+            onClick={() => router.push('/auth/did-verification')}
             variant="outline"
             size="sm"
             className="mt-2"
           >
-            Đăng ký role Người làm tự do
+            Đăng ký vai trò Người làm tự do
           </Button>
         </div>
       );
@@ -102,7 +105,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (isExpiredPosted && !isReopenedAfterTimeout) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký apply</p>
+          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký ứng tuyển</p>
         </div>
       );
     }
@@ -135,7 +138,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           {isPoster && onReviewCandidate && (
             <div className="space-y-2">
               <p className="text-xs text-blue-800 mb-2 font-bold">
-                Bạn có thể phê duyệt hoặc từ chối ứng viên. Nếu từ chối, ứng viên sẽ được hoàn stake và phí.
+                Bạn có thể phê duyệt hoặc từ chối ứng viên. Nếu từ chối, ứng viên sẽ được hoàn cọc và phí.
               </p>
               <div className="flex gap-2">
                 <Button
@@ -167,7 +170,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
               size="sm"
               className="w-full"
             >
-              {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất stake và phí)'}
+              {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất cọc và phí)'}
             </Button>
           )}
         </div>
@@ -181,7 +184,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
         return (
           <div className="text-center py-4">
             <p className="text-sm text-gray-900 font-medium">
-              Job không còn ở trạng thái Open (state: {stateStr})
+              Công việc không còn ở trạng thái Mở (trạng thái: {stateStr})
             </p>
           </div>
         );
@@ -198,7 +201,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
     if (applyDeadlineExpiredForApply) {
       return (
         <div className="text-center py-4">
-          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký apply</p>
+          <p className="text-sm text-blue-800 font-bold">Đã hết hạn đăng ký ứng tuyển</p>
           {isReopenedAfterTimeout && (
             <p className="text-xs text-gray-600 mt-1">
               Công việc đã được mở lại nhưng hạn đăng ký đã hết hạn
@@ -223,7 +226,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
           size="lg"
           className="w-full py-4 text-lg font-bold"
         >
-          {applying ? 'Đang ứng tuyển...' : 'Ứng tuyển Công việc'}
+          {applying ? 'Đang nhận việc...' : 'Nhận Công việc'}
         </Button>
       </div>
     );
@@ -295,7 +298,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   return (
     <div className="space-y-6">
       <Card variant="outlined" className="p-6">
-        <h3 className="text-lg font-bold text-blue-800 mb-4">Thông tin Job</h3>
+        <h3 className="text-lg font-bold text-blue-800 mb-4">Thông tin Công việc</h3>
         <div className="space-y-4">
           {jobData.total_escrow && (
             <div>

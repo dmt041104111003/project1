@@ -8,7 +8,7 @@ export default function DashboardPage() {
   return (
     <PageLayout>
       <WalletConnectGate
-        title="Kết nối ví để truy cập Dashboard"
+        title="Kết nối ví để truy cập Bảng điều khiển"
         description="Vui lòng kết nối ví Petra để quản lý dự án và người làm tự do."
       >
         <DashboardContent />

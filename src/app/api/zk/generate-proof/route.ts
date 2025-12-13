@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Face verification chưa thành công' 
+          error: 'Xác minh khuôn mặt chưa thành công' 
         },
         { status: 400 }
       );

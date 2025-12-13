@@ -37,9 +37,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
             clearJobTableCache();
             
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => {
-              onUpdate();
-            }, 3000);
+            onUpdate();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -69,9 +67,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => {
-        onUpdate();
-      }, 2000);
+      onUpdate();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể xử lý ứng viên: ${errorMessage}`);
@@ -93,9 +89,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => {
-        onUpdate();
-      }, 2000);
+      onUpdate();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Không thể rút ứng tuyển: ${errorMessage}`);
@@ -128,7 +122,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
       
       <div className="space-y-2">
         <div className="text-xs text-gray-600 break-all">
-          <span className="font-semibold">{job.decodedCid ? 'CID (đã giải mã):' : 'CID:'}</span>{' '}
+          <span className="font-semibold">Mã định danh:</span>{' '}
           {job.decodedCid || job.cid}
           {job.ipfsUrl && (
             <a
@@ -137,7 +131,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
               rel="noreferrer"
               className="ml-2 text-blue-700 underline hover:text-blue-900"
             >
-              Mở metadata
+              Xem chi tiết
             </a>
           )}
         </div>
@@ -197,7 +191,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
         <div className="mt-3 mb-3 p-3 border-2 border-blue-800 bg-gray-50 rounded">
           <p className="text-xs text-blue-800 mb-2 font-bold">
             {isPoster
-              ? 'Có ứng viên đang chờ bạn phê duyệt. Nếu từ chối, ứng viên sẽ được hoàn stake và phí.'
+              ? 'Có ứng viên đang chờ bạn phê duyệt. Nếu từ chối, ứng viên sẽ được hoàn cọc và phí.'
               : isPendingCandidate
                 ? 'Ứng tuyển của bạn đang chờ người thuê phê duyệt. Bạn có thể rút nếu thay đổi quyết định.'
                 : 'Công việc đang chờ Người thuê phê duyệt ứng viên hiện tại.'}
@@ -242,7 +236,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
                 onClick={handleWithdrawApplicationPending}
                 disabled={withdrawingApplication || reviewingCandidate || withdrawing}
               >
-                {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất stake và phí)'}
+                {withdrawingApplication ? 'Đang rút...' : 'Rút ứng tuyển (Không mất cọc và phí)'}
               </Button>
             </div>
           )}

@@ -16,6 +16,17 @@ export const parseStatus = (status: unknown): string => {
   return 'Pending';
 };
 
+export const getMilestoneStatusDisplay = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'Pending': 'Chờ xử lý',
+    'Submitted': 'Đã nộp',
+    'Accepted': 'Đã chấp nhận',
+    'Locked': 'Đang tranh chấp',
+    'Rejected': 'Từ chối',
+  };
+  return statusMap[status] || status;
+};
+
 export const parseEvidenceCid = (evidence: unknown): string | null => {
   if (!evidence) return null;
   if (typeof evidence === 'string') return evidence;

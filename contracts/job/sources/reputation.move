@@ -16,7 +16,7 @@ module job_work_board::reputation {
         address: address,
         old_value: u64,
         new_value: u64,
-        delta: u64,  // Positive for increase, negative for decrease (signed as u64)
+        delta: u64,  
         changed_at: u64,
     }
 

@@ -39,11 +39,16 @@ export const JobsContent: React.FC = () => {
     }
   }, []);
 
+  // Tự động tải khi vào trang
+  useEffect(() => {
+    if (!initialized) {
+      fetchJobs();
+    }
+  }, [fetchJobs, initialized]);
+
   useEffect(() => {
     const handleJobsUpdated = () => {
-      if (initialized) {
-        setTimeout(() => fetchJobs(), 1000);
-      }
+      fetchJobs();
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -51,7 +56,7 @@ export const JobsContent: React.FC = () => {
     return () => {
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
-  }, [fetchJobs, initialized]);
+  }, [fetchJobs]);
 
   useEffect(() => {
     const jobsNeedingLookup = jobs.filter((job) => !job.freelancer && job.cid);
@@ -105,30 +110,18 @@ export const JobsContent: React.FC = () => {
     };
   }, [jobs]);
 
-  if (loading) {
-    return <LoadingState message="Đang tải công việc..." />;
-  }
-
   if (error) {
     return <ErrorState message={`Lỗi: ${error}`} onRetry={fetchJobs} />;
   }
 
-  if (!initialized) {
+  if (!initialized || loading) {
     return (
       <>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-blue-800 mb-2">Tìm công việc</h1>
-          <p className="text-lg text-gray-700">Công việc trên blockchain (nhấp để xem chi tiết từ CID)</p>
+          <p className="text-lg text-gray-700">Công việc trên blockchain (nhấp để xem chi tiết)</p>
         </div>
-        <Card className="p-8 text-center">
-          <p className="text-gray-600 mb-4">Nhấn nút bên dưới để tải danh sách công việc</p>
-          <button
-            onClick={fetchJobs}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            Tải danh sách công việc
-          </button>
-        </Card>
+        <LoadingState message="Đang tải danh sách công việc..." />
       </>
     );
   }
@@ -295,7 +288,6 @@ export const JobsContent: React.FC = () => {
               totalPages={Math.ceil(jobs.length / JOBS_PER_PAGE)}
               onPageChange={(page) => {
                 setCurrentPage(page);
-                setTimeout(() => fetchJobs(), 300);
               }}
               showAutoPlay={false}
               showFirstLast={true}

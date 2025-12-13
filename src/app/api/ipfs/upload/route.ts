@@ -34,7 +34,7 @@ const uploadToPinata = async (metadata: Record<string, unknown>, fileName: strin
     body: formData
   });
 
-  if (!res.ok) throw new Error(`Pinata upload failed: ${res.statusText}`);
+  if (!res.ok) throw new Error(`Tải lên Pinata thất bại: ${res.statusText}`);
   return res.json();
 };
 
@@ -55,11 +55,11 @@ const uploadFileToPinata = async (file: File, type: string) => {
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => res.statusText);
-    throw new Error(`Pinata upload failed: ${res.status} ${errorText}`);
+    throw new Error(`Tải lên Pinata thất bại: ${res.status} ${errorText}`);
   }
 
   const data = await res.json();
-  if (!data?.IpfsHash) throw new Error('Pinata không trả về IPFS hash');
+  if (!data?.IpfsHash) throw new Error('Pinata không trả về mã IPFS');
   return data.IpfsHash;
 };
 
@@ -171,7 +171,7 @@ const hasProof = async (address: string): Promise<boolean> => {
 const fetchJobMetadata = async (jobCid: string) => {
   const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';
   const res = await fetch(`${gateway}/${jobCid}`);
-  if (!res.ok) throw new Error('CID công việc không hợp lệ');
+  if (!res.ok) throw new Error('Mã CID công việc không hợp lệ');
   return res.json();
 };
 
@@ -189,7 +189,7 @@ const createSuccessResponse = (ipfsHash: string, metadata?: any, extras?: Record
 const handleJobMetadata = async (body: any, ensureRole: (kind: number) => Promise<boolean>) => {
   if (!(await ensureRole(ROLE_KIND.POSTER))) {
     return NextResponse.json(
-      { success: false, error: 'Bạn cần role Người thuê để đăng metadata job' },
+      { success: false, error: 'Bạn cần vai trò Người thuê để đăng thông tin công việc' },
       { status: 403 }
     );
   }
@@ -198,7 +198,7 @@ const handleJobMetadata = async (body: any, ensureRole: (kind: number) => Promis
   const description = requireStringField(body?.description, 'description');
   const requirements = normalizeStringArray(body?.requirements);
   if (requirements.length === 0) {
-    return NextResponse.json({ success: false, error: 'requirements phải có ít nhất 1 mục' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Yêu cầu phải có ít nhất 1 mục' }, { status: 400 });
   }
 
   const metadata = {
@@ -229,7 +229,7 @@ const handleDisputeMetadata = async (body: any) => {
   const escrow_id = requireStringField(body?.escrow_id, 'escrow_id', 128);
   const milestone_index = Number(body?.milestone_index);
   if (!Number.isFinite(milestone_index)) {
-    return NextResponse.json({ success: false, error: 'milestone_index không hợp lệ' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Chỉ số cột mốc không hợp lệ' }, { status: 400 });
   }
 
   const metadata = {
@@ -261,13 +261,13 @@ const handleApplyMetadata = async (body: any, callerAddress: string, ensureRole:
   
   if (callerAddress !== freelancer_address) {
     return NextResponse.json(
-      { success: false, error: 'Bạn chỉ có thể apply bằng chính ví của mình' },
+      { success: false, error: 'Bạn chỉ có thể ứng tuyển bằng chính ví của mình' },
       { status: 403 }
     );
   }
   if (!(await ensureRole(ROLE_KIND.FREELANCER))) {
     return NextResponse.json(
-      { success: false, error: 'Bạn cần role Người làm tự do để apply job' },
+      { success: false, error: 'Bạn cần vai trò Người làm tự do để ứng tuyển công việc' },
       { status: 403 }
     );
   }
@@ -305,7 +305,7 @@ const handleApplyMetadata = async (body: any, callerAddress: string, ensureRole:
 const handleFinalizeMetadata = async (body: any, ensureRole: (kind: number) => Promise<boolean>) => {
   if (!(await ensureRole(ROLE_KIND.POSTER))) {
     return NextResponse.json(
-      { success: false, error: 'Bạn cần role Người thuê để finalize job' },
+      { success: false, error: 'Bạn cần vai trò Người thuê để hoàn tất công việc' },
       { status: 403 }
     );
   }
@@ -348,7 +348,7 @@ const handleProfileMetadata = async (body: any, userAddress: string, ensureRole:
   
   if (!hasPosterRole && !hasFreelancerRole && !userHasProof) {
     return NextResponse.json(
-      { success: false, error: 'Bạn cần xác minh định danh tài khoản (có xác minh không kiến thức) hoặc có role Người thuê/Người làm tự do để cập nhật profile' },
+      { success: false, error: 'Bạn cần xác minh định danh tài khoản (có xác minh không kiến thức) hoặc có vai trò Người thuê/Người làm tự do để cập nhật hồ sơ' },
       { status: 403 }
     );
   }
@@ -380,23 +380,23 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
   const normalizedUser = normalizeAddress(userAddress);
 
   if (!file) {
-    return NextResponse.json({ success: false, error: 'Không có file được cung cấp' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Không có tệp được cung cấp' }, { status: 400 });
   }
   if (!type) {
-    return NextResponse.json({ success: false, error: 'Loại file không hợp lệ' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Loại tệp không hợp lệ' }, { status: 400 });
   }
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json({ success: false, error: 'File vượt quá giới hạn 15MB' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Tệp vượt quá giới hạn 15MB' }, { status: 400 });
   }
 
   if (type === 'milestone_evidence' || type === 'dispute_evidence') {
     const jobIdRaw = formData.get('jobId');
     if (!jobIdRaw) {
-      return NextResponse.json({ success: false, error: 'jobId là bắt buộc khi upload file cho job' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Thiếu mã công việc' }, { status: 400 });
     }
     const jobId = Number(jobIdRaw);
     if (!Number.isFinite(jobId) || jobId <= 0) {
-      return NextResponse.json({ success: false, error: 'jobId không hợp lệ' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Mã công việc không hợp lệ' }, { status: 400 });
     }
 
     const [createdEvents, appliedEvents] = await Promise.all([
@@ -406,7 +406,7 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
 
     const jobCreatedEvent = createdEvents.find((e: any) => Number(e?.data?.job_id || 0) === jobId);
     if (!jobCreatedEvent) {
-      return NextResponse.json({ success: false, error: 'Không tìm thấy job tương ứng' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Không tìm thấy công việc tương ứng' }, { status: 404 });
     }
 
     const posterAddr = normalizeAddress(jobCreatedEvent?.data?.poster || '');
@@ -423,7 +423,7 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
     if (type === 'milestone_evidence') {
       if (!freelancerAddr || normalizedUser !== freelancerAddr) {
         return NextResponse.json(
-          { success: false, error: 'Chỉ người làm tự do của job mới được upload bằng chứng milestone' },
+          { success: false, error: 'Chỉ người làm tự do của công việc mới được tải lên bằng chứng cột mốc' },
           { status: 403 }
         );
       }
@@ -431,7 +431,7 @@ async function handleFileUpload(formData: FormData, userAddress: string) {
     if (type === 'dispute_evidence') {
       if (normalizedUser !== freelancerAddr && normalizedUser !== posterAddr) {
         return NextResponse.json(
-          { success: false, error: 'Chỉ người thuê hoặc người làm tự do của job mới được upload bằng chứng tranh chấp' },
+          { success: false, error: 'Chỉ người thuê hoặc người làm tự do của công việc mới được tải lên bằng chứng tranh chấp' },
           { status: 403 }
         );
       }
@@ -458,7 +458,7 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') || '';
     
     if (!PINATA_JWT || !IPFS_GATEWAY) {
-      return NextResponse.json({ success: false, error: 'Thiếu cấu hình IPFS' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Thiếu cấu hình lưu trữ phi tập trung' }, { status: 500 });
     }
 
     let userAddress = addressParam;
@@ -478,7 +478,7 @@ export async function POST(request: NextRequest) {
       body = await request.json();
       userAddress = userAddress || body?.address;
     } catch {
-      return NextResponse.json({ success: false, error: 'Payload không hợp lệ' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Dữ liệu không hợp lệ' }, { status: 400 });
     }
 
     if (!userAddress) {
@@ -487,7 +487,7 @@ export async function POST(request: NextRequest) {
 
     const { type } = body ?? {};
     if (!ALLOWED_METADATA_TYPES.has(type)) {
-      return NextResponse.json({ success: false, error: 'Loại metadata không hợp lệ' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Loại dữ liệu không hợp lệ' }, { status: 400 });
     }
 
     const roleCheckCache = new Map<number, boolean>();
@@ -511,7 +511,7 @@ export async function POST(request: NextRequest) {
       case 'profile':
         return handleProfileMetadata(body, userAddress, ensureRole);
       default:
-        return NextResponse.json({ success: false, error: 'Loại metadata không hợp lệ' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Loại dữ liệu không hợp lệ' }, { status: 400 });
     }
   } catch (error: unknown) {
     return NextResponse.json({ success: false, error: (error as Error).message || 'Tải lên thất bại' }, { status: 500 });

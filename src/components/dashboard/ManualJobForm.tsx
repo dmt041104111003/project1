@@ -41,7 +41,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
           required
           value={jobTitle}
           onChange={(e) => setJobTitle(e.target.value)}
-          placeholder="Ví dụ: Phát triển smart contract"
+          placeholder="Ví dụ: Phát triển hợp đồng thông minh"
           disabled={!canPostJobs || isSubmitting}
           className={`w-full px-4 py-3 border-2 ${
             validationErrors.jobTitle 
@@ -273,7 +273,7 @@ export const ManualJobForm: React.FC<ManualJobFormProps> = ({
         disabled={!canPostJobs || isSubmitting}
       >
         {!canPostJobs 
-          ? 'Cần verify profile và có role Người thuê' 
+          ? 'Cần xác minh hồ sơ và có vai trò Người thuê' 
           : isSubmitting 
           ? 'Đang xử lý...' 
           : 'Đăng dự án'}

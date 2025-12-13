@@ -89,7 +89,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await connect(walletName);
       toast.success(`Đã kết nối ví ${walletName}`);
     } catch (error) {
-      console.error('Connect wallet error:', error);
+      console.error('Lỗi kết nối ví:', error);
       toast.error(error instanceof Error ? error.message : 'Không thể kết nối ví');
     } finally {
       setIsConnecting(false);
@@ -101,7 +101,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await disconnect();
       toast.success('Đã ngắt kết nối ví');
     } catch (error) {
-      console.error('Disconnect wallet error:', error);
+      console.error('Lỗi ngắt kết nối ví:', error);
       toast.error('Không thể ngắt kết nối ví');
     }
   }, [disconnect]);
@@ -116,7 +116,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const signAndSubmitTransaction = useCallback(async (transaction: TransactionPayload) => {
     if (!account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Ví chưa được kết nối');
     }
     
     const isLegacy = 'type' in transaction && 'arguments' in transaction;

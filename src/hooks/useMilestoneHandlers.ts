@@ -37,7 +37,7 @@ export function useMilestoneHandlers(
 
   const handleSubmitMilestone = async (milestoneId: number, evidenceCid: string) => {
     if (!account || !isFreelancer || !evidenceCid.trim()) {
-      toast.error('Vui lòng upload file evidence trước');
+      toast.error('Vui lòng tải lên tệp bằng chứng trước');
       return;
     }
 
@@ -48,7 +48,7 @@ export function useMilestoneHandlers(
       const txHash = await executeTransaction(payload);
       toast.success(`Nộp cột mốc thành công! TX: ${txHash}`);
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate?.(), 1000);
+      onUpdate?.();
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
@@ -87,7 +87,7 @@ export function useMilestoneHandlers(
       const txHash = await executeTransaction(payload);
       toast.success(`Xác nhận cột mốc thành công! TX: ${txHash}`);
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate?.(), 1000);
+      onUpdate?.();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
       if (errorMsg.includes('Review deadline has passed')) {
@@ -132,7 +132,7 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Từ chối cột mốc thành công! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            onUpdate?.();
           } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Lỗi không xác định';
             if (errorMsg.includes('Review deadline has passed')) {
@@ -153,7 +153,7 @@ export function useMilestoneHandlers(
   const handleOpenDispute = async (milestoneId: number, evidenceCid: string) => {
     if (!account || (!isPoster && !isFreelancer)) return;
     if (!evidenceCid.trim()) {
-      toast.error('Vui lòng upload CID bằng chứng trước khi mở tranh chấp');
+      toast.error('Vui lòng tải lên bằng chứng trước khi mở tranh chấp');
       return;
     }
     try {
@@ -163,7 +163,7 @@ export function useMilestoneHandlers(
       const txHash = await executeTransaction(payload);
       toast.success(`Mở tranh chấp thành công! TX: ${txHash}`);
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate?.(), 1000);
+      onUpdate?.();
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
@@ -177,7 +177,7 @@ export function useMilestoneHandlers(
   const handleSubmitEvidence = async (milestoneId: number, evidenceCid: string) => {
     if (!account) return;
     if (!evidenceCid.trim()) {
-      toast.error('Vui lòng upload CID bằng chứng trước khi gửi');
+      toast.error('Vui lòng tải lên bằng chứng trước khi gửi');
       return;
     }
     try {
@@ -185,16 +185,16 @@ export function useMilestoneHandlers(
       const { getDisputeOpenedEvents } = await import('@/lib/aptosClient');
       const openedEvents = await getDisputeOpenedEvents(200);
       const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.job_id || 0) === Number(jobId));
-      if (!disputeEvent) throw new Error('Không tìm thấy dispute cho job này');
+      if (!disputeEvent) throw new Error('Không tìm thấy tranh chấp cho công việc này');
       const disputeId = Number(disputeEvent?.data?.dispute_id || 0);
-      if (!disputeId) throw new Error('Không tìm thấy dispute_id cho job này');
+      if (!disputeId) throw new Error('Không tìm thấy mã tranh chấp cho công việc này');
 
       const { disputeHelpers } = await import('@/utils/contractHelpers');
       const payload = disputeHelpers.addEvidence(disputeId, evidenceCid);
       const txHash = await executeTransaction(payload);
       toast.success(`Đã gửi bằng chứng cho tranh chấp! TX: ${txHash}`);
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate?.(), 1000);
+      onUpdate?.();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Lỗi: ${errorMessage}`);
@@ -225,14 +225,12 @@ export function useMilestoneHandlers(
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => {
-        onUpdate?.();
-        setClaimedMilestones(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(milestoneId);
-          return newSet;
-        });
-      }, 3000);
+      onUpdate?.();
+      setClaimedMilestones(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(milestoneId);
+        return newSet;
+      });
     } catch (err) {
       setClaimedMilestones(prev => {
         const newSet = new Set(prev);
@@ -259,7 +257,7 @@ export function useMilestoneHandlers(
               const txHash = await executeTransaction(payload);
               toast.success(`Yêu cầu hết hạn thành công! TX: ${txHash}`);
               window.dispatchEvent(new CustomEvent('jobsUpdated'));
-              setTimeout(() => onUpdate?.(), 1000);
+              onUpdate?.();
             } catch (err) {
               const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
               toast.error(`Lỗi: ${errorMessage}`);
@@ -283,7 +281,7 @@ export function useMilestoneHandlers(
               const txHash = await executeTransaction(payload);
               toast.success(`Yêu cầu hết hạn thành công! Cột mốc đã được chấp nhận và thanh toán đã được gửi. TX: ${txHash}`);
               window.dispatchEvent(new CustomEvent('jobsUpdated'));
-              setTimeout(() => onUpdate?.(), 1000);
+              onUpdate?.();
             } catch (err) {
               const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
               toast.error(`Lỗi: ${errorMessage}`);
@@ -315,10 +313,8 @@ export function useMilestoneHandlers(
             clearJobEventsCache();
             
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => {
-              onUpdate?.();
-              setCancelling(false);
-            }, 2000);
+            onUpdate?.();
+            setCancelling(false);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -344,7 +340,7 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận hủy công việc thành công! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            onUpdate?.();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -371,7 +367,7 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối hủy công việc. Công việc sẽ tiếp tục! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            onUpdate?.();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -402,10 +398,8 @@ export function useMilestoneHandlers(
             clearJobEventsCache();
             
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => {
-              onUpdate?.();
-              setWithdrawing(false);
-            }, 2000);
+            onUpdate?.();
+            setWithdrawing(false);
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -431,7 +425,7 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Chấp nhận người làm tự do rút thành công! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            onUpdate?.();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -458,7 +452,7 @@ export function useMilestoneHandlers(
             const txHash = await executeTransaction(payload);
             toast.success(`Đã từ chối người làm tự do rút. Công việc sẽ tiếp tục! TX: ${txHash}`);
             window.dispatchEvent(new CustomEvent('jobsUpdated'));
-            setTimeout(() => onUpdate?.(), 1000);
+            onUpdate?.();
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
             toast.error(`Lỗi: ${errorMessage}`);
@@ -494,7 +488,7 @@ export function useMilestoneHandlers(
       clearJobTableCache();
       
       window.dispatchEvent(new CustomEvent('jobsUpdated'));
-      setTimeout(() => onUpdate?.(), 3000);
+      onUpdate?.();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
       toast.error(`Lỗi: ${errorMessage}`);

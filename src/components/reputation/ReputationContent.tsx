@@ -62,18 +62,18 @@ export const ReputationContent: React.FC = () => {
         const proof = await getProofData(address);
         if (!proof) {
           setProofStatus(null);
-          setProofMessage('Địa chỉ này chưa lưu proof.');
+          setProofMessage('Địa chỉ này chưa có chứng chỉ.');
         } else {
           const timestamp = proof.timestamp ? Number(proof.timestamp) : null;
           setProofStatus({
             verified: true, // Nếu có proof trong blockchain thì đã verified
             timestamp
           });
-          setProofMessage('Proof hợp lệ (đã lưu trên blockchain).');
+          setProofMessage('Chứng chỉ hợp lệ (đã lưu trên blockchain).');
         }
       } catch (proofErr: any) {
         setProofStatus(null);
-        setProofMessage(proofErr?.message || 'Không thể lấy proof.');
+        setProofMessage(proofErr?.message || 'Không thể lấy chứng chỉ.');
       }
     } catch (e: any) {
       setError(e?.message || 'Không thể kiểm tra thông tin');
@@ -154,14 +154,14 @@ export const ReputationContent: React.FC = () => {
 
               {profiles && (
                 <div className="p-4 bg-gray-50 rounded-md space-y-4">
-                  <div className="text-sm text-gray-600 font-semibold">Metadata hồ sơ công khai</div>
+                  <div className="text-sm text-gray-600 font-semibold">Thông tin hồ sơ công khai</div>
                   {(['freelancer', 'poster'] as const).map((role) => {
                     const meta = profiles?.[role];
                     if (!meta) return null;
                     return (
                       <div key={role} className="space-y-2 border border-gray-200 rounded-md p-3 bg-white">
                         <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
-                          {role === 'freelancer' ? 'Freelancer' : 'Poster'}
+                          {role === 'freelancer' ? 'Người làm tự do' : 'Người thuê'}
                         </div>
                         {/* Hidden CID and direct IPFS link per request */}
                         {meta.data ? (
@@ -193,13 +193,13 @@ export const ReputationContent: React.FC = () => {
                                 !['about', 'type', 'version', 'created_at', 'skills'].includes(key)
                               ).length === 0 && (
                                 <p className="text-sm text-gray-600">
-                                  Metadata không có nội dung mô tả chi tiết.
+                                  Không có nội dung mô tả chi tiết.
                                 </p>
                               )}
                           </>
                         ) : (
                           <p className="text-sm text-gray-500">
-                            Không tìm thấy metadata công khai cho role này hoặc người dùng chưa đăng ký profile.
+                            Không tìm thấy thông tin công khai cho vai trò này hoặc người dùng chưa đăng ký hồ sơ.
                           </p>
                         )}
                       </div>
@@ -207,7 +207,7 @@ export const ReputationContent: React.FC = () => {
                   })}
                   {!profiles.freelancer && !profiles.poster && (
                     <p className="text-sm text-gray-500">
-                      Không có metadata hồ sơ nào cho địa chỉ này.
+                      Không có thông tin hồ sơ nào cho địa chỉ này.
                     </p>
                   )}
                 </div>
@@ -215,7 +215,7 @@ export const ReputationContent: React.FC = () => {
 
               {(proofStatus || proofMessage) && (
                 <div className="p-4 bg-gray-50 rounded-md space-y-3">
-                  <div className="text-sm text-gray-600 font-semibold">Trạng thái ZK Proof</div>
+                  <div className="text-sm text-gray-600 font-semibold">Trạng thái Chứng chỉ ZK</div>
                   {proofStatus ? (
                     <div className="space-y-3">
                       {proofStatus.timestamp && (
@@ -231,7 +231,7 @@ export const ReputationContent: React.FC = () => {
                           proofStatus.verified ? 'text-blue-800' : 'text-blue-700'
                         }`}
                       >
-                        {proofStatus.verified ? 'Proof hợp lệ' : 'Proof không hợp lệ'}
+                        {proofStatus.verified ? 'Chứng chỉ hợp lệ' : 'Chứng chỉ không hợp lệ'}
                       </div>
                       {proofMessage && (
                         <p className="text-sm text-gray-600">

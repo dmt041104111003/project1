@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
 				{
 					success: false,
 					error: cidProvided
-						? 'Endpoint này chỉ hỗ trợ truy vấn bằng jobId. Vui lòng dùng jobId của job công khai.'
-						: 'jobId là bắt buộc'
+						? 'Chỉ hỗ trợ truy vấn bằng mã công việc'
+						: 'Thiếu mã công việc'
 				},
 				{ status: 400 }
 			);
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 		const jobRecord = await fetchJob(jobId);
 		if (!jobRecord) {
 			return NextResponse.json(
-				{ success: false, error: 'Không tìm thấy job trong Ký quỹ Store' },
+				{ success: false, error: 'Không tìm thấy công việc trong hệ thống' },
 				{ status: 404 }
 			);
 		}
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 		const { cid, jobState } = jobRecord;
 		if (!cid) {
 			return NextResponse.json(
-				{ success: false, error: 'Không tìm thấy CID cho job này' },
+				{ success: false, error: 'Không tìm thấy mã định danh cho công việc này' },
 				{ status: 404 }
 			);
 		}

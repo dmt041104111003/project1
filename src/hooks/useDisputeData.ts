@@ -67,7 +67,7 @@ export function useDisputeData(jobId: number) {
       clearJobEventsCache();
       clearDisputeEventsCache();
       clearJobTableCache();
-      setTimeout(() => load(), 1000);
+      load();
     };
     
     window.addEventListener('jobsUpdated', handleJobsUpdated);

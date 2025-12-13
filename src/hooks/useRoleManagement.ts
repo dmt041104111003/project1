@@ -114,14 +114,14 @@ export function useRoleManagement(account: string | null) {
 
       const zkResponseText = await zkRes.text();
       if (!zkResponseText || zkResponseText.trim() === '') {
-        throw new Error('Empty response from ZK proof API');
+        throw new Error('Phản hồi rỗng từ máy chủ chứng chỉ');
       }
       let zkData;
       try {
         zkData = JSON.parse(zkResponseText);
       } catch (error) {
-        console.error('Failed to parse ZK proof response:', zkResponseText);
-        throw new Error('Invalid JSON response from ZK proof API');
+        console.error('Không thể phân tích phản hồi chứng chỉ:', zkResponseText);
+        throw new Error('Phản hồi không hợp lệ từ máy chủ chứng chỉ');
       }
       if (!zkRes.ok || !zkData.success) {
         if (zkData.requires_reauth) {
@@ -149,7 +149,7 @@ export function useRoleManagement(account: string | null) {
         }
       }
       if (!identityHash) {
-        throw new Error('Không tìm thấy identity_hash trong proof data');
+        throw new Error('Không tìm thấy mã định danh trong dữ liệu chứng chỉ');
       }
       const proofPayload = roleHelpers.storeProof(
         JSON.stringify(zkData.proof),
@@ -158,6 +158,10 @@ export function useRoleManagement(account: string | null) {
       );
 
       await signAndSubmitTransaction(proofPayload);
+      
+      const { clearRoleEventsCache } = await import('@/lib/aptosClient');
+      clearRoleEventsCache();
+      window.dispatchEvent(new CustomEvent('rolesUpdated'));
       
       setFaceVerified(true);
       
@@ -179,14 +183,14 @@ export function useRoleManagement(account: string | null) {
           });
           const ipfsResponseText = await ipfsRes.text();
           if (!ipfsResponseText || ipfsResponseText.trim() === '') {
-            throw new Error('Empty response from IPFS API');
+            throw new Error('Phản hồi rỗng từ máy chủ lưu trữ');
           }
           let ipfsData;
           try {
             ipfsData = JSON.parse(ipfsResponseText);
           } catch (error) {
-            console.error('Failed to parse IPFS response:', ipfsResponseText);
-            throw new Error('Invalid JSON response from IPFS API');
+            console.error('Không thể phân tích phản hồi lưu trữ:', ipfsResponseText);
+            throw new Error('Phản hồi không hợp lệ từ máy chủ lưu trữ');
           }
           if (!ipfsRes.ok || !ipfsData.success) {
             throw new Error(ipfsData.error || MESSAGES.ERROR.IPFS_UPLOAD_FAILED);
@@ -261,14 +265,14 @@ export function useRoleManagement(account: string | null) {
           });
           const ipfsResponseText2 = await ipfsRes.text();
           if (!ipfsResponseText2 || ipfsResponseText2.trim() === '') {
-            throw new Error('Empty response from IPFS API');
+            throw new Error('Phản hồi rỗng từ máy chủ lưu trữ');
           }
           let ipfsData2;
           try {
             ipfsData2 = JSON.parse(ipfsResponseText2);
           } catch (error) {
-            console.error('Failed to parse IPFS response:', ipfsResponseText2);
-            throw new Error('Invalid JSON response from IPFS API');
+            console.error('Không thể phân tích phản hồi lưu trữ:', ipfsResponseText2);
+            throw new Error('Phản hồi không hợp lệ từ máy chủ lưu trữ');
           }
           if (!ipfsRes.ok || !ipfsData2.success) {
             throw new Error(ipfsData2.error || MESSAGES.ERROR.IPFS_UPLOAD_FAILED);
@@ -313,10 +317,7 @@ export function useRoleManagement(account: string | null) {
       setUploadedCid('');
       
       await refreshRoles();
-      
-      setTimeout(async () => {
-        await refreshRoles();
-      }, 3000);
+      window.dispatchEvent(new CustomEvent('rolesUpdated'));
     } catch (error: any) {
       setMessage(error?.message || MESSAGES.ERROR.REGISTRATION_FAILED);
     } finally {

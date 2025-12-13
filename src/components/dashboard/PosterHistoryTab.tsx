@@ -59,7 +59,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
       );
       setDecodedCids(cidMap);
     } catch (error) {
-      console.error('Error fetching poster history:', error);
+      console.error('Lỗi khi tải lịch sử người thuê:', error);
       setHistory([]);
     } finally {
       setLoading(false);
@@ -70,7 +70,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
     fetchHistory();
 
     const handleJobsUpdated = () => {
-      setTimeout(() => fetchHistory(), 2000);
+      fetchHistory();
     };
 
     window.addEventListener('jobsUpdated', handleJobsUpdated);
@@ -167,7 +167,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
                     {(item.totalAmount / 100_000_000).toFixed(2)} APT
                   </div>
                   <div className="text-xs text-gray-600 break-all">
-                    <span className="font-semibold">{decodedCids.get(item.jobId) ? 'CID (đã giải mã):' : 'CID:'}</span>{' '}
+                    <span className="font-semibold">Mã định danh:</span>{' '}
                     {decodedCids.get(item.jobId)?.cid || item.cid}
                     {decodedCids.get(item.jobId)?.url && (
                       <a
@@ -176,7 +176,7 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
                         rel="noreferrer"
                         className="ml-2 text-blue-700 underline hover:text-blue-900"
                       >
-                        Mở metadata
+                        Xem chi tiết
                       </a>
                     )}
                   </div>
@@ -269,8 +269,6 @@ export const PosterHistoryTab: React.FC<PosterHistoryTabProps> = ({
             totalPages={totalPages}
             onPageChange={(page) => {
               setCurrentPage(page);
-              // Auto refresh khi đổi trang
-              setTimeout(() => fetchHistory(), 300);
             }}
             showAutoPlay={false}
             showFirstLast

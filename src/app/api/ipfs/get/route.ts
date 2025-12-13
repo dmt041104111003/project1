@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 	const requesterAddress = searchParams.get('address');
 		
 		if (!cidParam) {
-			return NextResponse.json({ success: false, error: 'cid là bắt buộc' }, { status: 400 });
+			return NextResponse.json({ success: false, error: 'Thiếu mã định danh' }, { status: 400 });
 		}
 		
 		const decryptedRequested = await decryptCid(cidParam) || cidParam;
@@ -66,14 +66,14 @@ export async function GET(request: NextRequest) {
 		if (jobIdParam) {
 			const parsedJobId = Number(jobIdParam);
 			if (!parsedJobId || Number.isNaN(parsedJobId)) {
-				return NextResponse.json({ success: false, error: 'jobId không hợp lệ' }, { status: 400 });
+				return NextResponse.json({ success: false, error: 'Mã công việc không hợp lệ' }, { status: 400 });
 			}
 			jobIdFilter = parsedJobId;
 		}
 		
 		const match = await findMilestoneByCid(decryptedRequested, jobIdFilter);
 		if (!match) {
-			return NextResponse.json({ success: false, error: 'Không tìm thấy milestone tương ứng với CID' }, { status: 404 });
+			return NextResponse.json({ success: false, error: 'Không tìm thấy cột mốc tương ứng' }, { status: 404 });
 		}
 		
 		const { jobId, milestoneId, poster, freelancer } = match;
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 	}
 		
 		if (requester !== poster && requester !== freelancer) {
-			return NextResponse.json({ success: false, error: 'Bạn không có quyền truy cập CID này' }, { status: 403 });
+			return NextResponse.json({ success: false, error: 'Bạn không có quyền truy cập nội dung này' }, { status: 403 });
 		}
 		
 		const gateway = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs';

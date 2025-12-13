@@ -42,7 +42,7 @@ const ChatContentInner: React.FC = () => {
     
     const messageText = message;
     
-    await sendMessage(messageText, account ? `User ${account.slice(0, 8)}` : 'User', account || '', replyingTo);
+    await sendMessage(messageText, account ? `Người dùng ${account.slice(0, 8)}` : 'Người dùng', account || '', replyingTo);
     setMessage('');
     setReplyingTo(null);
   };
@@ -63,13 +63,13 @@ const ChatContentInner: React.FC = () => {
       const data = await response.json();
       
       if (data.success) {
-        toast.success('Đã accept phòng chat!');
+        toast.success('Đã chấp nhận phòng chat!');
         loadRoomsFromFirebase();
       } else {
-        toast.error(data.error || 'Lỗi khi accept phòng');
+        toast.error(data.error || 'Lỗi khi chấp nhận phòng');
       }
     } catch {
-      toast.error('Lỗi khi accept phòng');
+      toast.error('Lỗi khi chấp nhận phòng');
     }
   };
 
@@ -83,7 +83,8 @@ const ChatContentInner: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messageId,
-          roomId: actualRoomId
+          roomId: actualRoomId,
+          address: account
         })
       });
 
@@ -253,7 +254,7 @@ const ChatContentInner: React.FC = () => {
         setCreateRoomError(roomData.error || 'Lỗi khi tạo phòng');
       }
     } catch (error: any) {
-      console.error('Error creating room:', error);
+      console.error('Lỗi khi tạo phòng:', error);
       setCreateRoomError(error?.message || 'Lỗi khi tạo phòng');
     } finally {
       setIsCreatingRoom(false);
@@ -334,6 +335,7 @@ const ChatContentInner: React.FC = () => {
           setMessage={setMessage}
           handleSubmit={handleSubmit}
           handleAcceptRoom={handleAcceptRoom}
+          onDeleteMessage={(messageId) => setShowDeleteConfirm(messageId)}
         />
       </div>
 

@@ -23,7 +23,7 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
   const [jobDuration, setJobDuration] = useState('7');
   const [jobDurationUnit, setJobDurationUnit] = useState<'giây' | 'phút' | 'giờ' | 'ngày' | 'tuần' | 'tháng'>('ngày');
   const [jobResult, setJobResult] = useState('');
-  const posterStatus = hasPosterRole ? 'Bạn có role Người thuê.' : 'Bạn chưa có role Người thuê. Vào trang Role để đăng ký.';
+  const posterStatus = hasPosterRole ? 'Bạn có vai trò Người thuê.' : 'Bạn chưa có vai trò Người thuê. Vào trang Vai trò để đăng ký.';
   const canPostJobs = Boolean(account) && hasPosterRole;
   const [skillsList, setSkillsList] = useState<string[]>([]);
   const [milestonesList, setMilestonesList] = useState<MilestoneForm[]>([]);
@@ -89,7 +89,7 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
     }
 
     if (!hasPosterRole) {
-      setJobResult('Bạn không có quyền đăng công việc. Vui lòng đăng ký role Người thuê trước!');
+      setJobResult('Bạn không có quyền đăng công việc. Vui lòng đăng ký vai trò Người thuê trước!');
       return;
     }
 
@@ -110,7 +110,7 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
     if (!account || isSubmitting) return;
     try {
       setIsSubmitting(true);
-      setJobResult('Đang tạo job...');
+      setJobResult('Đang tạo công việc...');
       
       if (!account) {
         toast.error('Vui lòng kết nối ví trước');
@@ -151,7 +151,7 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
       const totalCostAPT = totalCostOctas / APT_TO_UNITS;
       const milestonesTotal = contractMilestones.reduce((sum, m) => sum + m, 0) / APT_TO_UNITS;
       
-      setJobResult(`Tổng chi phí: ${totalCostAPT.toFixed(8)} APT (Milestones: ${milestonesTotal.toFixed(8)} APT + Stake: 1 APT + Fee: 1.5 APT). Đang ký transaction...`);
+      setJobResult(`Tổng chi phí: ${totalCostAPT.toFixed(8)} APT (Cột mốc: ${milestonesTotal.toFixed(8)} APT + Cọc: 1 APT + Phí: 1.5 APT). Đang ký giao dịch...`);
       
       const payload = escrowHelpers.createJob(
         jobDetailsCid,
@@ -164,7 +164,8 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
       const tx = await signAndSubmitTransaction(payload);
       
       if (tx?.hash) {
-        setJobResult(`Job đã được tạo thành công! TX: ${tx.hash}`);
+        toast.success('Công việc đã được tạo thành công!');
+        setJobResult(`Công việc đã được tạo thành công! TX: ${tx.hash}`);
         setJobTitle('');
         setJobDescription('');
         setJobDuration('7');
@@ -173,8 +174,16 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
         setCurrentSkill('');
         setCurrentMilestone({amount: '', duration: '', unit: 'ngày', reviewPeriod: '', reviewUnit: 'ngày'});
         setValidationErrors({});
+        
+        const { clearJobEventsCache } = await import('@/lib/aptosClient');
+        const { clearJobTableCache } = await import('@/lib/aptosClientCore');
+        clearJobEventsCache();
+        clearJobTableCache();
+        
+        window.dispatchEvent(new CustomEvent('jobsUpdated'));
       } else {
-        setJobResult('Job đã được gửi transaction!');
+        setJobResult('Công việc đã được gửi giao dịch!');
+        window.dispatchEvent(new CustomEvent('jobsUpdated'));
       }
     } catch (e: unknown) {
       setJobResult(`Lỗi: ${(e as Error)?.message || 'thất bại'}`);
@@ -188,14 +197,14 @@ export const PostJobTab: React.FC<PostJobTabProps> = ({ hasPosterRole }) => {
       <Card variant="outlined" className="p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-blue-800 mb-2">Đăng Dự Án</h2>
-          <p className="text-gray-700">Tạo dự án mới và tìm freelancer phù hợp</p>
+          <p className="text-gray-700">Tạo dự án mới và tìm người làm tự do phù hợp</p>
         </div>
         <SegmentedTabs
           stretch
           className="w-full mb-6"
           tabs={[
             { value: 'manual', label: 'Nhập thủ công', disabled: isSubmitting },
-            { value: 'json', label: 'Paste JSON', disabled: isSubmitting },
+            { value: 'json', label: 'Dán JSON', disabled: isSubmitting },
           ]}
           activeTab={inputMode}
           onChange={(value) => {

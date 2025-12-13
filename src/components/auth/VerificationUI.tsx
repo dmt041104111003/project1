@@ -3,7 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/common';
-import { ROLES, ROLE_OPTIONS, MESSAGES } from '@/constants/auth';
+import { ROLES, ROLE_OPTIONS, ROLE_LABELS, MESSAGES } from '@/constants/auth';
 
 export { MessageDisplay } from '@/components/common';
 
@@ -34,6 +34,15 @@ interface RoleListProps {
   loading: boolean;
 }
 
+// Hàm dịch tên vai trò từ contract sang tiếng Việt
+const translateRoleName = (name: string): string => {
+  const lowerName = name.toLowerCase();
+  if (lowerName === 'freelancer') return ROLE_LABELS.freelancer;
+  if (lowerName === 'poster') return ROLE_LABELS.poster;
+  if (lowerName === 'reviewer') return ROLE_LABELS.reviewer;
+  return name;
+};
+
 export function RoleList({ roles, loading }: RoleListProps) {
   if (loading) {
     return <div className="text-xs text-gray-500">{MESSAGES.LOADING.LOADING_ROLES}</div>;
@@ -45,7 +54,7 @@ export function RoleList({ roles, loading }: RoleListProps) {
     <div className="my-2">
       {roles.map(role => (
         <div key={role.name} className="rounded p-2 text-xs mb-1 bg-blue-50 text-blue-900">
-          {MESSAGES.STATUS.REGISTERED}: <b>{role.name}</b>
+          {MESSAGES.STATUS.REGISTERED}: <b>{translateRoleName(role.name)}</b>
         </div>
       ))}
     </div>

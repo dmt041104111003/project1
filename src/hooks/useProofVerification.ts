@@ -32,7 +32,7 @@ export const useProofVerification = () => {
       }
       return true;
     } catch (error) {
-      console.error('Error checking proof:', error);
+      console.error('Lỗi khi kiểm tra chứng chỉ:', error);
       toast.error('Không thể kiểm tra trạng thái xác minh.');
       return false;
     }
