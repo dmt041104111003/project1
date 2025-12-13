@@ -1,4 +1,4 @@
-const CONTRACT_ADDRESS = '0x48cab96b6e8464bc899e92222bc1c3afb7384b92770ad6c97cb1674a50843aba';
+const CONTRACT_ADDRESS = '0x03e18f7d891156850e51e6e4ff770ad7d10801b0edb168de50dd5c00919261ca';
 const APTOS_NODE_URL = process.env.APTOS_NODE_URL || 'https://api.testnet.aptoslabs.com';
 
 const normalizeAddress = (addr) => {

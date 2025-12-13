@@ -113,11 +113,18 @@ export const JobCard: React.FC<JobCardProps> = ({ job, account, activeTab, onUpd
     job.state === 'Posted' && 
     isPoster;
 
+  const isDisputed = job.state === 'Disputed' || stateDisplay.variant === 'disputed';
+
   return (
     <div className="border border-gray-400 bg-gray-50 p-4 rounded">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
-        <StatusBadge text={stateDisplay.text} variant={stateDisplay.variant} />
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold text-blue-800">Công việc #{job.id}</h3>
+          {isDisputed && (
+            <span className="text-red-600 text-xl" title="Đang có tranh chấp">🚩</span>
+          )}
+        </div>
+        {!isDisputed && <StatusBadge text={stateDisplay.text} variant={stateDisplay.variant} />}
       </div>
       
       <div className="space-y-2">

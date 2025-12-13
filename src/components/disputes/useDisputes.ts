@@ -35,7 +35,6 @@ export function useDisputes(account?: string | null) {
     return '0x' + (trimmed.length === 0 ? '0' : trimmed);
   }, []);
 
-  // checkReviewerRole is no longer needed - using RolesContext
 
   const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
     const silent = options?.silent ?? true;
@@ -137,12 +136,12 @@ export function useDisputes(account?: string | null) {
           const totalVotes = Number(summary.counts?.total || 0);
           votesCompleted = totalVotes >= 3;
           disputeWinner = summary.winner;
-          if (disputeWinner !== null && disputeWinner !== undefined && totalVotes >= 3) {
+          
+          if (summary.isResolved || (disputeWinner !== null && disputeWinner !== undefined && totalVotes >= 3)) {
             disputeStatus = 'resolved';
           }
         }
 
-        // Không bỏ qua dispute đã resolved - vẫn hiển thị để user biết kết quả
 
         const milestones: any[] = detail.milestones || [];
         let milestoneIndex = milestones.findIndex((m: any) => Number(m?.id || 0) === milestoneId);

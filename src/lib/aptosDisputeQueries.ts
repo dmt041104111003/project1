@@ -96,10 +96,10 @@ export async function getJobsWithDisputes(account: string, limit: number = 200):
     if (summary) {
       const totalVotes = Number(summary.counts?.total || 0);
       votesCount = totalVotes;
-      if (summary.winner !== null && summary.winner !== undefined) {
+      
+      if (summary.isResolved || (summary.winner !== null && summary.winner !== undefined)) {
         disputeStatus = 'resolved';
         disputeWinner = summary.winner;
-      
       } else if (totalVotes > 0) {
         disputeStatus = 'voting';
       }

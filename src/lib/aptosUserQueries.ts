@@ -3,6 +3,7 @@ import {
   getReputationChangedEvents,
   getDisputeOpenedEvents,
   getDisputeVotedEvents,
+  getDisputeResolvedEvents,
   getEvidenceAddedEvents,
   getReviewerDisputeEvents,
   getRoleRegisteredEvents,
@@ -106,12 +107,18 @@ export async function getProofData(address: string) {
 }
 
 export async function getDisputeSummary(disputeId: number) {
-  const openedEvents = await getDisputeOpenedEvents(200);
-  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  const [openedEvents, votedEvents, resolvedEvents] = await Promise.all([
+    getDisputeOpenedEvents(200),
+    getDisputeVotedEvents(200),
+    getDisputeResolvedEvents(200),
+  ]);
   
+  const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   if (!disputeEvent) return null;
 
-  const votedEvents = await getDisputeVotedEvents(200);
+  // Kiểm tra resolved event trước - đây là source of truth
+  const resolvedEvent = resolvedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
+  
   const disputeVotes = votedEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   
   const reviewers: string[] = [];
@@ -129,9 +136,15 @@ export async function getDisputeSummary(disputeId: number) {
     }
   });
 
+  // Nếu có resolved event, dùng winner từ đó (source of truth từ blockchain)
   let winner: null | boolean = null;
   const total = forFreelancer + forPoster;
-  if (total >= 3) {
+  
+  if (resolvedEvent) {
+    // Resolved event là source of truth
+    winner = resolvedEvent.data?.winner_is_freelancer === true;
+  } else if (total >= 3) {
+    // Fallback: tính từ votes nếu chưa có resolved event
     if (forFreelancer >= 2) winner = true;
     else if (forPoster >= 2) winner = false;
   }
@@ -145,6 +158,8 @@ export async function getDisputeSummary(disputeId: number) {
       forPoster,
     },
     winner,
+    isResolved: !!resolvedEvent,
+    resolvedAt: resolvedEvent?.data?.resolved_at || null,
   };
 }
 
