@@ -64,7 +64,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
 
     setLoading(true);
     try {
-      const { getJobsList, getJobsWithDisputes } = await import('@/lib/aptosClient');
+      const { getJobsList } = await import('@/lib/aptosClient');
       const { getDisputeOpenedEvents, getDisputeResolvedEvents } = await import('@/lib/aptosEvents');
       const [jobsRes, disputeOpenedEvents, disputeResolvedEvents] = await Promise.all([
         getJobsList(200),
@@ -90,39 +90,39 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         }
       });
       
-      const disputesData = await getJobsWithDisputes(account, 200);
       const newResolvedDisputesMap = new Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>();
-      disputesData.forEach((d) => {
-        if (d.disputeStatus === 'resolved') {
-          newResolvedDisputesMap.set(d.jobId, { disputeStatus: d.disputeStatus, disputeWinner: d.disputeWinner, milestoneId: d.milestoneId });
+      allJobs.forEach((job: Job) => {
+        if (job.dispute_resolved) {
+          newResolvedDisputesMap.set(job.id, { 
+            disputeStatus: 'resolved', 
+            disputeWinner: job.dispute_resolved.winner_is_freelancer, 
+            milestoneId: job.dispute_resolved.milestone_id 
+          });
         }
       });
       setResolvedDisputesMap(newResolvedDisputesMap);
       
-      const { checkDisputeWinnerPendingClaim } = await import('@/lib/aptosClientCore');
-      const pendingClaimMap = new Map<number, boolean>();
-      const jobIds = Array.from(newResolvedDisputesMap.keys());
-      if (jobIds.length > 0) {
-        const results = await Promise.all(
-          jobIds.map(async (jobId) => {
-            try {
-              const { hasPendingClaim } = await checkDisputeWinnerPendingClaim(jobId);
-              return { jobId, hasPendingClaim };
-            } catch {
-              return { jobId, hasPendingClaim: false };
-            }
-          })
-        );
-        results.forEach(({ jobId, hasPendingClaim }) => {
-          pendingClaimMap.set(jobId, hasPendingClaim);
-        });
-      }
+      const hasPendingDisputeClaim = (job: Job, userAddress: string): boolean => {
+        if (!job.dispute_resolved) return false;
+        
+        const winnerIsFreelancer = job.dispute_resolved.winner_is_freelancer;
+        const isPoster = job.poster?.toLowerCase() === userAddress.toLowerCase();
+        const isFreelancer = job.freelancer?.toLowerCase() === userAddress.toLowerCase();
+        
+        if (winnerIsFreelancer && isFreelancer) return true;
+        if (!winnerIsFreelancer && isPoster) return true;
+        
+        return true;
+      };
       
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
         const isCompleted = job.state === 'Completed';
-        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
+        
+        const hasOpenedDispute = activeDisputeJobIds.has(job.id);
+        const hasResolvedDispute = resolvedDisputeJobIds.has(job.id) || job.dispute_resolved;
+        const hasActiveDispute = hasOpenedDispute && !hasResolvedDispute;
         
         if (isCancelled || isCompleted) {
           return false;
@@ -132,8 +132,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return false;
         }
         
-        const hasPendingClaim = pendingClaimMap.get(job.id);
-        if (hasPendingClaim) {
+        if (hasPendingDisputeClaim(job, account)) {
           return false;
         }
         
@@ -145,7 +144,10 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         const pendingMatch = job.pending_freelancer && job.pending_freelancer.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
         const isCompleted = job.state === 'Completed';
-        const hasActiveDispute = activeDisputeJobIds.has(job.id) && !newResolvedDisputesMap.has(job.id);
+        
+        const hasOpenedDispute = activeDisputeJobIds.has(job.id);
+        const hasResolvedDispute = resolvedDisputeJobIds.has(job.id) || job.dispute_resolved;
+        const hasActiveDispute = hasOpenedDispute && !hasResolvedDispute;
         
         if (isCancelled || isCompleted) {
           return false;
@@ -155,8 +157,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
           return false;
         }
         
-        const hasPendingClaim = pendingClaimMap.get(job.id);
-        if (hasPendingClaim) {
+        if (hasPendingDisputeClaim(job, account)) {
           return false;
         }
         

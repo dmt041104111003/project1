@@ -55,6 +55,11 @@ export interface JobData {
   freelancer_stake?: number | string;
   pending_stake?: number | string;
   pending_fee?: number | string;
+  dispute_resolved?: {
+    winner_is_freelancer: boolean;
+    milestone_id: number;
+    resolved_at: number;
+  } | null;
 }
 
 export interface Milestone {

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { JobSidebarProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { getJobStateText } from '@/components/dashboard/MilestoneUtils';
 
 const parseState = (state: any): string => {
   if (typeof state === 'string') return state;
@@ -267,20 +268,29 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   
   
   let displayState = (stateStr === 'Cancelled' && !isPosterOfJob && !isFreelancerOfJob) ? 'Posted' : stateStr;
-  if (pendingCandidate && displayState !== 'Completed' && displayState !== 'Cancelled' && displayState !== 'CancelledByPoster') {
-    if (displayState === 'InProgress' || displayState === 'Posted') {
-      displayState = 'PendingApproval';
-    }
+  
+  if (pendingCandidate && displayState !== 'Completed' && displayState !== 'Cancelled' && displayState !== 'CancelledByPoster' && displayState !== 'InProgress') {
+    displayState = 'PendingApproval';
   }
-  const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
-                      displayState === 'Posted' ? 'Open' :
-                      displayState === 'PendingApproval' ? 'Chờ duyệt' :
-                      displayState === 'InProgress' ? 'In Progress' :
-                      displayState === 'Completed' ? 'Completed' :
-                      displayState === 'Disputed' ? 'Disputed' :
-                      displayState === 'Cancelled' ? 'Cancelled' :
-                      displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
-                      displayState || 'Active';
+  
+  if (jobData.dispute_resolved) {
+    displayState = 'Disputed';
+  }
+  
+  const hasLockedMilestone = jobData.milestones && Array.isArray(jobData.milestones) 
+    ? jobData.milestones.some((milestone: any) => {
+        const statusStr = typeof milestone.status === 'string' 
+          ? milestone.status 
+          : (milestone.status?.vec && Array.isArray(milestone.status.vec) && milestone.status.vec.length > 0 
+            ? String(milestone.status.vec[0]) 
+            : (milestone.status?.__variant__ ? String(milestone.status.__variant__) : 'Pending'));
+        return statusStr === 'Locked';
+      })
+    : false;
+  if (hasLockedMilestone) {
+    displayState = 'Disputed';
+  }
+  const displayText = isExpiredPosted ? 'Hết hạn đăng ký' : getJobStateText(displayState);
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
     const base = 'px-2 py-1 text-xs font-bold border-2';

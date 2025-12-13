@@ -38,93 +38,99 @@ export function useDisputes(account?: string | null) {
   // checkReviewerRole is no longer needed - using RolesContext
 
   const refresh = useCallback(async (options?: { silent?: boolean; skipLoading?: boolean }) => {
-    console.log('[useDisputes] refresh() called', { isReviewer, account, options });
     const silent = options?.silent ?? true;
     const skipLoading = options?.skipLoading ?? false;
     if (!isReviewer || !account) {
-      console.log('[useDisputes] SKIPPED: !isReviewer || !account', { isReviewer, account });
       setDisputes([]);
       return false;
     }
     try {
-      console.log('[useDisputes] Starting refresh...');
       if (!skipLoading) setLoading(true);
       setErrorMsg('');
 
       const myAddr = normalizeAddress(account);
-      console.log('[useDisputes] My normalized address:', myAddr);
-      console.log('[useDisputes] Account:', account);
 
       const { getParsedJobData, getDisputeSummary, getDisputeEvidence, getDisputeData } = await import('@/lib/aptosClient');
-      const { parseAddressVector } = await import('@/lib/aptosParsers');
       const { getDisputeOpenedEvents, getReviewerDisputeEvents, clearDisputeEventsCache } = await import('@/lib/aptosEvents');
       
-      console.log('[useDisputes] Clearing cache...');
       clearDisputeEventsCache();
       
-      console.log('[useDisputes] Fetching events...');
       const openedEvents = await getDisputeOpenedEvents(200);
       const reviewerEvents = await getReviewerDisputeEvents(200);
-      
-      console.log('[useDisputes] Opened events count:', openedEvents.length);
-      console.log('[useDisputes] Reviewer events count:', reviewerEvents.length);
-      console.log('[useDisputes] Reviewer events:', reviewerEvents.map((e: any) => ({
-        dispute_id: e?.data?.dispute_id,
-        reviewer: e?.data?.reviewer,
-        reviewer_normalized: normalizeAddress(e?.data?.reviewer),
-      })));
 
-      const results: DisputeData[] = [];
+      const myDisputes: Array<{
+        disputeId: number;
+        jobId: number;
+        milestoneId: number;
+        reviewers: string[];
+      }> = [];
 
       for (const openedEvent of openedEvents) {
         const disputeId = Number(openedEvent?.data?.dispute_id || 0);
-        if (!disputeId) {
-          console.log('[useDisputes] Skipping: no disputeId');
-          continue;
-        }
-
         const jobId = Number(openedEvent?.data?.job_id || 0);
-        if (!jobId) {
-          console.log('[useDisputes] Skipping dispute #' + disputeId + ': no jobId');
-          continue;
-        }
+        const milestoneId = Number(openedEvent?.data?.milestone_id || 0);
         
-        console.log(`[useDisputes] Processing dispute #${disputeId}, job #${jobId}`);
+        if (!disputeId || !jobId) continue;
 
         const disputeReviewerEvents = reviewerEvents.filter((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
-        console.log(`[useDisputes] Dispute #${disputeId} - Found ${disputeReviewerEvents.length} reviewer events`);
-        
         const selectedReviewers = disputeReviewerEvents
-          .map((e: any) => String(e?.data?.reviewer || ''))
-          .filter((addr: string) => addr.length > 0);
-        
-        console.log(`[useDisputes] Dispute #${disputeId} - Selected reviewers (raw):`, selectedReviewers);
-        
-        const normalizedReviewers = selectedReviewers.map((a: string) => normalizeAddress(a));
-        console.log(`[useDisputes] Dispute #${disputeId} - Selected reviewers (normalized):`, normalizedReviewers);
-        console.log(`[useDisputes] Dispute #${disputeId} - My address (normalized):`, myAddr);
-        console.log(`[useDisputes] Dispute #${disputeId} - Is assigned?`, normalizedReviewers.includes(myAddr));
+          .map((e: any) => normalizeAddress(String(e?.data?.reviewer || '')))
+          .filter((addr: string) => addr.length > 2);
 
-        const isAssigned = normalizedReviewers.includes(myAddr);
-        if (!isAssigned) {
-          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Not assigned to me`);
-          continue;
-        }
+        if (!selectedReviewers.includes(myAddr)) continue;
+
+        myDisputes.push({ disputeId, jobId, milestoneId, reviewers: selectedReviewers });
+      }
+
+      if (myDisputes.length === 0) {
+        setDisputes([]);
+        return true;
+      }
+
+      const disputeIds = myDisputes.map(d => d.disputeId);
+      const jobIds = [...new Set(myDisputes.map(d => d.jobId))];
+
+      const [disputeDataResults, jobDataResults, summaryResults, evidenceResults] = await Promise.all([
+        Promise.all(disputeIds.map(id => getDisputeData(id).catch(() => null))),
+        Promise.all(jobIds.map(id => getParsedJobData(id).catch(() => null))),
+        Promise.all(disputeIds.map(id => getDisputeSummary(id).catch(() => null))),
+        Promise.all(disputeIds.map(id => getDisputeEvidence(id).catch(() => null))),
+      ]);
+
+      const disputeDataMap = new Map<number, any>();
+      disputeDataResults.forEach((data, idx) => {
+        if (data) disputeDataMap.set(disputeIds[idx], data);
+      });
+
+      const jobDataMap = new Map<number, any>();
+      jobDataResults.forEach((data, idx) => {
+        if (data) jobDataMap.set(jobIds[idx], data);
+      });
+
+      const summaryMap = new Map<number, any>();
+      summaryResults.forEach((data, idx) => {
+        if (data) summaryMap.set(disputeIds[idx], data);
+      });
+
+      const evidenceMap = new Map<number, any>();
+      evidenceResults.forEach((data, idx) => {
+        if (data) evidenceMap.set(disputeIds[idx], data);
+      });
+
+      const results: DisputeData[] = [];
+
+      for (const { disputeId, jobId, milestoneId } of myDisputes) {
+        const dispute = disputeDataMap.get(disputeId);
+        const detail = jobDataMap.get(jobId);
         
-        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: I am assigned!`);
-
-        const dispute = await getDisputeData(disputeId);
-        if (!dispute) continue;
-
-        const detail = await getParsedJobData(jobId);
-        if (!detail) continue;
+        if (!dispute || !detail) continue;
 
         let hasVoted = false;
         let votesCompleted = false;
         let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
         let disputeWinner: boolean | null = null;
         
-        const summary = await getDisputeSummary(disputeId);
+        const summary = summaryMap.get(disputeId);
         if (summary) {
           const voted: string[] = summary.voted_reviewers || [];
           hasVoted = voted.map((a: string) => normalizeAddress(a)).some((a: string) => a === myAddr);
@@ -136,52 +142,20 @@ export function useDisputes(account?: string | null) {
           }
         }
 
+        if (disputeStatus === 'resolved') continue;
+
         const milestones: any[] = detail.milestones || [];
-        const milestoneId = Number(openedEvent?.data?.milestone_id || 0);
-        console.log(`[useDisputes] Dispute #${disputeId} - Milestone ID from event: ${milestoneId}`);
-        console.log(`[useDisputes] Dispute #${disputeId} - Milestones count: ${milestones.length}`);
-        console.log(`[useDisputes] Dispute #${disputeId} - Milestones:`, milestones.map((m: any) => ({
-          id: m?.id,
-          status: m?.status,
-          status_parsed: parseStatus(m?.status),
-        })));
+        let milestoneIndex = milestones.findIndex((m: any) => Number(m?.id || 0) === milestoneId);
+        if (milestoneIndex < 0) milestoneIndex = milestoneId;
         
-        let milestoneIndex = -1;
-        for (let i = 0; i < milestones.length; i++) {
-          if (Number(milestones[i]?.id || 0) === milestoneId) {
-            milestoneIndex = i;
-            const statusStr = parseStatus(milestones[i]?.status);
-            console.log(`[useDisputes] Dispute #${disputeId} - Found milestone at index ${i}, status: ${statusStr}`);
-            break;
-          }
-        }
-        
-        if (milestoneIndex < 0) {
-          milestoneIndex = milestoneId;
-          console.log(`[useDisputes] Dispute #${disputeId} - Using milestoneId as index: ${milestoneIndex}`);
-        }
-        
-        console.log(`[useDisputes] Dispute #${disputeId} - Milestone index: ${milestoneIndex}`);
-        console.log(`[useDisputes] Dispute #${disputeId} - Dispute status: ${disputeStatus}`);
-        
-        if (disputeStatus === 'resolved') {
-          console.log(`[useDisputes] Dispute #${disputeId} - SKIPPED: Already resolved`);
-          continue; 
-        }
-        
-        console.log(`[useDisputes] Dispute #${disputeId} - CONTINUING: Adding dispute to list`);
-        
-        const evidence = await getDisputeEvidence(disputeId);
-        console.log(`[useDisputes] Dispute #${disputeId} - Evidence:`, evidence);
+        const evidence = evidenceMap.get(disputeId);
         const posterEvidenceCid = evidence ? String(evidence.poster_evidence_cid || '') : '';
         const freelancerEvidenceCid = evidence ? String(evidence.freelancer_evidence_cid || '') : '';
-        console.log(`[useDisputes] Dispute #${disputeId} - Poster CID:`, posterEvidenceCid);
-        console.log(`[useDisputes] Dispute #${disputeId} - Freelancer CID:`, freelancerEvidenceCid);
 
-        const disputeData = { 
-          jobId: jobId, 
-          milestoneIndex: milestoneIndex, 
-          disputeId: disputeId, 
+        results.push({ 
+          jobId, 
+          milestoneIndex, 
+          disputeId, 
           status: disputeStatus, 
           createdAt: dispute.created_at,
           initialVoteDeadline: dispute.initial_vote_deadline || 0,
@@ -192,14 +166,9 @@ export function useDisputes(account?: string | null) {
           hasVoted, 
           votesCompleted,
           disputeWinner 
-        };
-        
-        console.log(`[useDisputes] Dispute #${disputeId} - Adding to results:`, disputeData);
-        results.push(disputeData);
+        });
       }
 
-      console.log(`[useDisputes] Final results count: ${results.length}`);
-      console.log(`[useDisputes] Final results:`, results);
       setDisputes(results);
       if (!silent) {
         toast.success('Đã làm mới danh sách tranh chấp');
