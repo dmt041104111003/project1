@@ -1,6 +1,5 @@
-import { CONTRACT_ADDRESS, ROLE_KIND } from '@/constants/contracts';
+import { ROLE_KIND } from '@/constants/contracts';
 import {
-  getReputationChangedEvents,
   getDisputeOpenedEvents,
   getDisputeVotedEvents,
   getDisputeResolvedEvents,
@@ -52,30 +51,12 @@ export async function getUserRoles(address: string, limit: number = 200) {
   return { roles };
 }
 
-export async function getReputationPoints(address: string, limit: number = 200): Promise<number> {
+export async function getReputationPoints(address: string, _limit: number = 200): Promise<number> {
   try {
-    const normalizedAddr = address.toLowerCase();
-    const events = await getReputationChangedEvents(limit);
-    
-    const userEvents = events
-      .filter((e: any) => {
-        const eventAddr = String(e.data?.address || '').toLowerCase();
-        return eventAddr === normalizedAddr;
-      })
-      .sort((a: any, b: any) => {
-        const timeA = Number(a.data?.changed_at || a.data?.timestamp || 0);
-        const timeB = Number(b.data?.changed_at || b.data?.timestamp || 0);
-        return timeB - timeA;
-      });
-    
-    if (userEvents.length === 0) {
-      return 0;
-    }
-    
-    const latestEvent = userEvents[0];
-    const newValue = Number(latestEvent.data?.new_value || 0);
-    
-    return Math.max(0, newValue);
+    const res = await fetch(`/api/chain/reputation?address=${encodeURIComponent(address)}`);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return Math.max(0, Number(data.ut || 0));
   } catch {
     return 0;
   }
@@ -115,11 +96,9 @@ export async function getDisputeSummary(disputeId: number) {
   const disputeEvent = openedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   if (!disputeEvent) return null;
 
-  // Lấy từ DisputeResolvedEvent - SOURCE OF TRUTH từ blockchain
   const resolvedEvent = resolvedEvents.find((e: any) => Number(e?.data?.dispute_id || 0) === disputeId);
   
   if (resolvedEvent) {
-    // Đã resolved - lấy data trực tiếp từ event
     const forFreelancer = Number(resolvedEvent.data?.freelancer_votes || 0);
     const forPoster = Number(resolvedEvent.data?.poster_votes || 0);
     const winner = resolvedEvent.data?.winner_is_freelancer === true;
@@ -138,7 +117,6 @@ export async function getDisputeSummary(disputeId: number) {
     };
   }
 
-  // Chưa resolved
   return {
     reviewers: [],
     voted_reviewers: [],
