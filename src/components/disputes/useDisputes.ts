@@ -116,6 +116,9 @@ export function useDisputes(account?: string | null) {
         if (data) evidenceMap.set(disputeIds[idx], data);
       });
 
+      const { getDisputeVotedEvents } = await import('@/lib/aptosEvents');
+      const votedEvents = await getDisputeVotedEvents(200);
+
       const results: DisputeData[] = [];
 
       for (const { disputeId, jobId, milestoneId } of myDisputes) {
@@ -124,26 +127,14 @@ export function useDisputes(account?: string | null) {
         
         if (!dispute || !detail) continue;
 
-        let hasVoted = false;
-        let votesCompleted = false;
-        let disputeStatus: 'open' | 'resolved' | 'resolved_poster' | 'resolved_freelancer' | 'withdrawn' = 'open';
-        let disputeWinner: boolean | null = null;
-        
         const summary = summaryMap.get(disputeId);
-        if (summary && summary.isResolved) {
-          votesCompleted = true;
-          disputeWinner = summary.winner;
-          disputeStatus = 'resolved';
-        }
-        
-        const { getDisputeVotedEvents } = await import('@/lib/aptosEvents');
-        const votedEvents = await getDisputeVotedEvents(200);
+        if (summary && summary.isResolved) continue;
+
         const myVoteEvent = votedEvents.find((e: any) => 
           Number(e?.data?.dispute_id || 0) === disputeId &&
           normalizeAddress(String(e?.data?.reviewer || '')) === myAddr
         );
-        hasVoted = !!myVoteEvent;
-
+        if (myVoteEvent) continue;
 
         const milestones: any[] = detail.milestones || [];
         let milestoneIndex = milestones.findIndex((m: any) => Number(m?.id || 0) === milestoneId);
@@ -157,16 +148,16 @@ export function useDisputes(account?: string | null) {
           jobId, 
           milestoneIndex, 
           disputeId, 
-          status: disputeStatus, 
+          status: 'open', 
           createdAt: dispute.created_at,
           initialVoteDeadline: dispute.initial_vote_deadline || 0,
           lastReselectionTime: dispute.last_reselection_time || 0,
           lastVoteTime: dispute.last_vote_time || dispute.created_at,
           posterEvidenceCid, 
           freelancerEvidenceCid, 
-          hasVoted, 
-          votesCompleted,
-          disputeWinner 
+          hasVoted: false, 
+          votesCompleted: false,
+          disputeWinner: null 
         });
       }
 
