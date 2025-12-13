@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Container } from '@/components/ui/container';
 import { Button } from '@/components/ui/button';
 import { NAVIGATION } from '@/constants/landing';
@@ -16,6 +15,7 @@ export function Header() {
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const {
     account,
     isConnecting,
@@ -29,6 +29,20 @@ export function Header() {
     : account
       ? formatAddress(account)
       : 'Kết nối ví';
+
+  // Dispatch events khi chuyển trang để load data mới
+  const handleNavClick = useCallback((href: string) => {
+    // Dispatch events để các component load lại data
+    window.dispatchEvent(new CustomEvent('jobsUpdated'));
+    window.dispatchEvent(new CustomEvent('rolesUpdated'));
+    
+    // Đóng mobile menu nếu đang mở
+    setIsMobileMenuOpen(false);
+    setShowWalletMenu(false);
+    
+    // Navigate
+    router.push(href);
+  }, [router]);
 
   const handleAccountButtonClick = () => {
     if (!account) {
@@ -52,7 +66,10 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 z-30 bg-white border-b-2 border-blue-800 shadow-md">
       <Container>
         <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-3">
+          <button 
+            onClick={() => handleNavClick('/')}
+            className="flex items-center gap-3 bg-transparent border-none cursor-pointer"
+          >
             <Image 
               src="/images/landing/logo_full.png" 
               alt="Marketplace2vn Logo" 
@@ -63,7 +80,7 @@ export function Header() {
             <span className="text-xl font-bold text-blue-800">
               Marketplace2vn
             </span>
-          </Link>
+          </button>
 
           <nav className="hidden md:flex items-center gap-8">
             {NAVIGATION.filter((item) => {
@@ -80,17 +97,17 @@ export function Header() {
             }).map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link
+                <button
                   key={item.name}
-                  href={item.href}
-                  className={`font-medium no-underline text-lg ${
+                  onClick={() => handleNavClick(item.href)}
+                  className={`font-medium text-lg bg-transparent border-none cursor-pointer ${
                     isActive 
                       ? 'text-blue-800 border-b-2 border-blue-800 pb-1' 
                       : 'text-gray-700 hover:text-blue-800'
                   }`}
                 >
                   {item.name}
-                </Link>
+                </button>
               );
             })}
           </nav>
@@ -110,11 +127,17 @@ export function Header() {
                   <div className="text-sm text-gray-600 pb-2 border-b">
                     {formatAddress(account)}
                   </div>
-                  <Link href="/auth/did-verification" onClick={() => setShowWalletMenu(false)}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Xác minh định danh tài khoản
-                    </Button>
-                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      setShowWalletMenu(false);
+                      handleNavClick('/auth/did-verification');
+                    }}
+                  >
+                    Xác minh định danh tài khoản
+                  </Button>
                   <Button
                     onClick={() => {
                       setShowWalletMenu(false);
@@ -159,18 +182,17 @@ export function Header() {
               }).map((item) => {
                 const isActive = pathname === item.href;
                 return (
-                  <Link
+                  <button
                     key={item.name}
-                    href={item.href}
-                    className={`font-medium no-underline py-2 px-3 ${
+                    onClick={() => handleNavClick(item.href)}
+                    className={`font-medium text-left py-2 px-3 bg-transparent border-none cursor-pointer ${
                       isActive 
                         ? 'text-blue-800 bg-blue-100 border-l-4 border-blue-800' 
                         : 'text-gray-700 hover:text-blue-800 hover:bg-gray-100'
                     }`}
-                    onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {item.name}
-                  </Link>
+                  </button>
                 );
               })}
               <div className="flex flex-col gap-2 pt-4 border-t-2 border-blue-800">
@@ -187,11 +209,12 @@ export function Header() {
                     <div className="px-3 py-2 text-sm text-gray-600">
                       {formatAddress(account)}
                     </div>
-                    <Link href="/auth/did-verification" onClick={() => setIsMobileMenuOpen(false)}>
-                      <button className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100">
-                        Xác minh định danh tài khoản
-                      </button>
-                    </Link>
+                    <button 
+                      className="w-full px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
+                      onClick={() => handleNavClick('/auth/did-verification')}
+                    >
+                      Xác minh định danh tài khoản
+                    </button>
                     <button
                       className="px-3 py-2 bg-white text-black border-2 border-black hover:bg-gray-100"
                       onClick={() => disconnectWallet()}
