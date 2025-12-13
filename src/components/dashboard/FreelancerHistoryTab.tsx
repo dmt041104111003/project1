@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Pagination } from '@/components/ui/pagination';
-import { useWallet } from '@/contexts/WalletContext';
 import { LoadingState, EmptyState, StatusBadge } from '@/components/common';
 import { getFreelancerJobHistory, FreelancerJobHistory } from '@/lib/aptosClient';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
@@ -17,11 +16,17 @@ interface FreelancerHistoryTabProps {
 export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
   freelancerAddress,
 }) => {
-  const { account } = useWallet();
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<FreelancerJobHistory[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [decodedCids, setDecodedCids] = useState<Map<number, { cid: string; url: string }>>(new Map());
+
+  useEffect(() => {
+    const maxPageIndex = Math.max(0, Math.ceil(history.length / JOBS_PER_PAGE) - 1);
+    if (currentPage > maxPageIndex) {
+      setCurrentPage(maxPageIndex);
+    }
+  }, [history.length, currentPage]);
 
   const fetchHistory = useCallback(async () => {
     if (!freelancerAddress) {
@@ -65,9 +70,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
 
-  useEffect(() => {
     const handleJobsUpdated = () => {
       fetchHistory();
     };
@@ -77,13 +80,6 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
       window.removeEventListener('jobsUpdated', handleJobsUpdated);
     };
   }, [fetchHistory]);
-
-  useEffect(() => {
-    const maxPageIndex = Math.max(0, Math.ceil(history.length / JOBS_PER_PAGE) - 1);
-    if (currentPage > maxPageIndex) {
-      setCurrentPage(maxPageIndex);
-    }
-  }, [history.length, currentPage]);
 
   const getStatusDisplay = (status: FreelancerJobHistory['status']) => {
     switch (status) {
@@ -100,7 +96,7 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
       case 'pending_approval':
         return { text: 'Chờ phê duyệt', variant: 'info' as const };
       case 'posted':
-        return { text: 'Đã ứng tuyển', variant: 'default' as const };
+        return { text: 'Đã nhận việc', variant: 'default' as const };
       default:
         return { text: 'Không xác định', variant: 'default' as const };
     }
@@ -125,20 +121,20 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
     }
   };
 
-  if (loading && history.length === 0) {
-    return <LoadingState message="Đang tải lịch sử công việc..." />;
-  }
-
   const totalPages = Math.max(1, Math.ceil(history.length / JOBS_PER_PAGE));
   const displayedHistory = history.slice(
     currentPage * JOBS_PER_PAGE,
     (currentPage + 1) * JOBS_PER_PAGE
   );
 
+  if (loading && history.length === 0) {
+    return <LoadingState message="Đang tải lịch sử công việc..." />;
+  }
+
   if (history.length === 0) {
     return (
       <EmptyState
-        message="Bạn chưa từng ứng tuyển công việc nào."
+        message="Bạn chưa từng nhận công việc nào."
       />
     );
   }
@@ -167,6 +163,24 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                 </div>
                 <div className="text-sm text-gray-700 space-y-1">
                   <div>
+                    <span className="font-semibold">Tổng giá trị:</span>{' '}
+                    {(item.totalAmount / 100_000_000).toFixed(2)} APT
+                  </div>
+                  <div className="text-xs text-gray-600 break-all">
+                    <span className="font-semibold">Mã định danh:</span>{' '}
+                    {decodedCids.get(item.jobId)?.cid || item.cid}
+                    {decodedCids.get(item.jobId)?.url && (
+                      <a
+                        href={decodedCids.get(item.jobId)!.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-2 text-blue-700 underline hover:text-blue-900"
+                      >
+                        Xem chi tiết
+                      </a>
+                    )}
+                  </div>
+                  <div>
                     <span className="font-semibold">Người thuê:</span>{' '}
                     <span
                       className="text-blue-600 cursor-pointer hover:text-blue-800 hover:underline"
@@ -176,30 +190,11 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="font-semibold">Tổng giá trị:</span>{' '}
-                    {(item.totalAmount / 100_000_000).toFixed(2)} APT
+                    <span className="font-semibold">Công việc tạo lúc:</span>{' '}
+                    {new Date(item.createdAt * 1000).toLocaleString('vi-VN')}
                   </div>
                   <div>
-                    <span className="font-semibold">Mã định danh:</span>{' '}
-                    {decodedCids.has(item.jobId) ? (
-                      <span>
-                        <span className="font-mono text-xs break-all">{decodedCids.get(item.jobId)?.cid}</span>
-                        {' '}
-                        <a
-                          href={decodedCids.get(item.jobId)?.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline text-xs ml-1"
-                        >
-                          Xem chi tiết
-                        </a>
-                      </span>
-                    ) : (
-                      <span className="font-mono text-xs break-all">{item.cid}</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Thời gian ứng tuyển:</span>{' '}
+                    <span className="font-semibold">Thời gian nhận việc:</span>{' '}
                     {new Date(item.appliedAt * 1000).toLocaleString('vi-VN')}
                   </div>
                   {item.completedAt && (
@@ -212,6 +207,12 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                     <div className="text-blue-800">
                       <span className="font-semibold">Bị đòi lúc:</span>{' '}
                       {new Date(item.claimedAt * 1000).toLocaleString('vi-VN')}
+                    </div>
+                  )}
+                  {item.cancelledAt && (
+                    <div className="text-blue-800">
+                      <span className="font-semibold">Hủy lúc:</span>{' '}
+                      {new Date(item.cancelledAt * 1000).toLocaleString('vi-VN')}
                     </div>
                   )}
                 </div>
@@ -228,8 +229,24 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
                   ? 'bg-blue-100 border-blue-300 text-blue-800'
                   : 'bg-gray-100 border-gray-300 text-gray-700'
               }`}>
-                <div className="text-sm font-semibold mb-1">Lý do:</div>
+                <div className="text-sm font-semibold mb-1">Trạng thái:</div>
                 <div className="text-sm">{item.reason}</div>
+              </div>
+            )}
+
+            {item.events && item.events.length > 0 && (
+              <div className="mt-3 p-3 bg-white rounded border border-gray-300">
+                <div className="text-sm font-semibold mb-2 text-gray-700">Lịch sử sự kiện:</div>
+                <div className="space-y-1">
+                  {item.events.map((event, idx) => (
+                    <div key={idx} className="text-xs text-gray-600">
+                      <span className="font-semibold">{event.description}</span>
+                      <span className="text-gray-500 ml-2">
+                        ({new Date(event.timestamp * 1000).toLocaleString('vi-VN')})
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
@@ -243,7 +260,6 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
             totalPages={totalPages}
             onPageChange={(page) => {
               setCurrentPage(page);
-              fetchHistory();
             }}
             showAutoPlay={false}
             showFirstLast
@@ -256,4 +272,3 @@ export const FreelancerHistoryTab: React.FC<FreelancerHistoryTabProps> = ({
     </div>
   );
 };
-

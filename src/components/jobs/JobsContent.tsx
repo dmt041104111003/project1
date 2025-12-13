@@ -288,7 +288,6 @@ export const JobsContent: React.FC = () => {
               totalPages={Math.ceil(jobs.length / JOBS_PER_PAGE)}
               onPageChange={(page) => {
                 setCurrentPage(page);
-                fetchJobs();
               }}
               showAutoPlay={false}
               showFirstLast={true}

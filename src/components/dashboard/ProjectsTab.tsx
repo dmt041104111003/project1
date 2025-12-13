@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
@@ -33,6 +33,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
   const [appliedCount, setAppliedCount] = useState(0);
   const [resolvedDisputesMap, setResolvedDisputesMap] = useState<Map<number, { disputeStatus: string; disputeWinner: boolean | null; milestoneId: number }>>(new Map());
   const [initialized, setInitialized] = useState(false);
+  
+  const fetchingRef = useRef(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!hasPosterRole && activeTab === 'posted') {
@@ -42,7 +45,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
     }
   }, [hasPosterRole, hasFreelancerRole, activeTab]);
 
-  const fetchJobs = async () => {
+  const fetchJobsInternal = useCallback(async () => {
     if (!account) {
       setJobs([]);
       setPostedCount(0);
@@ -98,9 +101,21 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       
       const { checkDisputeWinnerPendingClaim } = await import('@/lib/aptosClientCore');
       const pendingClaimMap = new Map<number, boolean>();
-      for (const [jobId] of newResolvedDisputesMap) {
-        const { hasPendingClaim } = await checkDisputeWinnerPendingClaim(jobId);
-        pendingClaimMap.set(jobId, hasPendingClaim);
+      const jobIds = Array.from(newResolvedDisputesMap.keys());
+      if (jobIds.length > 0) {
+        const results = await Promise.all(
+          jobIds.map(async (jobId) => {
+            try {
+              const { hasPendingClaim } = await checkDisputeWinnerPendingClaim(jobId);
+              return { jobId, hasPendingClaim };
+            } catch {
+              return { jobId, hasPendingClaim: false };
+            }
+          })
+        );
+        results.forEach(({ jobId, hasPendingClaim }) => {
+          pendingClaimMap.set(jobId, hasPendingClaim);
+        });
       }
       
       const postedJobs = allJobs.filter((job: Job) => {
@@ -181,23 +196,39 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       setJobs([]);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [account, activeTab, hasPosterRole, hasFreelancerRole]);
+
+  const fetchJobs = useCallback(() => {
+    if (fetchingRef.current) return;
+    
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      fetchingRef.current = true;
+      fetchJobsInternal();
+    }, 200);
+  }, [fetchJobsInternal]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (account && (activeTab === 'posted' || activeTab === 'applied')) {
       fetchJobs();
     }
-  }, [activeTab, account, hasPosterRole, hasFreelancerRole]);
+  }, [activeTab, account, hasPosterRole, hasFreelancerRole, fetchJobs]);
 
   useEffect(() => {
-    const handleRolesUpdated = () => {
-      if (account) {
-        fetchJobs();
-      }
-    };
-    
-    const handleJobsUpdated = async () => {
+    const handleUpdate = async () => {
       if (account) {
         const { clearJobEventsCache, clearDisputeEventsCache } = await import('@/lib/aptosClient');
         const { clearJobTableCache } = await import('@/lib/aptosClientCore');
@@ -208,14 +239,14 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       }
     };
 
-    window.addEventListener('rolesUpdated', handleRolesUpdated);
-    window.addEventListener('jobsUpdated', handleJobsUpdated);
+    window.addEventListener('rolesUpdated', handleUpdate);
+    window.addEventListener('jobsUpdated', handleUpdate);
     
     return () => {
-      window.removeEventListener('rolesUpdated', handleRolesUpdated);
-      window.removeEventListener('jobsUpdated', handleJobsUpdated);
+      window.removeEventListener('rolesUpdated', handleUpdate);
+      window.removeEventListener('jobsUpdated', handleUpdate);
     };
-  }, [account]);
+  }, [account, fetchJobs]);
 
   const totalPages = Math.max(1, Math.ceil(jobs.length / JOBS_PER_PAGE));
   const displayedJobs = jobs.slice(
