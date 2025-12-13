@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { JobSidebarProps } from '@/constants/escrow';
 import { formatAddress, copyAddress } from '@/utils/addressUtils';
+import { getJobStateText } from '@/components/dashboard/MilestoneUtils';
 
 const parseState = (state: any): string => {
   if (typeof state === 'string') return state;
@@ -289,15 +290,7 @@ export const JobSidebar: React.FC<JobSidebarProps> = ({
   if (hasLockedMilestone) {
     displayState = 'Disputed';
   }
-  const displayText = isExpiredPosted ? 'Hết hạn đăng ký' :
-                      displayState === 'Posted' ? 'Mở' :
-                      displayState === 'PendingApproval' ? 'Chờ duyệt' :
-                      displayState === 'InProgress' ? 'Đang thực hiện' :
-                      displayState === 'Completed' ? 'Hoàn thành' :
-                      displayState === 'Disputed' ? 'Tranh chấp' :
-                      displayState === 'Cancelled' ? 'Đã hủy' :
-                      displayState === 'CancelledByPoster' ? 'Đã hủy bởi người thuê' :
-                      displayState || 'Hoạt động';
+  const displayText = isExpiredPosted ? 'Hết hạn đăng ký' : getJobStateText(displayState);
 
   const getStateClasses = (state: string, isExpiredPosted: boolean) => {
     const base = 'px-2 py-1 text-xs font-bold border-2';

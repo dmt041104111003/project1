@@ -36,3 +36,16 @@ export const parseEvidenceCid = (evidence: unknown): string | null => {
   return null;
 };
 
+export const getJobStateText = (state: string): string => {
+  const stateMap: Record<string, string> = {
+    'Posted': 'Mở',
+    'PendingApproval': 'Chờ duyệt',
+    'InProgress': 'Đang thực hiện',
+    'Completed': 'Hoàn thành',
+    'Disputed': 'Tranh chấp',
+    'Cancelled': 'Đã hủy',
+    'CancelledByPoster': 'Đã hủy bởi người thuê',
+  };
+  return stateMap[state] || state;
+};
+
