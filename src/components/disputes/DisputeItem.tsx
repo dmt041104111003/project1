@@ -181,8 +181,27 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
         )}
       </div>
       {dispute.status === 'resolved' ? (
-        <div className="text-sm text-blue-800 font-bold">
-          ✓ Tranh chấp đã được giải quyết. Bên thắng có thể yêu cầu thanh toán/hoàn tiền.
+        <div className="p-3 bg-green-50 border border-green-200 rounded">
+          <div className="text-sm text-green-800 font-bold">
+            ✓ Tranh chấp đã được giải quyết
+            {dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
+              <span className="ml-2">
+                — {dispute.disputeWinner ? 'Người làm tự do thắng' : 'Người thuê thắng'}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-green-700 mt-1">
+            Bên thắng có thể yêu cầu thanh toán/hoàn tiền trong trang Dự án.
+          </div>
+        </div>
+      ) : dispute.hasVoted ? (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+          <div className="text-sm text-blue-800 font-bold">
+            ✓ Bạn đã bỏ phiếu cho tranh chấp này
+          </div>
+          <div className="text-xs text-blue-700 mt-1">
+            Đang chờ các đánh giá viên khác bỏ phiếu...
+          </div>
         </div>
       ) : (
       <div className="space-y-2">
@@ -196,7 +215,7 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
             variant="outline"
             className="!bg-white !text-black !border-2 !border-black"
             size="sm"
-            disabled={!canVote || dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:poster`}
+            disabled={!canVote || dispute.votesCompleted || resolvingKey === `${dispute.disputeId}:poster`}
             onClick={onResolvePoster}
           >
             {resolvingKey === `${dispute.disputeId}:poster` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Người thuê'}
@@ -205,16 +224,14 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
             variant="outline"
             className="!bg-white !text-black !border-2 !border-black"
             size="sm"
-            disabled={!canVote || dispute.votesCompleted || dispute.hasVoted || resolvingKey === `${dispute.disputeId}:freelancer`}
+            disabled={!canVote || dispute.votesCompleted || resolvingKey === `${dispute.disputeId}:freelancer`}
             onClick={onResolveFreelancer}
           >
             {resolvingKey === `${dispute.disputeId}:freelancer` ? 'Đang bỏ phiếu...' : 'Bỏ phiếu cho Người làm tự do'}
           </Button>
-          {dispute.votesCompleted ? (
-            <span className="text-xs text-gray-600">Bỏ phiếu đã đóng</span>
-          ) : dispute.hasVoted ? (
-            <span className="text-xs text-gray-600">Bạn đã bỏ phiếu</span>
-          ) : null}
+          {dispute.votesCompleted && (
+            <span className="text-xs text-gray-600">Đã đủ phiếu</span>
+          )}
         </div>
       </div>
       )}

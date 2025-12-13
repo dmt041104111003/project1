@@ -92,18 +92,41 @@ export const DisputesContent: React.FC = () => {
               {loading ? 'Đang tải...' : 'Làm mới danh sách'}
             </Button>
           </div>
-          {disputes.filter(d => d.status !== 'resolved').length === 0 ? (
+          {disputes.length === 0 ? (
             <Card variant="outlined" className="p-6 text-sm text-gray-700">Không có tranh chấp nào để xem xét.</Card>
           ) : (
-            disputes.filter(d => d.status !== 'resolved').map((d) => (
-              <DisputeItem
-                key={`${d.jobId}:${d.milestoneIndex}`}
-                dispute={d}
-                resolvingKey={resolving}
-                onResolvePoster={() => resolveToPoster(d.disputeId)}
-                onResolveFreelancer={() => resolveToFreelancer(d.disputeId)}
-              />
-            ))
+            <>
+              {/* Tranh chấp đang chờ xử lý */}
+              {disputes.filter(d => d.status !== 'resolved').length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-blue-800">Đang chờ bỏ phiếu</h3>
+                  {disputes.filter(d => d.status !== 'resolved').map((d) => (
+                    <DisputeItem
+                      key={`${d.jobId}:${d.milestoneIndex}`}
+                      dispute={d}
+                      resolvingKey={resolving}
+                      onResolvePoster={() => resolveToPoster(d.disputeId)}
+                      onResolveFreelancer={() => resolveToFreelancer(d.disputeId)}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Tranh chấp đã resolved */}
+              {disputes.filter(d => d.status === 'resolved').length > 0 && (
+                <div className="space-y-3 mt-4">
+                  <h3 className="text-sm font-bold text-green-700">Đã giải quyết gần đây</h3>
+                  {disputes.filter(d => d.status === 'resolved').map((d) => (
+                    <DisputeItem
+                      key={`${d.jobId}:${d.milestoneIndex}:resolved`}
+                      dispute={d}
+                      resolvingKey={resolving}
+                      onResolvePoster={() => {}}
+                      onResolveFreelancer={() => {}}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : (
