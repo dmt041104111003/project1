@@ -5,7 +5,7 @@ import { decryptCid } from '@/lib/encryption';
 
 const normalizeAddress = (addr?: string | null): string => {
 	if (!addr) return '';
-	let value = String(addr).toLowerCase();
+	const value = String(addr).toLowerCase();
 	const noPrefix = value.startsWith('0x') ? value.slice(2) : value;
 	const trimmed = noPrefix.replace(/^0+/, '');
 	return '0x' + (trimmed.length === 0 ? '0' : trimmed);
