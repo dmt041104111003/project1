@@ -102,19 +102,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
       });
       setResolvedDisputesMap(newResolvedDisputesMap);
       
-      const canClaimDisputePayment = (job: Job, userAddress: string): boolean => {
-        if (!job.dispute_resolved) return false;
-        
-        const winnerIsFreelancer = job.dispute_resolved.winner_is_freelancer;
-        const isPoster = job.poster?.toLowerCase() === userAddress.toLowerCase();
-        const isFreelancer = job.freelancer?.toLowerCase() === userAddress.toLowerCase();
-        
-        if (winnerIsFreelancer && isFreelancer) return true;
-        if (!winnerIsFreelancer && isPoster) return true;
-        
-        return false;
-      };
-      
       const postedJobs = allJobs.filter((job: Job) => {
         const isPoster = job.poster?.toLowerCase() === account.toLowerCase();
         const isCancelled = job.state === 'Cancelled' || job.state === 'CancelledByPoster';
@@ -129,14 +116,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         }
         
         if (hasActiveDispute) {
-          return false;
-        }
-        
-        if (job.dispute_resolved && canClaimDisputePayment(job, account)) {
-          return true;
-        }
-        
-        if (job.dispute_resolved) {
           return false;
         }
         
@@ -158,14 +137,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
         }
         
         if (hasActiveDispute) {
-          return false;
-        }
-        
-        if (job.dispute_resolved && canClaimDisputePayment(job, account)) {
-          return true;
-        }
-        
-        if (job.dispute_resolved) {
           return false;
         }
         
@@ -393,7 +364,6 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({
                     totalPages={totalPages}
                     onPageChange={(page) => {
                       setCurrentPage(page);
-                      // No need to re-fetch - just change page display
                     }}
                     showAutoPlay={false}
                     showFirstLast

@@ -122,16 +122,20 @@ export const DisputeItem: React.FC<DisputeItemProps> = ({ dispute, resolvingKey,
       </div>
       <div className="text-sm text-gray-700 mb-2">
         Trạng thái: {dispute.status === 'resolved' ? (
-          <span className="text-blue-800 font-bold">
-            Đã giải quyết
+          <span className="text-green-700 font-bold">
+            ✓ Đã giải quyết
             {dispute.disputeWinner !== null && dispute.disputeWinner !== undefined && (
               <span className="ml-2 text-xs">
                 ({dispute.disputeWinner ? 'Người làm tự do thắng' : 'Người thuê thắng'})
               </span>
             )}
           </span>
+        ) : dispute.votesCompleted ? (
+          <span className="text-orange-600 font-bold">Đã đủ phiếu - Đang xử lý</span>
+        ) : dispute.hasVoted ? (
+          <span className="text-blue-600 font-bold">✓ Bạn đã bỏ phiếu - Chờ kết quả</span>
         ) : (
-          dispute.status
+          <span className="text-yellow-600 font-bold">Đang chờ bỏ phiếu</span>
         )}
       </div>
       {dispute.reason && <div className="text-sm text-gray-700 mb-3">Lý do: {dispute.reason}</div>}
